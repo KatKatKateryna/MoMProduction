@@ -128,3 +128,6 @@ dmypy.json
 .pyre/
 production.cfg
 watershed_shp/Watershed_pfaf_id.shp
+
+*.lock
+.vscode/*
