@@ -204,3 +204,12 @@ data
 ├── Resilience_Index.csv
 └── VIIRS_Weightage.csv
 ```
+
+
+Install on Windows
+Powershell:
+- install uv: powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+- uv venv
+- uv pip install .
+- uv pip install ./wheels/gdal-3.11.4-cp311-cp311-win_amd64.whl
+- .venv\Scripts\activate
