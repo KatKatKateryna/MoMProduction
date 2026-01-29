@@ -127,7 +127,13 @@ dmypy.json
 # Pyre type checker
 .pyre/
 production.cfg
-watershed_shp/Watershed_pfaf_id.shp
+watershed_shp/*.shp
+watershed_shp/*.cpg
+watershed_shp/*.dbf
+watershed_shp/*.prj
+watershed_shp/*.sbn
+watershed_shp/*.sbx
+watershed_shp/*.shx
 
 *.lock
 .vscode/*
