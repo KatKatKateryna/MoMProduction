@@ -6,8 +6,7 @@ routines shared across the modules
 
 import glob
 import os
-from datetime import date, datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import date, datetime, timedelta, timezone
 
 import geopandas
 import pandas as pd
@@ -114,7 +113,7 @@ def get_current_processing_datehour(time_delay=6):
     -- return YYYYMMDDHH (hour in 00, 06, 12, 18)
     """
     # get current time
-    ct = datetime.now(ZoneInfo("UTC"))
+    ct = datetime.now(timezone.utc)
     dt = ct - timedelta(hours=time_delay)
     # integer division
     ahour = (dt.hour // 6) * 6
@@ -185,7 +184,7 @@ def main():
     print("hwrf has the data today: ", hwrf_today(adate="20221111", ahour="06"))
 
     print("==> get current processing datehour")
-    print("current time: ", datetime.now(ZoneInfo("UTC")))
+    print("current time: ", datetime.now(timezone.utc))
     print("current processing datehour: ", get_current_processing_datehour())
     print(
         "current processing datehour with 3 hour delay: ",
