@@ -13,6 +13,7 @@ import subprocess
 import sys
 import zipfile
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import geopandas as gpd
 import numpy as np
@@ -51,7 +52,7 @@ def check_hours(adate):
     """check if it is too early to process"""
     # adate in YYYYMMDDHH
 
-    ct = datetime.now()
+    ct = datetime.now(ZoneInfo("UTC"))
     da = datetime.strptime(adate, "%Y%m%d%H")
     delta = ct - da
     dhours = delta.total_seconds() / 3600.0
