@@ -8,7 +8,6 @@ Two main function:
     * DFO_cron_fix: rerun cron-job for a given date
 """
 
-
 import csv
 import json
 import logging
@@ -111,11 +110,15 @@ def dfo_download(subfolder):
 
     dfokey = config.get("dfo", "TOKEN")
     dataurl = os.path.join(get_hosturl(), subfolder)
-    wgetcmd = 'wget -e robots=off -r --no-parent -R .html,.tmp -nH -l1 --cut-dirs=8 {dataurl} --header "Authorization: Bearer {key}" -P {downloadfolder}'
-    wgetcmd = wgetcmd.format(dataurl=dataurl, key=dfokey, downloadfolder=DFO_PROC_DIR)
-    # print(wgetcmd)
+
+    if sys.platform.startswith("win"): # running on windows
+        wgetcmd = f'wget -e robots=off -r --no-parent -R .html,.tmp -nH -l1 --cut-dirs=8 {dataurl} --header "Authorization: Bearer {dfokey}" -P {DFO_PROC_DIR}'
+    else: # linux / macOS (not tested)
+        wgetcmd = 'wget -e robots=off -r --no-parent -R .html,.tmp -nH -l1 --cut-dirs=8 {dataurl} --header "Authorization: Bearer {key}" -P {downloadfolder}'
+        wgetcmd = wgetcmd.format(dataurl=dataurl, key=dfokey, downloadfolder=DFO_PROC_DIR)
+
     exitcode = subprocess.call(wgetcmd, shell=True)
-    if not (exitcode == 0 or exitcode ==8):
+    if not (exitcode == 0 or exitcode == 8):
         # something wrong with downloading
         logging.warning("download failed: " + dataurl)
         sys.exit()
@@ -223,6 +226,7 @@ def DFO_process(folder, adate):
     if os.path.isfile(hdffolder):
         logging.warning("Not downloaded properly: " + folder)
         return
+    os.makedirs(hdffolder, exist_ok=True)
 
     # switch to working directory
     os.chdir(hdffolder)
@@ -235,11 +239,11 @@ def DFO_process(folder, adate):
     ]
     # new layer name mapping
     floodsubdataset = {
-            "Flood 1-Day 250m":"Flood_1Day_250m",
-            "Flood 1-Day CS 250m":"FloodCS_1Day_250m",
-            "Flood 2-Day 250m":"Flood_2Day_250m",
-            "Flood 3-Day 250m":"Flood_3Day_250m",
-            }
+        "Flood 1-Day 250m": "Flood_1Day_250m",
+        "Flood 1-Day CS 250m": "FloodCS_1Day_250m",
+        "Flood 2-Day 250m": "Flood_2Day_250m",
+        "Flood 3-Day 250m": "Flood_3Day_250m",
+    }
     # create sub folder if necessary
     for flood in floodlayer:
         subfolder = flood.replace(" ", "_")
