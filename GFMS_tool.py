@@ -582,15 +582,11 @@ def GFMS_processing(proc_dates_list):
         curdir = os.getcwd()
         os.chdir(GFMS_PROC_DIR)
         zipped = f"gfms_{real_date}.zip"
-        if sys.platform.startswith("win"): # running on windows
 
-            with zipfile.ZipFile(zipped, "w") as z:
-                for f in glob.glob(f"Flood_byStor_{real_date}*.*"):
-                    z.write(f)
-
-        else: # linux / macOS (not tested)
-            zipcmd = f"zip {zipped} Flood_byStor_{real_date}*.*"
-            os.system(zipcmd)
+        # os-agnostic process
+        with zipfile.ZipFile(zipped, "w") as z:
+            for f in glob.glob(f"Flood_byStor_{real_date}*.*"):
+                z.write(f, arcname=os.path.basename(f)) # match shell zip behavior
 
         logging.info("generated: " + zipped)
 

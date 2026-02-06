@@ -112,13 +112,22 @@ def dfo_download(subfolder):
     dfokey = config.get("dfo", "TOKEN")
     dataurl = os.path.join(get_hosturl(), subfolder)
 
-    if sys.platform.startswith("win"): # running on windows
-        wgetcmd = f'wget -e robots=off -r --no-parent -R .html,.tmp -nH -l1 --cut-dirs=8 {dataurl} --header "Authorization: Bearer {dfokey}" -P {DFO_PROC_DIR}'
-    else: # linux / macOS (not tested)
-        wgetcmd = 'wget -e robots=off -r --no-parent -R .html,.tmp -nH -l1 --cut-dirs=8 {dataurl} --header "Authorization: Bearer {key}" -P {downloadfolder}'
-        wgetcmd = wgetcmd.format(dataurl=dataurl, key=dfokey, downloadfolder=DFO_PROC_DIR)
+    # os-agnostic process
+    cmd = [
+        "wget",
+        "-e", "robots=off",
+        "-r",
+        "--no-parent",
+        "-l", "1",
+        "-R", ".html,.tmp",
+        "-nH",
+        "--cut-dirs=8",
+        dataurl,
+        "--header", f"Authorization: Bearer {dfokey}",
+        "-P", DFO_PROC_DIR,
+    ]
+    exitcode = subprocess.run(cmd, check=True).returncode
 
-    exitcode = subprocess.call(wgetcmd, shell=True)
     if not (exitcode == 0 or exitcode == 8):
         # something wrong with downloading
         logging.warning("download failed: " + dataurl)
@@ -343,17 +352,17 @@ def DFO_process(folder, adate):
     if config["storage"].getboolean("dfo_save"):
         zipped = os.path.join(DFO_PROC_DIR, "DFO_{}.zip".format(adate))
         
-        if sys.platform.startswith("win"): # running on windows
-            with zipfile.ZipFile(zipped, "w", compression=zipfile.ZIP_STORED) as z:
-                for root, _, files in os.walk("."):
-                    for name in files:
-                        path = os.path.join(root, name)
-                        arcname = os.path.relpath(path, ".")
-                        z.write(path, arcname)
+        # os-agnostic process
+        with zipfile.ZipFile(zipped, "w", compression=zipfile.ZIP_STORED) as z:
+            for root, _, files in os.walk("."):
 
-        else: # linux / macOS (not tested)
-            zipcmd = f"zip -r -0 {zipped} ./*"
-            os.system(zipcmd)
+                for name in files:
+                    path = os.path.join(root, name)
+                    # prevent self-inclusion in a zip folder
+                    if os.path.abspath(path) == os.path.abspath(zipped):
+                        continue
+                    arcname = os.path.relpath(path, ".")
+                    z.write(path, arcname)
 
         logging.info("generated: " + zipped)
 

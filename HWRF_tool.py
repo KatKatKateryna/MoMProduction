@@ -123,13 +123,10 @@ def HWRF_download(hwrfurl):
         if "rainfall.ascii" in fstr:
             fstr_local = os.path.join(settings.HWRF_PROC_DIR, fstr)
             if not os.path.exists(fstr_local):
-                wgetcmd = (
-                    "wget "
-                    + os.path.join(hwrfurl, fstr)
-                    + " -P "
-                    + settings.HWRF_PROC_DIR
+                subprocess.run(
+                    ["wget", f"{hwrfurl.rstrip('/')}/{fstr}", "-P", settings.HWRF_PROC_DIR],
+                    check=True,
                 )
-                subprocess.call(wgetcmd, shell=True)
             ascii_list.append(fstr)
 
     return ascii_list

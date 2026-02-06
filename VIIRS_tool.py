@@ -129,15 +129,11 @@ def build_tiff(adate):
         if settings.config["storage"].getboolean("viirs_save"):
             print("zip downloaded file")
             zipped = os.path.join(settings.VIIRS_PROC_DIR, "VIIRS_{}.zip".format(adate))
-            
-            if sys.platform.startswith("win"): # running on windows
-                with zipfile.ZipFile(zipped, "w") as z:
-                    for f in glob.glob("RIVER*.tif"):
-                        z.write(f)
-
-            else: # linux / macOS (not tested)
-                zipcmd = f"zip {zipped} RIVER*.tif"
-                os.system(zipcmd)
+                        
+            # os-agnostic process
+            with zipfile.ZipFile(zipped, "w") as z:
+                for f in glob.glob("RIVER*.tif"):
+                    z.write(f, arcname=os.path.basename(f)) # match shell zip behavior
 
             logging.info("generated: " + zipped)
 
