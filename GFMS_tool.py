@@ -52,14 +52,17 @@ def GloFAS_download():
     job_list = []
     for txt in file_list:
         save_txt = os.path.join(GLOFAS_PROC_DIR, txt)
+        
+        # add date to job list
+        if "threspoints_" in txt:
+                job_list.append((txt.split(".")[0]).replace("threspoints_", ""))
+
         if os.path.exists(save_txt):
             continue
         with open(save_txt, "wb") as fp:
             ftp.retrbinary("RETR " + txt, fp.write)
-            if "threspoints_" in txt:
-                job_list.append((txt.split(".")[0]).replace("threspoints_", ""))
-    ftp.quit()
 
+    ftp.quit()
     return job_list
 
 
@@ -75,6 +78,13 @@ def GloFAS_process():
     # load watersheds data
     watersheds = watersheds_gdb_reader()
     for data_date in new_files:
+
+        # final file names
+        out_csv = os.path.join(GLOFAS_DIR, "threspoints_" + data_date + ".csv")
+        out_geojson = os.path.join(GLOFAS_DIR, "threspoints_" + data_date + ".geojson")
+        if os.path.exists(out_csv) and os.path.exists(out_geojson):
+            continue
+
         logging.info("processing GLoFAS: " + data_date)
         fixed_sites = os.path.join(GLOFAS_PROC_DIR, "threspoints_" + data_date + ".txt")
         dyn_sites = os.path.join(
@@ -128,6 +138,7 @@ def GloFAS_process():
             fixed_data.columns = header_fixed_19
         elif fixed_data_col == 18:
             fixed_data.columns = header_fixed_18
+            
         # read dynamic station data
         header_dyn_19 = [
             "Point No",
@@ -178,7 +189,7 @@ def GloFAS_process():
             dyn_data.columns = header_dyn_18
         # merge two datasets
         if fixed_data_col == dyn_data_col:
-            total_data = fixed_data.append(dyn_data, sort=True)
+            total_data = pd.concat([fixed_data, dyn_data], ignore_index=True, sort=True)
         else:
             total_data = fixed_data
             print("dyn_data is ignored")
@@ -193,7 +204,7 @@ def GloFAS_process():
         gdf.sindex
 
         # sjoin
-        gdf_watersheds = geopandas.sjoin(gdf, watersheds, op="within")
+        gdf_watersheds = geopandas.sjoin(gdf, watersheds, predicate="within")
         gdf_watersheds.rename(columns={"index_right": "pfaf_id"}, inplace=True)
 
         forcast_time = (fixed_sites.split("_")[1]).replace("00.txt", "")
@@ -221,7 +232,6 @@ def GloFAS_process():
         )
 
         # write out csv file
-        out_csv = os.path.join(GLOFAS_DIR, "threspoints_" + data_date + ".csv")
         out_columns = [
             "Point No",
             "Station",
@@ -242,7 +252,6 @@ def GloFAS_process():
         gdf_watersheds.to_csv(
             out_csv, index=False, columns=out_columns, float_format="%.3f"
         )
-
         logging.info("generated: " + out_csv)
 
         # write to excel
@@ -250,8 +259,8 @@ def GloFAS_process():
         # gdf_watersheds.to_excel(out_excel,index=False,columns=out_columns,sheet_name='Sheet_name_1')
 
         # to geojson
-        out_geojson = os.path.join(GLOFAS_DIR, "threspoints_" + data_date + ".geojson")
         gdf_watersheds.to_file(out_geojson, driver="GeoJSON")
+        logging.info("generated: " + out_geojson)
 
     # return a list date to be processed with GFMS
     return new_files
@@ -359,7 +368,7 @@ def GFMS_extract_by_mask(vrt_file, mask_json):
                 src, [mask_json["features"][0]["geometry"]], crop=True
             )
         except rasterio.errors.RasterioIOError as er:
-            logging.warning("RasterioIOError:" + vrt_file)
+            logging.warning("RasterioIOError:" + vrt_file + f": {er}")
             src = None
             return pd.DataFrame()
         except ValueError as e:
