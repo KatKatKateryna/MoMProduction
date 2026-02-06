@@ -20,6 +20,8 @@ epilog = """
 import argparse
 import logging
 
+from osgeo import gdal
+
 from DFO_MoM import batchrun_DFO_MoM
 from DFO_tool import DFO_cron
 from GFMS_tool import GFMS_cron, GFMS_fixdate
