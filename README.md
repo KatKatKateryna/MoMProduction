@@ -213,3 +213,11 @@ Powershell:
 - uv pip install .
 - uv pip install ./wheels/gdal-3.11.4-cp311-cp311-win_amd64.whl
 - .venv\Scripts\activate
+
+Test run:
+python initialize.py
+
+python MoM_run.py -j GFMS
+python MoM_run.py -j HWRF
+python MoM_run.py -j DFO
+python MoM_run.py -j VIIRS
