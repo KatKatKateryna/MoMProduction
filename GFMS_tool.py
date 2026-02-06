@@ -275,8 +275,8 @@ def GFMS_download(bin_file):
     # find download url
     datestr = bin_file.split("_")[2]
     baseurl = config.get("gfms", "HOST")
-    dataurl = os.path.join(baseurl, datestr[:4], datestr[:6])
-    download_data_url = os.path.join(dataurl, bin_file)
+    dataurl = f"{baseurl.rstrip('/')}/{datestr[:4]}/{datestr[:6]}"
+    download_data_url = f"{dataurl.rstrip('/')}/{bin_file}"
 
     # check if it download
     binfile_local = os.path.join(GFMS_PROC_DIR, bin_file)
