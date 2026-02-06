@@ -19,9 +19,9 @@ config.read(os.path.join(BASE_DIR, "production.cfg"))
 
 # config directory
 # base directory for downloading and processing data
-WORKING_DIR = os.path.expanduser(config.get("general", "WORKING_DIR"))
+WORKING_DIR = os.path.expanduser(config.get("general", "WORKING_DIR").replace("/", os.sep))
 # base directory for the data products
-PRODUCT_DIR = os.path.expanduser(config.get("general", "PRODUCT_DIR"))
+PRODUCT_DIR = os.path.expanduser(config.get("general", "PRODUCT_DIR").replace("/", os.sep))
 
 # config GLOFAS directory
 GLOFAS_PROC_DIR = os.path.join(WORKING_DIR, config.get("processing_dir", "glofas"))
