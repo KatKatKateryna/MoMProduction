@@ -30,7 +30,7 @@ def watersheds_gdb_reader():
     return watersheds
 
 
-def read_data(datafile):
+def read_data(datafile) -> pd.DataFrame:
     df = pd.read_csv(datafile)
     # df = pd.DataFrame(df)
     return df
