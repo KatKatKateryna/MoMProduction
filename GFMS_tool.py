@@ -585,7 +585,7 @@ def GFMS_processing(proc_dates_list):
             zip_name = f"gfms_{real_date}.zip"
             files = glob.glob(f"Flood_byStor_{real_date}*.*")
 
-            with zipfile.ZipFile(zip_name, "a") as z:
+            with zipfile.ZipFile(zip_name, "w") as z:
                 for f in files:
                     z.write(f)
 
