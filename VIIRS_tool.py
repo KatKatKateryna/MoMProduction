@@ -12,10 +12,12 @@
 import argparse
 import csv
 import datetime
+import glob
 import json
 import logging
 import os
 import sys
+import zipfile
 
 import geopandas as gpd
 import numpy as np
@@ -127,8 +129,16 @@ def build_tiff(adate):
         if settings.config["storage"].getboolean("viirs_save"):
             print("zip downloaded file")
             zipped = os.path.join(settings.VIIRS_PROC_DIR, "VIIRS_{}.zip".format(adate))
-            zipcmd = f"zip {zipped} RIVER*.tif"
-            os.system(zipcmd)
+            
+            if sys.platform.startswith("win"): # running on windows
+                with zipfile.ZipFile(zipped, "w") as z:
+                    for f in glob.glob("RIVER*.tif"):
+                        z.write(f)
+
+            else: # linux / macOS (not tested)
+                zipcmd = f"zip {zipped} RIVER*.tif"
+                os.system(zipcmd)
+
             logging.info("generated: " + zipped)
 
         for tif in tiff_l:

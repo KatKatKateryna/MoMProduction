@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 from datetime import date, datetime
+import zipfile
 
 import geopandas
 import numpy as np
@@ -341,8 +342,19 @@ def DFO_process(folder, adate):
     # zip the original folder
     if config["storage"].getboolean("dfo_save"):
         zipped = os.path.join(DFO_PROC_DIR, "DFO_{}.zip".format(adate))
-        zipcmd = f"zip -r -0 {zipped} ./*"
-        os.system(zipcmd)
+        
+        if sys.platform.startswith("win"): # running on windows
+            with zipfile.ZipFile(zipped, "w", compression=zipfile.ZIP_STORED) as z:
+                for root, _, files in os.walk("."):
+                    for name in files:
+                        path = os.path.join(root, name)
+                        arcname = os.path.relpath(path, ".")
+                        z.write(path, arcname)
+
+        else: # linux / macOS (not tested)
+            zipcmd = f"zip -r -0 {zipped} ./*"
+            os.system(zipcmd)
+
         logging.info("generated: " + zipped)
 
     # remove all hdf file in the folder

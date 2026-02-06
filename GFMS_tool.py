@@ -581,19 +581,18 @@ def GFMS_processing(proc_dates_list):
         # zip GFMS data after processing
         curdir = os.getcwd()
         os.chdir(GFMS_PROC_DIR)
+        zipped = f"gfms_{real_date}.zip"
         if sys.platform.startswith("win"): # running on windows
-            zip_name = f"gfms_{real_date}.zip"
-            files = glob.glob(f"Flood_byStor_{real_date}*.*")
 
-            with zipfile.ZipFile(zip_name, "w") as z:
-                for f in files:
+            with zipfile.ZipFile(zipped, "w") as z:
+                for f in glob.glob(f"Flood_byStor_{real_date}*.*"):
                     z.write(f)
 
         else: # linux / macOS (not tested)
-            zipcmd = "zip gfms_{adate}.zip Flood_byStor_{adate}*.*".format(adate=real_date)
+            zipcmd = f"zip {zipped} Flood_byStor_{real_date}*.*"
             os.system(zipcmd)
 
-        logging.info("generated: " + f"Flood_byStor_{real_date}.zip")
+        logging.info("generated: " + zipped)
 
         # remove all the files
         fileList = glob.glob("Flood_byStor_{adate}*.*".format(adate=real_date))
