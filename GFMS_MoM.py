@@ -345,12 +345,9 @@ def flood_severity(GFMS_Table, GloFas_Table, adate):
     Final_Attributes[["Sum_Score_x", "Sum_Score_y"]] = Final_Attributes[
         ["Sum_Score_x", "Sum_Score_y"]
     ].fillna(value=0)
-    Final_Attributes["Sum_Score_x"][(Final_Attributes["Sum_Score_y"] == 0)] = (
-        Final_Attributes["Sum_Score_x"] * 2
-    )
-    Final_Attributes["Sum_Score_y"][(Final_Attributes["Sum_Score_x"] == 0)] = (
-        Final_Attributes["Sum_Score_y"] * 2
-    )
+
+    Final_Attributes.loc[Final_Attributes["Sum_Score_y"] == 0, "Sum_Score_x"] = Final_Attributes["Sum_Score_x"] * 2
+    Final_Attributes.loc[Final_Attributes["Sum_Score_x"] == 0, "Sum_Score_y"] = Final_Attributes["Sum_Score_y"] * 2
     Final_Attributes = Final_Attributes.assign(
         Hazard_Score=lambda x: Final_Attributes["Sum_Score_x"]
         + Final_Attributes["Sum_Score_y"]

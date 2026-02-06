@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 import rasterio
 import requests
+import zipfile
 from rasterio import Affine  # or from affine import Affine
 from rasterio.mask import mask
 from shapely.geometry import Point
@@ -35,6 +36,8 @@ from utilities import findLatest, hwrf_today, watersheds_gdb_reader
 
 # no need for cron-job
 # from progressbar import progress
+
+# logging.getLogger("rasterio").setLevel(logging.CRITICAL)
 
 
 def GloFAS_download():
@@ -368,7 +371,7 @@ def GFMS_extract_by_mask(vrt_file, mask_json):
                 src, [mask_json["features"][0]["geometry"]], crop=True
             )
         except rasterio.errors.RasterioIOError as er:
-            logging.warning("RasterioIOError:" + vrt_file + f": {er}")
+            logging.warning("RasterioIOError:" + vrt_file + f": {er.__repr__()}")
             src = None
             return pd.DataFrame()
         except ValueError as e:
@@ -578,10 +581,21 @@ def GFMS_processing(proc_dates_list):
         # zip GFMS data after processing
         curdir = os.getcwd()
         os.chdir(GFMS_PROC_DIR)
-        zipcmd = "zip gfms_{adate}.zip Flood_byStor_{adate}*.*".format(adate=real_date)
-        os.system(zipcmd)
+        if sys.platform.startswith("win"): # running on windows
+            zip_name = f"gfms_{real_date}.zip"
+            files = glob.glob(f"Flood_byStor_{real_date}*.*")
+
+            with zipfile.ZipFile(zip_name, "a") as z:
+                for f in files:
+                    z.write(f)
+
+        else: # linux / macOS (not tested)
+            zipcmd = "zip gfms_{adate}.zip Flood_byStor_{adate}*.*".format(adate=real_date)
+            os.system(zipcmd)
+
         logging.info("generated: " + f"Flood_byStor_{real_date}.zip")
-        # remove all the file
+
+        # remove all the files
         fileList = glob.glob("Flood_byStor_{adate}*.*".format(adate=real_date))
         for filePath in fileList:
             try:
