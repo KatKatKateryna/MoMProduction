@@ -371,7 +371,7 @@ def GFMS_extract_by_mask(vrt_file, mask_json):
                 src, [mask_json["features"][0]["geometry"]], crop=True
             )
         except rasterio.errors.RasterioIOError as er:
-            logging.warning("RasterioIOError:" + vrt_file + f": {er.__repr__()}")
+            logging.warning("RasterioIOError:" + vrt_file)
             src = None
             return pd.DataFrame()
         except ValueError as e:
