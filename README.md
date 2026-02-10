@@ -209,9 +209,11 @@ data
 Install on Windows
 Powershell:
 - install uv: powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-- uv venv
-- uv pip install .
+- uv venv --python 3.12
+- $env:PROJ_LIB = "$PWD\.venv\Lib\site-packages\pyproj\proj_dir\share\proj"
 - uv pip install ./wheels/gdal-3.11.4-cp311-cp311-win_amd64.whl
+- uv pip install ./wheels/pyproj-3.7.2-cp312-cp312-win_amd64.whl
+- uv pip install .
 - .venv\Scripts\activate
 
 Test run:
