@@ -210,7 +210,6 @@ Install on Windows
 Powershell:
 - install uv: powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 - uv venv --python 3.12
-- $env:PROJ_LIB = "$PWD\.venv\Lib\site-packages\pyproj\proj_dir\share\proj"
 
 - (optional) $env:CURL_CA_BUNDLE=$env:SSL_CERT_FILE
 - (optional) $env:SSL_CERT_FILE="$PWD\.venv\Lib\site-packages\certifi\cacert.pem"
@@ -219,6 +218,7 @@ Powershell:
 
 - uv pip install ./wheels/gdal-3.11.4-cp312-cp312-win_amd64.whl
 - uv pip install ./wheels/pyproj-3.7.2-cp312-cp312-win_amd64.whl
+- $env:PROJ_LIB = "$PWD\.venv\Lib\site-packages\pyproj\proj_dir\share\proj"
 - uv pip install .
 - .venv\Scripts\activate
 
