@@ -94,15 +94,14 @@ def hwrf_today(adate="", ahour=""):
     """check if hwrf has date for today"""
     tstr, hstr = adate, ahour
     if tstr == "":
-        today = date.today()
-        tstr = today.strftime("%Y%m%d")
+        today = datetime.now(timezone.utc)
+        tstr = datetime.strptime(today, "%Y%m%d")
 
     if hstr == "":
         hstr = "00"
 
     hosturl = settings.config.get("hwrf", "HOST")
-    turl = os.path.join(hosturl, "hwrf.{}".format(tstr), hstr)
-    # print(turl)
+    turl = f"{hosturl.rstrip('/')}/hwrf.{tstr}/{hstr}"
     has_data = url_exits(turl)
     return has_data
 

@@ -15,7 +15,7 @@ import logging
 import math
 import os
 import sys
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import geopandas
 import numpy as np
@@ -60,8 +60,6 @@ def GloFAS_download():
         if "threspoints_" in txt:
                 job_list.append((txt.split(".")[0]).replace("threspoints_", ""))
 
-        if os.path.exists(save_txt):
-            continue
         with open(save_txt, "wb") as fp:
             ftp.retrbinary("RETR " + txt, fp.write)
 
@@ -290,9 +288,13 @@ def GFMS_download(bin_file):
         # download the data
         try:
             r = requests.get(download_data_url, allow_redirects=True)
+            # raise if status code is not 200
+            r.raise_for_status()
+
         except requests.exceptions.HTTPError as e:
             logging.error("Downlaod failed: " + e.response.text)
-            sys.exit()
+            # sys.exit() - too dramatic
+            return
 
         open(binfile_local, "wb").write(r.content)
         logging.info("Download: " + bin_file)
@@ -402,6 +404,14 @@ def GFMS_extract_by_mask(vrt_file, mask_json):
     pixel_area_km2 = (
         lambda lon, lat: 111.111 * 111.111 * math.cos(lat * 0.01745) * px * py
     )
+
+    # TODO: apply updates:
+    r'''
+    lons, lats = T1 * (col, row) # Pixel (row, col) → lon/lat (vectorized)
+    areas = 111.111 * 111.111 * np.cos(lats * (math.pi / 180.0)) * px * py
+    d = geopandas.GeoDataFrame({"col": col, "row": row, "intensity": point_value, "area": areas}, geometry=geopandas.points_from_xy(lons, lats), crs="EPSG:4326")
+    '''
+    
     d = geopandas.GeoDataFrame({"col": col, "row": row, "intensity": point_value})
     # coordinate transformation
     d["lon"] = d.apply(lambda row: rc2xy(row.row, row.col)[0], axis=1)
@@ -409,7 +419,10 @@ def GFMS_extract_by_mask(vrt_file, mask_json):
     d["area"] = d.apply(lambda row: pixel_area_km2(row.lon, row.lat), axis=1)
 
     # geometry
-    d["geometry"] = d.apply(lambda row: Point(row["lon"], row["lat"]), axis=1)
+    # d["geometry"] = d.apply(lambda row: Point(row["lon"], row["lat"]), axis=1)
+    d = d.set_geometry(
+        geopandas.points_from_xy(d["lon"], d["lat"]),
+    )
     # first 2 points
     src = None
     return d
@@ -496,6 +509,10 @@ def GFMS_data_extractor(bin_file):
     # download GFMS binfile, generate vrt file
     vrt_file = GFMS_download(bin_file)
 
+    if not vrt_file:
+        print("VRT not found: " + bin_file)
+        return
+
     # extract data by watershed
     logging.info("processing: " + vrt_file)
     GFMS_extract_by_watershed(vrt_file)
@@ -529,7 +546,11 @@ def GFMS_fix_duration(csv0, csvlist):
 
     for name in csvlist[start_in:]:
         csv_file = os.path.join(GFMS_PROC_DIR, name)
-        df = pd.read_csv(csv_file)
+        try:
+            df = pd.read_csv(csv_file)
+        except:
+            print(f"GFMS .csv not found: {csv_file}")
+            return
         df["GFMS_Duration0"] = df["pfaf_id"].map(
             df0.set_index("pfaf_id")["GFMS_Duration"]
         )
@@ -556,7 +577,7 @@ def GFMS_processing(proc_dates_list):
         real_date = data_date[:-2]
         for binhour in binhours:
             bin_file = "Flood_byStor_" + real_date + binhour + ".bin"
-            # process bin file
+            # process bin file, generate .csv - some might be missing
             GFMS_data_extractor(bin_file)
 
         # run duration caculation
@@ -568,6 +589,7 @@ def GFMS_processing(proc_dates_list):
         GFMS_fix_duration(base0, fix_list)
 
         # flood severity calculation
+        # take the first file of each day ("00" hour bin)
         gfmscsv = os.path.join(GFMS_SUM_DIR, "Flood_byStor_" + data_date + ".csv")
         glofascsv = os.path.join(GLOFAS_DIR, "threspoints_" + data_date + ".csv")
 
@@ -576,27 +598,34 @@ def GFMS_processing(proc_dates_list):
             glofas_latest = findLatest(GLOFAS_DIR, "csv")
             glofascsv = os.path.join(GLOFAS_DIR, glofas_latest)
 
-        flood_severity(gfmscsv, glofascsv, real_date)
-
-        # zip GFMS data after processing
-        curdir = os.getcwd()
+        # set directory for adding/removing files
         os.chdir(GFMS_PROC_DIR)
-        zipped = f"gfms_{real_date}.zip"
 
-        # os-agnostic process
-        with zipfile.ZipFile(zipped, "w") as z:
-            for f in glob.glob(f"Flood_byStor_{real_date}*.*"):
-                z.write(f, arcname=os.path.basename(f)) # match shell zip behavior
+        if os.path.exists(glofascsv) and os.path.exists(gfmscsv):
+            # only proceed if valid data is present
+            flood_severity(gfmscsv, glofascsv, real_date)
 
-        logging.info("generated: " + zipped)
+            # zip GFMS data after processing
+            zipped = f"gfms_{real_date}.zip"
+
+            # os-agnostic process
+            with zipfile.ZipFile(zipped, "w") as z:
+                for f in glob.glob(f"Flood_byStor_{real_date}*.*"):
+                    z.write(f, arcname=os.path.basename(f)) # match shell zip behavior
+
+            logging.info("generated: " + zipped)
+
+        else:
+            print("flood_severity not calculated for: " + real_date)
 
         # remove all the files
-        fileList = glob.glob("Flood_byStor_{adate}*.*".format(adate=real_date))
-        for filePath in fileList:
+        for filePath in glob.glob(f"Flood_byStor_{real_date}*.*"):
             try:
                 os.remove(filePath)
             except:
                 logging.warning("Error while deleting file : ", filePath)
+        
+        curdir = os.getcwd()
         os.chdir(curdir)
 
     return
@@ -617,8 +646,8 @@ def GFMS_cron():
     if hwrf_flag:
         return
     # otherwise
-    today = date.today()
-    tstr = today.strftime("%Y%m%d")
+    today = datetime.now(timezone.utc)
+    tstr = datetime.strptime(today, "%Y%m%d")
     tstr = tstr + "00"
     gfmscsv = os.path.join(GFMS_SUM_DIR, "Flood_byStor_" + tstr + ".csv")
     glofascsv = os.path.join(GLOFAS_DIR, "threspoints_" + tstr + ".csv")
