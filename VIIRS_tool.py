@@ -11,7 +11,7 @@
 
 import argparse
 import csv
-import datetime
+from datetime import datetime, timezone, timedelta
 import glob
 import json
 import logging
@@ -35,7 +35,7 @@ from VIIRS_MoM import update_VIIRS_MoM
 def generate_adate(delay=1):
     """generate 1 day delay date"""
 
-    previous_date = datetime.datetime.today() - datetime.timedelta(days=delay)
+    previous_date = datetime.now(timezone.utc) - timedelta(days=delay)
 
     adate_str = previous_date.strftime("%Y%m%d")
 
@@ -82,35 +82,38 @@ def build_tiff(adate):
     """download and build geotiff"""
 
     baseurl = settings.config.get("viirs", "HOST")
-    day1url = os.path.join(baseurl, "RIVER-FLDglobal-composite1_{}_000000.part{}.tif")
-    day5url = os.path.join(baseurl, "RIVER-FLDglobal-composite_{}_000000.part{}.tif")
+    day1url = f"{baseurl.rstrip('/')}/" + "RIVER-FLDglobal-composite1_{}_000000.part{}.tif"
+    day5url = f"{baseurl.rstrip('/')}/" + "RIVER-FLDglobal-composite_{}_000000.part{}.tif"
     joblist = [{"product": "1day", "url": day1url}, {"product": "5day", "url": day5url}]
-    final_tiff = []
-    for entry in joblist:
-        tiff_file = "VIIRS_{}_composite{}_flood.tiff".format(entry["product"], adate)
+    final_2_tiffs = []
+
+    for job_entry in joblist:
+        tiff_file = "VIIRS_{}_composite{}_flood.tiff".format(job_entry["product"], adate)
         if os.path.exists(tiff_file):
-            final_tiff.append(tiff_file)
+            final_2_tiffs.append(tiff_file)
             continue
-        tiff_l = []
+
+        tiff_list_per_job = []
         for i in range(1, 137):
-            dataurl = entry["url"].format(adate, str(i).zfill(3))
+            dataurl = job_entry["url"].format(adate, str(i).zfill(3))
             filename = dataurl.split("/")[-1]
             # try download file
             try:
                 r = requests.get(dataurl, allow_redirects=True)
             except requests.RequestException as e:
                 logging.warning("no download: " + dataurl)
-                logging.waring("error:" + str(e))
+                logging.warning("error:" + str(e))
                 continue
             # may not have files for some aio
             if r.status_code == 404:
                 continue
             open(filename, "wb").write(r.content)
-            tiff_l.append(filename)
-        vrt_file = tiff_file.replace("tiff", "vrt")
-
+            tiff_list_per_job.append(filename)
+        
         # build vrt
-        vrt = gdal.BuildVRT(vrt_file, tiff_l)
+        vrt_file = tiff_file.replace("tiff", "vrt")
+        vrt = gdal.BuildVRT(vrt_file, tiff_list_per_job)
+
         # translate to tiff
         # each tiff is 4GB in size
         gdal.Translate(tiff_file, vrt)
@@ -122,27 +125,26 @@ def build_tiff(adate):
         )
         logging.info("generated: " + tiff_file)
 
-        # remove all files
-        vrt = None
-        os.remove(vrt_file)
-
         if settings.config["storage"].getboolean("viirs_save"):
             print("zip downloaded file")
             zipped = os.path.join(settings.VIIRS_PROC_DIR, "VIIRS_{}.zip".format(adate))
-                        
+
             # os-agnostic process
-            with zipfile.ZipFile(zipped, "w") as z:
+            with zipfile.ZipFile(zipped, "a") as z: # append to existig archive (e.g. with 1-day products)
                 for f in glob.glob("RIVER*.tif"):
                     z.write(f, arcname=os.path.basename(f)) # match shell zip behavior
 
             logging.info("generated: " + zipped)
 
-        for tif in tiff_l:
+        # remove all files
+        vrt = None
+        os.remove(vrt_file)
+        for tif in tiff_list_per_job:
             os.remove(tif)
 
-        final_tiff.append(tiff_file)
+        final_2_tiffs.append(tiff_file)
 
-    return final_tiff
+    return final_2_tiffs
 
 
 def VIIRS_extract_by_mask(mask_json, tiff):
@@ -210,6 +212,7 @@ def VIIRS_extract_by_watershed(adate, tiffs):
     join1 = read_data(csv_dict["fiveday"])
     join1 = join1[join1.fivedayFlood_Area_km != 0]
 
+    # TODO: check if "pfaf_id" is an index or a column, fix syntax
     merge = pd.merge(
         join.set_index("pfaf_id"), join1.set_index("pfaf_id"), on="pfaf_id", how="outer"
     )
