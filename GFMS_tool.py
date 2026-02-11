@@ -647,7 +647,7 @@ def GFMS_cron():
         return
     # otherwise
     today = datetime.now(timezone.utc)
-    tstr = datetime.strptime(today, "%Y%m%d")
+    tstr = datetime.strftime(today, "%Y%m%d")
     tstr = tstr + "00"
     gfmscsv = os.path.join(GFMS_SUM_DIR, "Flood_byStor_" + tstr + ".csv")
     glofascsv = os.path.join(GLOFAS_DIR, "threspoints_" + tstr + ".csv")

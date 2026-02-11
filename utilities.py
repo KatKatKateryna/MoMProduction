@@ -95,7 +95,7 @@ def hwrf_today(adate="", ahour=""):
     tstr, hstr = adate, ahour
     if tstr == "":
         today = datetime.now(timezone.utc)
-        tstr = datetime.strptime(today, "%Y%m%d")
+        tstr = datetime.strftime(today, "%Y%m%d")
 
     if hstr == "":
         hstr = "00"
