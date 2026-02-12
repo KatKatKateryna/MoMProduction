@@ -217,6 +217,12 @@ sudo apt install gdal-bin=3.8.4* libgdal-dev=3.8.4*
 source .venv/bin/activate
 uv pip install "gdal==3.8.4"
 
+Linux conda (after installing miniconda):
+conda create -n condaenv python=3.12
+conda activate condaenv
+python toml_to_conda_env.py
+conda env create -n myenv -f environment.yml
+pip install py-spy
 
 
 Install on Windows
@@ -277,6 +283,7 @@ ToDo for optimization:
 >> apply some optimizations
 
 - why VIIRS composite1 .tif are not being removed from folder
+- Warning 1: The definition of geographic CRS EPSG:4326 got from GeoTIFF keys is not the same as the one from the EPSG registry, which may cause issues during reprojection operations. Set GTIFF_SRS_SOURCE configuration option to EPSG to use official parameters (overriding the ones from GeoTIFF keys), or to GEOKEYS to use custom values from GeoTIFF keys and drop the EPSG code.
 - account for silent fails returning empty data (e.g. except rasterio.errors.RasterioIOError as er:)
 - hwrf_workflow assumes there IS data
 - GFMS_tools>extract_by_mask apply optimizations
