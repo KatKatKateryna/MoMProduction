@@ -206,17 +206,23 @@ data
 ```
 
 
-Install on Windows
-Powershell:
-- install uv: powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-(on linux): 
+Linux prep:
+sudo apt update && sudo apt upgrade -y
 sudo apt install python3.12 python3.12-venv python3.12-dev
 sudo apt install curl
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
+sudo apt install gdal-bin libgdal-dev
+(in the folder)
+source .venv/bin/activate
+uv pip install "gdal==$(gdalinfo --version | awk '{print $2}')"
 
+
+
+Install on Windows
+Powershell:
+- install uv: powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 - uv venv --python 3.12
-(on linux): source .venv/bin/activate
 
 - (optional) $env:CURL_CA_BUNDLE=$env:SSL_CERT_FILE
 - (optional) $env:SSL_CERT_FILE="$PWD\.venv\Lib\site-packages\certifi\cacert.pem"
@@ -224,12 +230,6 @@ source $HOME/.local/bin/env
 
 
 - uv pip install ./wheels/gdal-3.11.4-cp312-cp312-win_amd64.whl
-(on linux): 
-sudo apt install gdal-bin libgdal-dev
-gdalinfo --version  (example output: GDAL 3.8.4)
-uv pip install "gdal==3.8.4"
-or better: uv pip install "gdal==$(gdalinfo --version | awk '{print $2}')"
-
 - uv pip install ./wheels/pyproj-3.7.2-cp312-cp312-win_amd64.whl
 - $env:PROJ_LIB = "$PWD\.venv\Lib\site-packages\pyproj\proj_dir\share\proj"
 - uv pip install .
