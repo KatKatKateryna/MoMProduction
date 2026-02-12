@@ -206,7 +206,7 @@ data
 ```
 
 
-Linux prep:
+====================Install on Linux====================
 sudo apt update && sudo apt upgrade -y
 sudo apt install python3.12 python3.12-venv python3.12-dev
 sudo apt install curl
@@ -237,7 +237,7 @@ Then: Ctrl+C
 Find peak: sort -n disk_log.txt | tail -1
 
 
-Install on Windows
+====================Install on Windows====================
 Powershell:
 - install uv: powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 - uv venv --python 3.12
@@ -246,22 +246,14 @@ Powershell:
 - (optional) $env:SSL_CERT_FILE="$PWD\.venv\Lib\site-packages\certifi\cacert.pem"
 - (optional) $env:REQUESTS_CA_BUNDLE=$env:SSL_CERT_FILE
 
-
 - uv pip install ./wheels/gdal-3.11.4-cp312-cp312-win_amd64.whl
 - uv pip install ./wheels/pyproj-3.7.2-cp312-cp312-win_amd64.whl
 - $env:PROJ_LIB = "$PWD\.venv\Lib\site-packages\pyproj\proj_dir\share\proj"
 - uv pip install .
 - .venv\Scripts\activate
+- python initialize.py
 
-Test run:
-python initialize.py
-
-python MoM_run.py -j GFMS
-python MoM_run.py -j HWRF
-python MoM_run.py -j DFO
-python MoM_run.py -j VIIRS
-
-Profiling on Windows: 
+(Profiling on Windows): 
 uv add py-spy
 Add this to the start of MoM_run:
 import os
@@ -270,10 +262,7 @@ print("PID:", os.getpid())
 time.sleep(3)
 
 Then launch "python MoM_run.py -j GFMS", ad run this from Admin Powershell:
-py-spy top --pid <PID>
-or
 py-spy record -o profile.json --format speedscope --pid <PID>
-py-spy record -o profile.svg --pid <PID>
 
 
 ToDo for optimization:
