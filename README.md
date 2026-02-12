@@ -222,7 +222,19 @@ conda create -n condaenv python=3.12
 conda activate condaenv
 python toml_to_conda_env.py
 conda env create -n myenv -f environment.yml
-pip install py-spy
+______
+conda deactivate
+conda remove -n myenv --all
+
+(Profiling on linux): 
+uv add py-spy
+/usr/bin/time -v py-spy record -o profile.json --format speedscope -- python MoM_run.py -j GFMS 2> resources.txt
+du -sh MoM (to check downloaded folder size)
+
+Log disk usage before starting the code:
+while true; do du -sb . >> disk_log.txt; sleep 1; done
+Then: Ctrl+C
+Find peak: sort -n disk_log.txt | tail -1
 
 
 Install on Windows
@@ -263,17 +275,6 @@ or
 py-spy record -o profile.json --format speedscope --pid <PID>
 py-spy record -o profile.svg --pid <PID>
 
-(Profiling on linux): 
-uv add py-spy
-py-spy record -o profile.json --format speedscope -- python MoM_run.py -j GFMS
-or (include resource usage):
-/usr/bin/time -v py-spy record -o profile.json --format speedscope -- python MoM_run.py -j GFMS 2> resources.txt
-du -sh MoM (to check downloaded folder size)
-
-Log disk usage before starting the code:
-while true; do du -sb . >> disk_log.txt; sleep 1; done
-Then: Ctrl+C
-Find peak: sort -n disk_log.txt | tail -1
 
 ToDo for optimization:
 + add all file outputs to diagram, add VIIRS
