@@ -212,10 +212,10 @@ sudo apt install python3.12 python3.12-venv python3.12-dev
 sudo apt install curl
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
-sudo apt install gdal-bin libgdal-dev
+sudo apt install gdal-bin=3.8.4* libgdal-dev=3.8.4*
 (in the folder)
 source .venv/bin/activate
-uv pip install "gdal==$(gdalinfo --version | awk '{print $2}')"
+uv pip install "gdal==3.8.4"
 
 
 
@@ -262,12 +262,17 @@ uv add py-spy
 py-spy record -o profile.json --format speedscope -- python MoM_run.py -j GFMS
 or (include resource usage):
 /usr/bin/time -v py-spy record -o profile.json --format speedscope -- python MoM_run.py -j GFMS 2> resources.txt
+du -sh MoM (to check downloaded folder size)
 
+Log disk usage before starting the code:
+while true; do du -sb . >> disk_log.txt; sleep 1; done
+Then: Ctrl+C
+Find peak: sort -n disk_log.txt | tail -1
 
 ToDo for optimization:
->> add all file outputs to diagram, add VIIRS
->> test setup and profile the same worflow on Linux
->> find and run performance profilers
++ add all file outputs to diagram, add VIIRS
++ test setup and profile the same worflow on Linux
++ find and run performance profilers
 >> compare download and analysis of different VIIRS servers
 >> apply some optimizations
 
