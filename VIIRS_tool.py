@@ -67,7 +67,7 @@ def check_data_online(adate):
     baseurl = settings.config.get("viirs", "HOST")
     testurl_t = "RIVER-FLDglobal-composite_{}_000000.part00{}.tif"
     for i in [1, 2, 3, 4, 5]:
-        testurl = os.path.join(baseurl, testurl_t.format(adate, str(i)))
+        testurl = f"{baseurl.rstrip('/')}/{testurl_t.format(adate, str(i))}"
         r = requests.head(testurl)
         if r.status_code == 404:
             online = False
