@@ -209,7 +209,14 @@ data
 Install on Windows
 Powershell:
 - install uv: powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+(on linux): 
+sudo apt install python3.12 python3.12-venv python3.12-dev
+sudo apt install curl
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env
+
 - uv venv --python 3.12
+(on linux): source .venv/bin/activate
 
 - (optional) $env:CURL_CA_BUNDLE=$env:SSL_CERT_FILE
 - (optional) $env:SSL_CERT_FILE="$PWD\.venv\Lib\site-packages\certifi\cacert.pem"
@@ -217,6 +224,12 @@ Powershell:
 
 
 - uv pip install ./wheels/gdal-3.11.4-cp312-cp312-win_amd64.whl
+(on linux): 
+sudo apt install gdal-bin libgdal-dev
+gdalinfo --version  (example output: GDAL 3.8.4)
+uv pip install "gdal==3.8.4"
+or better: uv pip install "gdal==$(gdalinfo --version | awk '{print $2}')"
+
 - uv pip install ./wheels/pyproj-3.7.2-cp312-cp312-win_amd64.whl
 - $env:PROJ_LIB = "$PWD\.venv\Lib\site-packages\pyproj\proj_dir\share\proj"
 - uv pip install .
@@ -229,3 +242,43 @@ python MoM_run.py -j GFMS
 python MoM_run.py -j HWRF
 python MoM_run.py -j DFO
 python MoM_run.py -j VIIRS
+
+Profiling on Windows: 
+uv add py-spy
+Add this to the start of MoM_run:
+import os
+import time
+print("PID:", os.getpid())
+time.sleep(3)
+
+Then launch "python MoM_run.py -j GFMS", ad run this from Admin Powershell:
+py-spy top --pid <PID>
+or
+py-spy record -o profile.json --format speedscope --pid <PID>
+py-spy record -o profile.svg --pid <PID>
+
+(Profiling on linux): 
+uv add py-spy
+py-spy record -o profile.json --format speedscope -- python MoM_run.py -j GFMS
+or (include resource usage):
+/usr/bin/time -v py-spy record -o profile.json --format speedscope -- python MoM_run.py -j GFMS 2> resources.txt
+
+
+ToDo for optimization:
+>> add all file outputs to diagram, add VIIRS
+>> test setup and profile the same worflow on Linux
+>> find and run performance profilers
+>> compare download and analysis of different VIIRS servers
+>> apply some optimizations
+
+- why VIIRS composite1 .tif are not being removed from folder
+- account for silent fails returning empty data (e.g. except rasterio.errors.RasterioIOError as er:)
+- hwrf_workflow assumes there IS data
+- GFMS_tools>extract_by_mask apply optimizations
+- ? mofunc_gfms Severity thresholds can be "<=" rather than "<"
+- ?? why fixed date code (only 1 date) is only 2 times faster (1510 sec = 25 min) than 7-dates code?
+
+Small cleaning:
+- use settings.vars in a uniform way
+- "Flood_byStor_" and other strings to globals
+- centralize watersheds_gdb_reader(): 26 calls, 13 sec
