@@ -16,6 +16,7 @@ import glob
 import json
 import logging
 import os
+import shutil
 import sys
 import zipfile
 
@@ -24,6 +25,7 @@ import numpy as np
 import pandas as pd
 import rasterio
 import requests
+from multiprocessing import Pool
 from osgeo import gdal
 from rasterio.mask import mask
 
@@ -173,6 +175,7 @@ def build_tiff(adate):
         if use_aws:
             all_available_files = list_tif_files(bucket_url=job_entry["url"], prefix=job_entry["prefix"])
 
+        session = requests.Session()
         tiff_list_per_job = []
         for i in range(1, 137):
             
@@ -186,7 +189,7 @@ def build_tiff(adate):
 
             # try download file
             try:
-                r = requests.get(dataurl, allow_redirects=True)
+                r = session.get(dataurl, allow_redirects=True)
             except requests.RequestException as e:
                 logging.warning(f"no download: {dataurl}")
                 logging.warning(f"error: {e}")
@@ -196,14 +199,50 @@ def build_tiff(adate):
             if r.status_code == 404:
                 continue
 
-            open(filename, "wb").write(r.content)
-            tiff_list_per_job.append(filename)
+            # open(filename, "wb").write(r.content)
+            # tiff_list_per_job.append(filename)
+            #print(i, flush=True)
+            mem_path = f"/vsimem/{filename}"
+            gdal.FileFromMemBuffer(mem_path, r.content)
+            tiff_list_per_job.append(mem_path)
         
         # build vrt
-        vrt_file = tiff_file.replace("tiff", "vrt")
-        vrt = gdal.BuildVRT(vrt_file, tiff_list_per_job)
+        #vrt_file = tiff_file.replace("tiff", "vrt")
+        #vrt = gdal.BuildVRT(vrt_file, tiff_list_per_job)
 
         # translate to tiff
+        small_tiff = os.path.join(settings.VIIRS_IMG_DIR, tiff_file)
+        options = gdal.WarpOptions(
+            format="GTiff",
+            creationOptions=[
+                "COMPRESS=LZW",
+                "TILED=YES",
+                "BIGTIFF=YES",
+                "BLOCKXSIZE=512",
+                "BLOCKYSIZE=512"
+            ]
+        )
+        gdal.Warp(small_tiff, tiff_list_per_job, format='GTiff', options=options)
+        dest_file = os.path.join(os.getcwd(), tiff_file)
+        shutil.copy(small_tiff, dest_file)
+
+        r'''
+        translate_options = gdal.TranslateOptions(
+            format="GTiff",
+            creationOptions=[
+                "COMPRESS=LZW",
+                "TILED=YES",
+                "BIGTIFF=YES",
+                "BLOCKXSIZE=512",
+                "BLOCKYSIZE=512"
+            ]
+        )
+        gdal.Translate(
+            small_tiff,
+            vrt,
+            options=options
+        )
+
         # each tiff is 4GB in size
         gdal.Translate(tiff_file, vrt)
 
@@ -212,6 +251,7 @@ def build_tiff(adate):
         gdal.Translate(
             small_tiff, tiff_file, options="-of GTiff -co COMPRESS=LZW -co TILED=YES"
         )
+        '''
         logging.info("generated: " + tiff_file)
 
         if settings.config["storage"].getboolean("viirs_save"):
@@ -220,16 +260,16 @@ def build_tiff(adate):
 
             # os-agnostic process
             with zipfile.ZipFile(zipped, "a") as z: # append to existig archive (e.g. with 1-day products)
-                for f in glob.glob("RIVER*.tif"):
+                for f in glob.glob("*.tif"):
                     z.write(f, arcname=os.path.basename(f)) # match shell zip behavior
 
             logging.info("generated: " + zipped)
 
         # remove all files
-        vrt = None
-        os.remove(vrt_file)
-        for tif in tiff_list_per_job:
-            os.remove(tif)
+        #vrt = None
+        #os.remove(vrt_file)
+        #for tif in tiff_list_per_job:
+        #    os.remove(tif)
 
         final_2_tiffs.append(tiff_file)
 
@@ -352,6 +392,10 @@ def VIIRS_run_adate(adate):
 
     os.chdir(settings.BASE_DIR)
 
+def run_job(delay):
+    print("PID:", os.getpid())
+    adate = generate_adate(delay=delay)
+    VIIRS_run_adate(adate)
 
 def VIIRS_cron(adate=""):
     """main cron script"""
@@ -359,13 +403,18 @@ def VIIRS_cron(adate=""):
     # global basepath
     # basepath = os.path.dirname(os.path.abspath(__file__))
     # load_config()
+    processes = 2
+    gdal.SetConfigOption("GDAL_NUM_THREADS", str(os.cpu_count()/processes))
+
 
     if adate == "":
         # check two days
-        adate = generate_adate(delay=2)
-        VIIRS_run_adate(adate)
-        adate = generate_adate(delay=1)
-        VIIRS_run_adate(adate)
+        with Pool(processes=2) as p:
+            #p.map(run_job, [2, 1])
+            jobs = [p.apply_async(run_job, (i,)) for i in [2,1]]
+            # wait for all to finish
+            [job.get() for job in jobs]
+
         # adate = generate_adate(delay=0)
         # VIIRS_run_adate(adate)
     else:
