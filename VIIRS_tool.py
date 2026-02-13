@@ -31,6 +31,8 @@ import settings
 from utilities import read_data, watersheds_gdb_reader
 from VIIRS_MoM import update_VIIRS_MoM
 
+import xml.etree.ElementTree as ET
+
 
 def generate_adate(delay=1):
     """generate 1 day delay date"""
@@ -78,13 +80,86 @@ def check_data_online(adate):
     return online
 
 
+def list_tif_files(*, bucket_url: str, prefix: str) -> list[str]:
+    """
+    Docstring for list_tif_files
+    
+    :param bucket_url: Base S3 bucket URL, e.g. "https://noaa-jpss.s3.amazonaws.com"
+    :type bucket_url: str
+    :param prefix: Folder path inside bucket, e.g. "JPSS_Blended_Products/VFM_1day_GLB/TIF/2026/02/02/"
+    :type prefix: str
+    :return: Description
+    :rtype: list[str]
+    
+    Returns a list of full downloadable .tif URLs from a public S3 bucket using ListObjectsV2.
+    
+    """
+
+    namespace = "{http://s3.amazonaws.com/doc/2006-03-01/}"
+    continuation_token = None
+    tif_links = []
+
+    while True:
+        params = {
+            "list-type": "2",
+            "prefix": prefix,
+        }
+
+        if continuation_token:
+            params["continuation-token"] = continuation_token
+
+        response = requests.get(bucket_url, params=params)
+        response.raise_for_status()
+
+        root = ET.fromstring(response.text)
+
+        # Extract file entries
+        for content in root.findall(f".//{namespace}Contents"):
+            key = content.find(f"{namespace}Key").text
+            if key.endswith(".tif"):
+                tif_links.append(f"{bucket_url}/{key}")
+
+        # Check if there are more pages
+        is_truncated = root.find(f"{namespace}IsTruncated")
+        if is_truncated is not None and is_truncated.text == "true":
+            continuation_token = root.find(
+                f"{namespace}NextContinuationToken"
+            ).text
+        else:
+            break
+
+    return tif_links
+
+def pop_matching_string_from_list(urls: list[str], str_to_match: str):
+    
+    for idx, url in enumerate(urls):
+        if str_to_match in url:
+            return urls.pop(idx)  # removes and returns
+    
+    return None  # if not found
+
+
 def build_tiff(adate):
     """download and build geotiff"""
 
-    baseurl = settings.config.get("viirs", "HOST")
-    day1url = f"{baseurl.rstrip('/')}/" + "RIVER-FLDglobal-composite1_{}_000000.part{}.tif"
-    day5url = f"{baseurl.rstrip('/')}/" + "RIVER-FLDglobal-composite_{}_000000.part{}.tif"
-    joblist = [{"product": "1day", "url": day1url}, {"product": "5day", "url": day5url}]
+    use_aws = False
+
+    if not use_aws:
+        # FTP server:
+        baseurl = settings.config.get("viirs", "HOST")
+        day1url = f"{baseurl.rstrip('/')}/" + "RIVER-FLDglobal-composite1_{}_000000.part{}.tif"
+        day5url = f"{baseurl.rstrip('/')}/" + "RIVER-FLDglobal-composite_{}_000000.part{}.tif"
+        joblist = [{"product": "1day", "url": day1url}, {"product": "5day", "url": day5url}]
+    else:
+        baseurl = "https://noaa-jpss.s3.amazonaws.com"
+        filename1 = "RIVER-FLDglobal-composite1_{}_000000.part{}.tif"
+        filename5 = "RIVER-FLDglobal-composite_{}_000000.part{}.tif"
+        date_obj = datetime.strptime(adate, "%Y%m%d")
+        formatted_date = date_obj.strftime("%Y/%m/%d/")
+        joblist = [
+            {"product": "1day", "url": baseurl, "prefix": f"JPSS_Blended_Products/VFM_1day_GLB/TIF/{formatted_date}", "filename": filename1}, 
+            {"product": "5day", "url": baseurl, "prefix": f"JPSS_Blended_Products/VFM_5day_GLB/TIF/{formatted_date}", "filename": filename5}]
+    
     final_2_tiffs = []
 
     for job_entry in joblist:
@@ -93,10 +168,20 @@ def build_tiff(adate):
             final_2_tiffs.append(tiff_file)
             continue
 
+        if use_aws:
+            all_available_files = list_tif_files(bucket_url=job_entry["url"], prefix=job_entry["prefix"])
+
         tiff_list_per_job = []
         for i in range(1, 137):
-            dataurl = job_entry["url"].format(adate, str(i).zfill(3))
-            filename = dataurl.split("/")[-1]
+            
+            if not use_aws:
+                # FTP server:
+                dataurl = job_entry["url"].format(adate, str(i).zfill(3))
+                filename = dataurl.split("/")[-1]
+            else:
+                dataurl = pop_matching_string_from_list(all_available_files, f"GLB{str(i).zfill(3)}")            
+                filename = job_entry["filename"].format(adate, str(i).zfill(3))
+
             # try download file
             try:
                 r = requests.get(dataurl, allow_redirects=True)
@@ -104,9 +189,11 @@ def build_tiff(adate):
                 logging.warning("no download: " + dataurl)
                 logging.warning("error:" + str(e))
                 continue
+            
             # may not have files for some aio
             if r.status_code == 404:
                 continue
+
             open(filename, "wb").write(r.content)
             tiff_list_per_job.append(filename)
         
