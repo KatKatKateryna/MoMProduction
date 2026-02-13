@@ -22,7 +22,7 @@ from settings import *
 def create_dir(apath):
     """create dir with a path"""
     if not os.path.exists(apath):
-        print("crete " + apath)
+        print("create " + apath)
         os.makedirs(apath, exist_ok=True)
 
 
