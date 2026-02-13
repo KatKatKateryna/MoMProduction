@@ -234,7 +234,14 @@ du -sh MoM (to check downloaded folder size)
 Log disk usage before starting the code:
 while true; do du -sb . >> disk_log.txt; sleep 1; done
 Then: Ctrl+C
-Find peak: sort -n disk_log.txt | tail -1
+Find peak and minimum memory (e.g. before running the code): 
+sort -n disk_log.txt | tail -1
+sort -n disk_log.txt | head -1
+
+Log network calls:
+sudo apt install strace
+strace -tt -T -f -e trace=network -p <PID> -o network_trace.txt
+sort -t '<' -k2 -n network_trace.txt | tail
 
 
 ====================Install on Windows====================
@@ -269,7 +276,7 @@ ToDo for optimization:
 + add all file outputs to diagram, add VIIRS
 + test setup and profile the same worflow on Linux
 + find and run performance profilers
->> compare download and analysis of different VIIRS servers
++ compare download and analysis of different VIIRS servers
 >> apply some optimizations
 
 - why VIIRS composite1 .tif are not being removed from folder

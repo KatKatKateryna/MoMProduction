@@ -155,10 +155,12 @@ def build_tiff(adate):
         filename1 = "RIVER-FLDglobal-composite1_{}_000000.part{}.tif"
         filename5 = "RIVER-FLDglobal-composite_{}_000000.part{}.tif"
         date_obj = datetime.strptime(adate, "%Y%m%d")
-        formatted_date = date_obj.strftime("%Y/%m/%d/")
+        formatted_date1 = date_obj.strftime("%Y/%m/%d/")
+        date_obj_minus_4 = date_obj - timedelta(days=4)
+        formatted_date5 = date_obj_minus_4.strftime("%Y/%m/%d/")
         joblist = [
-            {"product": "1day", "url": baseurl, "prefix": f"JPSS_Blended_Products/VFM_1day_GLB/TIF/{formatted_date}", "filename": filename1}, 
-            {"product": "5day", "url": baseurl, "prefix": f"JPSS_Blended_Products/VFM_5day_GLB/TIF/{formatted_date}", "filename": filename5}]
+            {"product": "1day", "url": baseurl, "prefix": f"JPSS_Blended_Products/VFM_1day_GLB/TIF/{formatted_date1}", "filename": filename1}, 
+            {"product": "5day", "url": baseurl, "prefix": f"JPSS_Blended_Products/VFM_5day_GLB/TIF/{formatted_date5}", "filename": filename5}]
     
     final_2_tiffs = []
 
