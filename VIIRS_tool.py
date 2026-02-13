@@ -186,8 +186,8 @@ def build_tiff(adate):
             try:
                 r = requests.get(dataurl, allow_redirects=True)
             except requests.RequestException as e:
-                logging.warning("no download: " + dataurl)
-                logging.warning("error:" + str(e))
+                logging.warning(f"no download: {dataurl}")
+                logging.warning(f"error: {e}")
                 continue
             
             # may not have files for some aio
