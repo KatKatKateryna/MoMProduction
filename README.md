@@ -210,6 +210,11 @@ data
 sudo apt update && sudo apt upgrade -y
 sudo apt install python3.12 python3.12-venv python3.12-dev
 sudo apt install curl
+
+git clone --branch <branch-name> --single-branch --depth 1 <repo-url>.git
+git fetch origin
+git reset --hard origin/<e.g.dependencies-management-with-uv>
+
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
 sudo apt install gdal-bin=3.8.4* libgdal-dev=3.8.4*
