@@ -8,13 +8,15 @@ Inititlize the setup
 import os
 import shutil
 import sys
+import time
 from zipfile import ZipFile
 
 # firt check production.cfg
 if not os.path.exists("production.cfg"):
     shutil.copyfile("sample_production.cfg", "production.cfg")
-    print("please check the production.cfg, run initilize again.")
-    sys.exit()
+    time.sleep(2)
+    # print("please check the production.cfg, run initilize again.")
+    # sys.exit()
 
 from settings import *
 
@@ -51,16 +53,7 @@ for key in config["products_dir"]:
 user = config.get("glofas", "USER")
 passwd = config.get("glofas", "PASSWD")
 
-if "?" in user or "?" in passwd:
-    print("Action required: production.cfg")
-    print("Please fill in USER/PASSED in glofas section")
-    sys.exit()
-
 dfo_token = config.get("dfo", "TOKEN")
-if "?" in dfo_token:
-    print("Action required: production.cfg")
-    print("Please fill in TOKEN in dfo section")
-    sys.exit()
 
 # task: check if shp file is unzipped
 if not os.path.exists(WATERSHED_SHP):
@@ -69,5 +62,16 @@ if not os.path.exists(WATERSHED_SHP):
         zipObj.extractall(WATERSHED_DIR)
 else:
     print("Task: watershed shp is already unzipped")
+
+# check for credentials
+if "?" in user or "?" in passwd:
+    print("Action required: production.cfg")
+    print("Please fill in USER/PASSED in glofas section")
+    sys.exit()
+
+if "?" in dfo_token:
+    print("Action required: production.cfg")
+    print("Please fill in TOKEN in dfo section")
+    sys.exit()
 
 print("System initilization is completed!")

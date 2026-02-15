@@ -222,6 +222,8 @@ sudo apt install gdal-bin=3.8.4* libgdal-dev=3.8.4*
 source .venv/bin/activate
 uv pip install "gdal==3.8.4"
 
+python initialize.py
+
 Linux conda:
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 bash Miniconda3-latest-Linux-x86_64.sh
