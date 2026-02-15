@@ -206,12 +206,14 @@ def build_tiff(adate):
             gdal.FileFromMemBuffer(mem_path, r.content)
             tiff_list_per_job.append(mem_path)
         
-        # build vrt
-        #vrt_file = tiff_file.replace("tiff", "vrt")
-        #vrt = gdal.BuildVRT(vrt_file, tiff_list_per_job)
-
-        # translate to tiff
         small_tiff = os.path.join(settings.VIIRS_IMG_DIR, tiff_file)
+
+        # build vrt
+        vrt_file = tiff_file.replace("tiff", "vrt")
+        vrt = gdal.BuildVRT(vrt_file, tiff_list_per_job)
+
+        r'''
+        # translate to tiff
         options = gdal.WarpOptions(
             format="GTiff",
             creationOptions=[
@@ -223,10 +225,8 @@ def build_tiff(adate):
             ]
         )
         gdal.Warp(small_tiff, tiff_list_per_job, format='GTiff', options=options)
-        dest_file = os.path.join(os.getcwd(), tiff_file)
-        shutil.copy(small_tiff, dest_file)
-
-        r'''
+        '''
+        
         translate_options = gdal.TranslateOptions(
             format="GTiff",
             creationOptions=[
@@ -240,9 +240,13 @@ def build_tiff(adate):
         gdal.Translate(
             small_tiff,
             vrt,
-            options=options
+            options=translate_options
         )
 
+        dest_file = os.path.join(os.getcwd(), tiff_file)
+        shutil.copy(small_tiff, dest_file)
+
+        r'''
         # each tiff is 4GB in size
         gdal.Translate(tiff_file, vrt)
 
