@@ -1,25 +1,25 @@
-/home/kat/miniconda3/envs/myenv/lib/python3.12/site-packages/osgeo/gdal.py:606: FutureWarning: Neither gdal.UseExceptions() nor gdal.DontUseExceptions() has been explicitly called. In GDAL 4.0, exceptions will be enabled by default.
+/home/kat/miniconda3/envs/condaenv/lib/python3.12/site-packages/osgeo/gdal.py:606: FutureWarning: Neither gdal.UseExceptions() nor gdal.DontUseExceptions() has been explicitly called. In GDAL 4.0, exceptions will be enabled by default.
   warnings.warn(
 Warning 1: The definition of geographic CRS EPSG:4326 got from GeoTIFF keys is not the same as the one from the EPSG registry, which may cause issues during reprojection operations. Set GTIFF_SRS_SOURCE configuration option to EPSG to use official parameters (overriding the ones from GeoTIFF keys), or to GEOKEYS to use custom values from GeoTIFF keys and drop the EPSG code.
 Warning 1: The definition of geographic CRS EPSG:4326 got from GeoTIFF keys is not the same as the one from the EPSG registry, which may cause issues during reprojection operations. Set GTIFF_SRS_SOURCE configuration option to EPSG to use official parameters (overriding the ones from GeoTIFF keys), or to GEOKEYS to use custom values from GeoTIFF keys and drop the EPSG code.
-	Command being timed: "py-spy record -o profile_wsl2_conda_VIIRS_optimized.json --format speedscope -- python MoM_run.py -j VIIRS"
-	User time (seconds): 1566.91
-	System time (seconds): 371.04
-	Percent of CPU this job got: 311%
-	Elapsed (wall clock) time (h:mm:ss or m:ss): 10:21.86
+	Command being timed: "py-spy record -r 25 --native -o profile.json --format speedscope -- python MoM_run.py -j VIIRS"
+	User time (seconds): 679.05
+	System time (seconds): 52.66
+	Percent of CPU this job got: 147%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 8:15.02
 	Average shared text size (kbytes): 0
 	Average unshared data size (kbytes): 0
 	Average stack size (kbytes): 0
 	Average total size (kbytes): 0
-	Maximum resident set size (kbytes): 2223104
+	Maximum resident set size (kbytes): 2121504
 	Average resident set size (kbytes): 0
-	Major (requiring I/O) page faults: 0
-	Minor (reclaiming a frame) page faults: 1106885
-	Voluntary context switches: 10854244
-	Involuntary context switches: 116865
+	Major (requiring I/O) page faults: 2
+	Minor (reclaiming a frame) page faults: 1139588
+	Voluntary context switches: 1022259
+	Involuntary context switches: 3030
 	Swaps: 0
-	File system inputs: 0
-	File system outputs: 1509120
+	File system inputs: 424
+	File system outputs: 1450864
 	Socket messages sent: 0
 	Socket messages received: 0
 	Signals delivered: 0
