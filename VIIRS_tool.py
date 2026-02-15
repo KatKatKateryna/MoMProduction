@@ -206,56 +206,46 @@ def build_tiff(adate):
             gdal.FileFromMemBuffer(mem_path, r.content)
             tiff_list_per_job.append(mem_path)
         
-        small_tiff = os.path.join(settings.VIIRS_IMG_DIR, tiff_file)
+        tiff_creation_options=[
+            "COMPRESS=LZW",
+            "TILED=YES",
+            "BIGTIFF=YES",
+            "BLOCKXSIZE=512",
+            "BLOCKYSIZE=512"
+        ]
+        vrt = None
+        vrt_file = None
 
-        # build vrt
-        vrt_file = tiff_file.replace("tiff", "vrt")
-        vrt = gdal.BuildVRT(vrt_file, tiff_list_per_job)
+        if os.name == "nt": # windows
 
-        r'''
-        # translate to tiff
-        options = gdal.WarpOptions(
-            format="GTiff",
-            creationOptions=[
-                "COMPRESS=LZW",
-                "TILED=YES",
-                "BIGTIFF=YES",
-                "BLOCKXSIZE=512",
-                "BLOCKYSIZE=512"
-            ]
-        )
-        gdal.Warp(small_tiff, tiff_list_per_job, format='GTiff', options=options)
-        '''
-        
-        translate_options = gdal.TranslateOptions(
-            format="GTiff",
-            creationOptions=[
-                "COMPRESS=LZW",
-                "TILED=YES",
-                "BIGTIFF=YES",
-                "BLOCKXSIZE=512",
-                "BLOCKYSIZE=512"
-            ]
-        )
-        gdal.Translate(
-            small_tiff,
-            vrt,
-            options=translate_options
-        )
+            # create compressed tiff
+            options = gdal.WarpOptions(
+                format="GTiff",
+                creationOptions=tiff_creation_options
+            )
+            gdal.Warp(tiff_file, tiff_list_per_job, format='GTiff', options=options)
 
-        dest_file = os.path.join(os.getcwd(), tiff_file)
-        shutil.copy(small_tiff, dest_file)
+        else: # better way, but on windows "/vsimem/" path for memory buffer fails
 
-        r'''
-        # each tiff is 4GB in size
-        gdal.Translate(tiff_file, vrt)
+            # build vrt (4GB in size)
+            vrt_file = tiff_file.replace("tiff", "vrt")
+            vrt = gdal.BuildVRT(vrt_file, tiff_list_per_job)
 
-        # generate compressed tiff
-        small_tiff = os.path.join(settings.VIIRS_IMG_DIR, tiff_file)
-        gdal.Translate(
-            small_tiff, tiff_file, options="-of GTiff -co COMPRESS=LZW -co TILED=YES"
-        )
-        '''
+            # translate to compressed TIFF
+            translate_options = gdal.TranslateOptions(
+                format="GTiff",
+                creationOptions=tiff_creation_options
+            )
+            gdal.Translate(
+                tiff_file,
+                vrt,
+                options=translate_options
+            )
+
+        # copy to the Product folder
+        dest_file = os.path.join(settings.VIIRS_IMG_DIR, tiff_file) 
+        shutil.copy(tiff_file, dest_file)
+
         logging.info("generated: " + tiff_file)
 
         if settings.config["storage"].getboolean("viirs_save"):
@@ -270,10 +260,9 @@ def build_tiff(adate):
             logging.info("generated: " + zipped)
 
         # remove all files
-        #vrt = None
-        #os.remove(vrt_file)
-        #for tif in tiff_list_per_job:
-        #    os.remove(tif)
+        if vrt and vrt_file:
+            vrt = None
+            os.remove(vrt_file)
 
         final_2_tiffs.append(tiff_file)
 
@@ -404,6 +393,7 @@ def run_job(delay):
 def VIIRS_cron(adate=""):
     """main cron script"""
 
+    print("PID:", os.getpid())
     # global basepath
     # basepath = os.path.dirname(os.path.abspath(__file__))
     # load_config()
