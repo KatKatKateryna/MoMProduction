@@ -240,8 +240,11 @@ conda remove -n condaenv --all
 
 (Profiling on linux): 
 pip install py-spy
-/usr/bin/time -v py-spy record -o profile.json --format speedscope -- python MoM_run.py -j GFMS 2> resources.txt
+/usr/bin/time -v py-spy record -r 50 --native -o profile.json --format speedscope -- python MoM_run.py -j GFMS 2> resources.txt
 du -sh MoM (to check downloaded folder size)
+Copy to Windows desktop: (for WSL debugging)
+cp profile.json /mnt/c/Users/katri/Desktop/
+cp resources.txt /mnt/c/Users/katri/Desktop/
 
 Log disk usage before starting the code:
 while true; do du -sb . >> disk_log.txt; sleep 1; done
@@ -281,7 +284,7 @@ print("PID:", os.getpid())
 time.sleep(3)
 
 Then launch "python MoM_run.py -j GFMS", ad run this from Admin Powershell:
-py-spy record -o profile.json --format speedscope --pid <PID>
+py-spy record 50 --native -o profile.json --format speedscope --pid <PID>
 
 
 ToDo for optimization:
