@@ -215,24 +215,29 @@ git clone --branch <branch-name> --single-branch --depth 1 <repo-url>.git
 git fetch origin
 git reset --hard origin/<e.g.dependencies-management-with-uv>
 
-curl -LsSf https://astral.sh/uv/install.sh | sh
+curl -LsSf https://astral.sh/uv/install.sh | sh (install uv)
 source $HOME/.local/bin/env
 sudo apt install gdal-bin=3.8.4* libgdal-dev=3.8.4*
 (in the folder)
 source .venv/bin/activate
 uv pip install "gdal==3.8.4"
 
-Linux conda (after installing miniconda):
+Linux conda:
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash Miniconda3-latest-Linux-x86_64.sh
+conda config --add channels conda-forge
+conda config --set channel_priority strict
+conda config --show channels
+
 conda create -n condaenv python=3.12
 conda activate condaenv
-python toml_to_conda_env.py
-conda env create -n myenv -f environment.yml
+conda env update -n condaenv -f environment.yml
 ______
 conda deactivate
-conda remove -n myenv --all
+conda remove -n condaenv --all
 
 (Profiling on linux): 
-uv add py-spy
+pip install py-spy
 /usr/bin/time -v py-spy record -o profile.json --format speedscope -- python MoM_run.py -j GFMS 2> resources.txt
 du -sh MoM (to check downloaded folder size)
 
