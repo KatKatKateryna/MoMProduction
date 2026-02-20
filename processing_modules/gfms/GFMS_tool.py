@@ -25,12 +25,11 @@ import requests
 import zipfile
 from rasterio import Affine  # or from affine import Affine
 from rasterio.mask import mask
-from shapely.geometry import Point
 
-from GFMS_MoM import flood_severity
+from .GFMS_MoM import flood_severity
 
 # from HWRF_MoM import update_HWRF_MoM, update_HWRFMoM_DFO_VIIRS, final_alert_pdc
-from HWRF_MoM import hwrf_workflow
+from ..hwrf.HWRF_MoM import hwrf_workflow
 import settings
 from utilities import findLatest, hwrf_today, watersheds_gdb_reader
 

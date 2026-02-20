@@ -17,8 +17,8 @@ import json
 import logging
 import os
 import shutil
-import sys
 import zipfile
+import xml.etree.ElementTree as ET
 
 import geopandas as gpd
 import numpy as np
@@ -31,9 +31,7 @@ from rasterio.mask import mask
 
 import settings
 from utilities import read_data, watersheds_gdb_reader
-from VIIRS_MoM import update_VIIRS_MoM
-
-import xml.etree.ElementTree as ET
+from .VIIRS_MoM import update_VIIRS_MoM
 
 
 def generate_adate(delay=1):

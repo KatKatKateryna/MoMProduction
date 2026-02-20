@@ -10,7 +10,6 @@ import math
 import os
 import shutil
 import subprocess
-import sys
 import zipfile
 from datetime import datetime, timezone
 
@@ -26,7 +25,7 @@ from rasterio.mask import mask
 from shapely.geometry import Point
 
 import settings
-from HWRF_MoM import hwrf_workflow
+from .HWRF_MoM import hwrf_workflow
 from utilities import get_current_processing_datehour, hwrf_today, watersheds_gdb_reader
 
 

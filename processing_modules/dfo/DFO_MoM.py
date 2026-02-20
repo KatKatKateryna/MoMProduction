@@ -15,7 +15,7 @@ import pandas as pd
 import scipy.stats
 
 import settings
-from HWRF_MoM import hwrf_workflow
+from ..hwrf.HWRF_MoM import hwrf_workflow
 from utilities import read_data
 
 
