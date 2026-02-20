@@ -13,7 +13,7 @@ import smtplib
 import ssl
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -112,7 +112,9 @@ class WebsiteMonitor:
                         "status_code": response.status_code,
                         "response_time": round(response_time, 2),
                         "attempt": attempt + 1,
-                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "timestamp": datetime.now(timezone.utc).strftime(
+                            "%Y-%m-%d %H:%M:%S"
+                        ),
                     }
                 else:
                     # Non-200 status code
@@ -123,7 +125,9 @@ class WebsiteMonitor:
                             "response_time": round(response_time, 2),
                             "attempt": attempt + 1,
                             "error": f"HTTP {response.status_code}",
-                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "timestamp": datetime.now(timezone.utc).strftime(
+                                "%Y-%m-%d %H:%M:%S"
+                            ),
                         }
 
             except requests.exceptions.Timeout:
@@ -134,7 +138,9 @@ class WebsiteMonitor:
                         "response_time": timeout,
                         "attempt": attempt + 1,
                         "error": "Timeout",
-                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "timestamp": datetime.now(timezone.utc).strftime(
+                            "%Y-%m-%d %H:%M:%S"
+                        ),
                     }
 
             except requests.exceptions.ConnectionError:
@@ -145,7 +151,9 @@ class WebsiteMonitor:
                         "response_time": None,
                         "attempt": attempt + 1,
                         "error": "Connection Error",
-                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "timestamp": datetime.now(timezone.utc).strftime(
+                            "%Y-%m-%d %H:%M:%S"
+                        ),
                     }
 
             except requests.exceptions.RequestException as e:
@@ -156,7 +164,9 @@ class WebsiteMonitor:
                         "response_time": None,
                         "attempt": attempt + 1,
                         "error": str(e),
-                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "timestamp": datetime.now(timezone.utc).strftime(
+                            "%Y-%m-%d %H:%M:%S"
+                        ),
                     }
 
             # Wait before retry (except for last attempt)
@@ -170,7 +180,7 @@ class WebsiteMonitor:
             "response_time": None,
             "attempt": retry_attempts,
             "error": "Unknown error",
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
         }
 
     def check_all_websites(self):
@@ -218,7 +228,7 @@ Total websites: {total}
 Up: {up_count}
 Down: {down_count}
 Success rate: {(up_count / total) * 100:.1f}%
-Checked at: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+Checked at: {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")}
 """
         return summary
 
@@ -323,7 +333,7 @@ Summary:
 - Sites UP: {up_count}
 - Sites DOWN: {down_count}
 - Success rate: {(up_count / total) * 100:.1f}%
-- Report generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+- Report generated: {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")}
 
 Detailed Results:
 """

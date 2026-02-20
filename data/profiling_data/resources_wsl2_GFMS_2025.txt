@@ -1,0 +1,39 @@
+/home/kat/MoMProduction/.venv/lib/python3.12/site-packages/pandas/core/arraylike.py:402: RuntimeWarning: invalid value encountered in log
+  result = getattr(ufunc, method)(*inputs, **kwargs)
+/home/kat/MoMProduction/.venv/lib/python3.12/site-packages/pandas/core/arraylike.py:402: RuntimeWarning: invalid value encountered in log
+  result = getattr(ufunc, method)(*inputs, **kwargs)
+/home/kat/MoMProduction/.venv/lib/python3.12/site-packages/pandas/core/arraylike.py:402: RuntimeWarning: invalid value encountered in log
+  result = getattr(ufunc, method)(*inputs, **kwargs)
+/home/kat/MoMProduction/.venv/lib/python3.12/site-packages/pandas/core/arraylike.py:402: RuntimeWarning: invalid value encountered in log
+  result = getattr(ufunc, method)(*inputs, **kwargs)
+/home/kat/MoMProduction/.venv/lib/python3.12/site-packages/pandas/core/arraylike.py:402: RuntimeWarning: invalid value encountered in log
+  result = getattr(ufunc, method)(*inputs, **kwargs)
+/home/kat/MoMProduction/.venv/lib/python3.12/site-packages/pandas/core/arraylike.py:402: RuntimeWarning: invalid value encountered in log
+  result = getattr(ufunc, method)(*inputs, **kwargs)
+/home/kat/MoMProduction/.venv/lib/python3.12/site-packages/pandas/core/arraylike.py:402: RuntimeWarning: invalid value encountered in log
+  result = getattr(ufunc, method)(*inputs, **kwargs)
+/home/kat/MoMProduction/.venv/lib/python3.12/site-packages/pandas/core/arraylike.py:402: RuntimeWarning: invalid value encountered in log
+  result = getattr(ufunc, method)(*inputs, **kwargs)
+	Command being timed: "py-spy record -o profile.json --format speedscope -- python MoM_run.py -j GFMS"
+	User time (seconds): 7310.49
+	System time (seconds): 2538.36
+	Percent of CPU this job got: 121%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:15:30
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 607296
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 1714505
+	Voluntary context switches: 55530985
+	Involuntary context switches: 51230
+	Swaps: 0
+	File system inputs: 16
+	File system outputs: 2391344
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
