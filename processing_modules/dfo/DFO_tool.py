@@ -8,7 +8,6 @@ Two main function:
     * DFO_cron_fix: rerun cron-job for a given date
 """
 
-import argparse
 import csv
 import json
 import logging
@@ -27,7 +26,7 @@ import requests
 from bs4 import BeautifulSoup
 from rasterio.mask import mask
 
-from DFO_MoM import update_DFO_MoM
+from .DFO_MoM import update_DFO_MoM
 import settings
 from utilities import from_today, watersheds_gdb_reader
 
@@ -74,7 +73,7 @@ def generate_procesing_list():
     {'001': '20230101', '002': '20230102'}
     """
     hosturl = get_hosturl()
-    reqs = requests.get(hosturl, timeout = 20)
+    reqs = requests.get(hosturl)
     soup = BeautifulSoup(reqs.text, "html.parser")
     cur_year = hosturl[-4:]
     datelist = {}
@@ -112,7 +111,7 @@ def dfo_download(subfolder):
 
     dfokey = settings.config.get("dfo", "TOKEN")
     dataurl = os.path.join(get_hosturl(), subfolder)
-    
+
     # os-agnostic process
     cmd = [
         "wget",
@@ -129,7 +128,7 @@ def dfo_download(subfolder):
     ]
     exitcode = subprocess.run(cmd, check=True).returncode
 
-    if not (exitcode == 0 or exitcode ==8):
+    if not (exitcode == 0 or exitcode == 8):
         # something wrong with downloading
         logging.warning("download failed: " + dataurl)
         sys.exit()
@@ -237,6 +236,7 @@ def DFO_process(folder, adate):
     if os.path.isfile(hdffolder):
         logging.warning("Not downloaded properly: " + folder)
         return
+    os.makedirs(hdffolder, exist_ok=True)
 
     # switch to working directory
     os.chdir(hdffolder)
@@ -247,14 +247,13 @@ def DFO_process(folder, adate):
         "Flood 2-Day 250m",
         "Flood 3-Day 250m",
     ]
-
     # new layer name mapping
     floodsubdataset = {
-            "Flood 1-Day 250m":"Flood_1Day_250m",
-            "Flood 1-Day CS 250m":"FloodCS_1Day_250m",
-            "Flood 2-Day 250m":"Flood_2Day_250m",
-            "Flood 3-Day 250m":"Flood_3Day_250m",
-            }
+        "Flood 1-Day 250m": "Flood_1Day_250m",
+        "Flood 1-Day CS 250m": "FloodCS_1Day_250m",
+        "Flood 2-Day 250m": "Flood_2Day_250m",
+        "Flood 3-Day 250m": "Flood_3Day_250m",
+    }
     # create sub folder if necessary
     for flood in floodlayer:
         subfolder = flood.replace(" ", "_")
@@ -293,11 +292,11 @@ def DFO_process(folder, adate):
         # geotiff convert
         for HDF in hdffiles:
             nameprefix = "_".join(HDF.split(".")[1:3])
-            inputlayer = f'HDF4_EOS:EOS_GRID:"{HDF}":Grid_Water_Composite::{subdataset}'
+            inputlayer = f'HDF4_EOS:EOS_GRID:"{HDF}":Grid_Water_Composite:{subdataset}'
             tiff = nameprefix + "_" + subfolder
             outputtiff = os.path.join(subfolder, tiff + ".tiff")
             if not os.path.exists(outputtiff):
-                # gdal cmda
+                # gdal cmd
                 gdalcmd = (
                     f"gdal_translate -of GTiff -co Tiled=Yes {inputlayer} {outputtiff}"
                 )
@@ -382,9 +381,7 @@ def DFO_cron():
     """cron job to process DFO"""
 
     datelist = generate_procesing_list()
-    print(datelist)
-    sys.exit(0)
-    
+
     if len(datelist) == 0:
         logging.info("no new data to process!")
         sys.exit(0)
@@ -404,47 +401,9 @@ def DFO_cron():
 
     return
 
-def DFO_fixdate(adate):
-    """process a specific date"""
-    print(adate)
-
-    # first check if the date is fixable
-    datelist = generate_procesing_list()
-
-    if adate not in datelist.values():
-        print("date not in the available data list or already processed!")
-        print("list of available dates:", list(datelist.values()))
-        sys.exit(0)
-    
-    key = [k for k, v in datelist.items() if v == adate][0]
-    # form a new datelist
-    datelist = {key: adate}
-    #print(datelist)
-
-    for key in datelist:
-        logging.info("try to fix a date: " + datelist[key])
-        logging.info("download: " + key)
-        dfo_download(key)
-        logging.info("download finished!")
-        logging.info("processing: " + key)
-        # process data
-        # key: folder name
-        # datelist[key]: real date
-        DFO_process(key, datelist[key])
-        # run DFO_MoM
-        update_DFO_MoM(datelist[key])
-        logging.info("processing finished: " + key)
 
 def main():
-    """main function"""
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-fd','--fixdate', dest='fixdate', type=str, help="try to process a specific date")
-
-    args = parser.parse_args()
-    if args.fixdate:
-        DFO_fixdate(args.fixdate)
-    else:
-        DFO_cron()
+    DFO_cron()
 
 
 if __name__ == "__main__":

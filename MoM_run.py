@@ -21,13 +21,13 @@ import argparse
 import logging
 
 
-from DFO_MoM import batchrun_DFO_MoM
-from DFO_tool import DFO_cron
-from GFMS_tool import GFMS_cron, GFMS_fixdate
-from HWRF_MoM import batchrun_HWRF_MoM
-from HWRF_tool import HWRF_cron
-from VIIRS_MoM import batchrun_VIIRS_MoM
-from VIIRS_tool import VIIRS_cron
+from processing_modules.dfo.DFO_MoM import batchrun_DFO_MoM
+from processing_modules.dfo.DFO_tool import DFO_cron
+from processing_modules.gfms.GFMS_tool import GFMS_cron, GFMS_fixdate
+from processing_modules.hwrf.HWRF_MoM import batchrun_HWRF_MoM
+from processing_modules.hwrf.HWRF_tool import HWRF_cron
+from processing_modules.viirs.VIIRS_MoM import batchrun_VIIRS_MoM
+from processing_modules.viirs.VIIRS_tool import VIIRS_cron
 
 
 def _getParser():
