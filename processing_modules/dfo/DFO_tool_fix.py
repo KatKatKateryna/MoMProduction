@@ -16,7 +16,7 @@ import os
 import shutil
 import subprocess
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 import zipfile
 
 import geopandas
@@ -62,7 +62,7 @@ def check_status(adate):
 def get_hosturl():
     """get the host url"""
     baseurl = settings.config.get("dfo", "HOST")
-    cur_year = date.today().year
+    cur_year = datetime.now(timezone.utc).year
     hosturl = os.path.join(baseurl, str(cur_year))
 
     return hosturl
@@ -79,7 +79,7 @@ def generate_procesing_list():
     cur_year = hosturl[-4:]
     datelist = {}
     # get the today in str
-    today_str = date.today().strftime("%Y%m%d")
+    today_str = datetime.now(timezone.utc).strftime("%Y%m%d")
     for link in soup.find_all("a"):
         day_num = link.string
         if not day_num.isdigit():

@@ -14,7 +14,7 @@ import os
 import re
 import shutil
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 # add path
 current = os.path.dirname(os.path.realpath(__file__))
@@ -236,7 +236,7 @@ def checkService():
     """check service status"""
     # get the date
     status = {}
-    today = date.today()
+    today = datetime.now(timezone.utc)
     d1 = today.strftime("%Y%m%d")
     status["checktime"] = datetime.utcnow().strftime("%Y%m%d, %H:%M:%S")
     operation_status = "normal"
