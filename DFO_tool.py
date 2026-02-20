@@ -27,7 +27,7 @@ from bs4 import BeautifulSoup
 from rasterio.mask import mask
 
 from DFO_MoM import update_DFO_MoM
-from settings import *
+import settings
 from utilities import from_today, watersheds_gdb_reader
 
 # for command line mode, no need for cron-job
@@ -52,7 +52,7 @@ def get_real_date(year, day_num):
 def check_status(adate):
     """check if a give date is processed"""
 
-    processed_list = os.listdir(DFO_SUM_DIR)
+    processed_list = os.listdir(settings.DFO_SUM_DIR)
     processed = any(adate in x for x in processed_list)
 
     return processed
@@ -60,7 +60,7 @@ def check_status(adate):
 
 def get_hosturl():
     """get the host url"""
-    baseurl = config.get("dfo", "HOST")
+    baseurl = settings.config.get("dfo", "HOST")
     cur_year = date.today().year
     hosturl = os.path.join(baseurl, str(cur_year))
 
@@ -100,7 +100,7 @@ def dfo_download(subfolder):
     """download a subfolder"""
 
     # check if there is unfinished download
-    d_dir = os.path.join(DFO_PROC_DIR, subfolder)
+    d_dir = os.path.join(settings.DFO_PROC_DIR, subfolder)
     if os.path.exists(d_dir):
         # is file cases
         if os.path.isfile(d_dir):
@@ -109,7 +109,7 @@ def dfo_download(subfolder):
             # remove the subfolder
             shutil.rmtree(d_dir)
 
-    dfokey = config.get("dfo", "TOKEN")
+    dfokey = settings.config.get("dfo", "TOKEN")
     dataurl = os.path.join(get_hosturl(), subfolder)
 
     # os-agnostic process
@@ -124,7 +124,7 @@ def dfo_download(subfolder):
         "--cut-dirs=8",
         dataurl,
         "--header", f"Authorization: Bearer {dfokey}",
-        "-P", DFO_PROC_DIR,
+        "-P", settings.DFO_PROC_DIR,
     ]
     exitcode = subprocess.run(cmd, check=True).returncode
 
@@ -232,7 +232,7 @@ def DFO_process(folder, adate):
         Flood_1-Day_250m.vrt
     """
 
-    hdffolder = os.path.join(DFO_PROC_DIR, folder)
+    hdffolder = os.path.join(settings.DFO_PROC_DIR, folder)
     if os.path.isfile(hdffolder):
         logging.warning("Not downloaded properly: " + folder)
         return
@@ -317,7 +317,7 @@ def DFO_process(folder, adate):
             # tiff =  outputfolder + os.path.sep + "DFO_image/DFO_" + datestr + "_" + vrt.replace(".vrt",".tiff")
             # DFO_20210603_Flood_3-Day_250m.tiff
             tiff = "DFO_{datestr}_{layer}.tiff".format(datestr=adate, layer=subfolder)
-            tiff = os.path.join(DFO_IMG_DIR, tiff)
+            tiff = os.path.join(settings.DFO_IMG_DIR, tiff)
             # gdal_translate -co TILED=YES -co COMPRESS=PACKBITS -of GTiff Flood_1-Day_250m.vrt Flood_1-Day_250m.tiff
             # gdaladdo -r average Flood_1-Day_250m.tiff 2 4 8 16 32
             gdalcmd = (
@@ -344,13 +344,13 @@ def DFO_process(folder, adate):
     merged = merged.merge(csv_list[3], on="pfaf_id")
 
     # save output
-    summary_csv = os.path.join(DFO_SUM_DIR, "DFO_{}.csv".format(adate))
+    summary_csv = os.path.join(settings.DFO_SUM_DIR, "DFO_{}.csv".format(adate))
     merged.to_csv(summary_csv)
     logging.info("generated: " + summary_csv)
 
     # zip the original folder
-    if config["storage"].getboolean("dfo_save"):
-        zipped = os.path.join(DFO_PROC_DIR, "DFO_{}.zip".format(adate))
+    if settings.config["storage"].getboolean("dfo_save"):
+        zipped = os.path.join(settings.DFO_PROC_DIR, "DFO_{}.zip".format(adate))
         
         # os-agnostic process
         with zipfile.ZipFile(zipped, "w", compression=zipfile.ZIP_STORED) as z:
@@ -372,7 +372,7 @@ def DFO_process(folder, adate):
             os.remove(entry)
 
     # switch back script folder
-    os.chdir(BASE_DIR)
+    os.chdir(settings.BASE_DIR)
 
     return
 

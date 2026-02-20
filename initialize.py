@@ -9,6 +9,7 @@ import os
 import shutil
 import sys
 import time
+import settings
 from zipfile import ZipFile
 
 # firt check production.cfg
@@ -17,8 +18,6 @@ if not os.path.exists("production.cfg"):
     time.sleep(2)
     # print("please check the production.cfg, run initilize again.")
     # sys.exit()
-
-from settings import *
 
 
 def create_dir(apath):
@@ -31,35 +30,35 @@ def create_dir(apath):
 print("task: check folder stucture")
 
 # create working dir
-create_dir(WORKING_DIR)
+create_dir(settings.WORKING_DIR)
 # task: create the sub folders inside working_dir
-for key in config["processing_dir"]:
-    subfolder = os.path.join(WORKING_DIR, config.get("processing_dir", key))
+for key in settings.config["processing_dir"]:
+    subfolder = os.path.join(settings.WORKING_DIR, settings.config.get("processing_dir", key))
     create_dir(subfolder)
 
 # create product dir
-create_dir(PRODUCT_DIR)
+create_dir(settings.PRODUCT_DIR)
 # task: create the sub folders inside product_dir
 product_sub_folders = ["summary", "image", "MoM"]
 product_with_subfolder = ["GFMS", "HWRF", "DFO", "VIIRS"]
-for key in config["products_dir"]:
-    subfolder = os.path.join(PRODUCT_DIR, config.get("products_dir", key))
+for key in settings.config["products_dir"]:
+    subfolder = os.path.join(settings.PRODUCT_DIR, settings.config.get("products_dir", key))
     create_dir(subfolder)
     if key.upper() in product_with_subfolder:
         for product_sub in product_sub_folders:
             create_dir(os.path.join(subfolder, key.upper() + "_" + product_sub))
 
 # task: check ftp user/password, key
-user = config.get("glofas", "USER")
-passwd = config.get("glofas", "PASSWD")
+user = settings.config.get("glofas", "USER")
+passwd = settings.config.get("glofas", "PASSWD")
 
-dfo_token = config.get("dfo", "TOKEN")
+dfo_token = settings.config.get("dfo", "TOKEN")
 
 # task: check if shp file is unzipped
-if not os.path.exists(WATERSHED_SHP):
+if not os.path.exists(settings.WATERSHED_SHP):
     print("Task: unzip watershed.shp.zip")
-    with ZipFile(WATERSHED_SHP + ".zip", "r") as zipObj:
-        zipObj.extractall(WATERSHED_DIR)
+    with ZipFile(settings.WATERSHED_SHP + ".zip", "r") as zipObj:
+        zipObj.extractall(settings.WATERSHED_DIR)
 else:
     print("Task: watershed shp is already unzipped")
 

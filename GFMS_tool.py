@@ -31,7 +31,7 @@ from GFMS_MoM import flood_severity
 
 # from HWRF_MoM import update_HWRF_MoM, update_HWRFMoM_DFO_VIIRS, final_alert_pdc
 from HWRF_MoM import hwrf_workflow
-from settings import *
+import settings
 from utilities import findLatest, hwrf_today, watersheds_gdb_reader
 
 # no need for cron-job
@@ -43,10 +43,10 @@ from utilities import findLatest, hwrf_today, watersheds_gdb_reader
 def GloFAS_download():
     """download glofas data from ftp"""
     ftpsite = {}
-    ftpsite["host"] = config.get("glofas", "HOST")
-    ftpsite["user"] = config.get("glofas", "USER")
-    ftpsite["passwd"] = config.get("glofas", "PASSWD")
-    ftpsite["directory"] = config.get("glofas", "DIRECTORY")
+    ftpsite["host"] = settings.config.get("glofas", "HOST")
+    ftpsite["user"] = settings.config.get("glofas", "USER")
+    ftpsite["passwd"] = settings.config.get("glofas", "PASSWD")
+    ftpsite["directory"] = settings.config.get("glofas", "DIRECTORY")
     from ftplib import FTP
 
     ftp = FTP(host=ftpsite["host"], user=ftpsite["user"], passwd=ftpsite["passwd"])
@@ -54,7 +54,7 @@ def GloFAS_download():
     file_list = ftp.nlst()
     job_list = []
     for txt in file_list:
-        save_txt = os.path.join(GLOFAS_PROC_DIR, txt)
+        save_txt = os.path.join(settings.GLOFAS_PROC_DIR, txt)
         
         # add date to job list
         if "threspoints_" in txt:
@@ -81,15 +81,15 @@ def GloFAS_process():
     for data_date in new_files:
 
         # final file names
-        out_csv = os.path.join(GLOFAS_DIR, "threspoints_" + data_date + ".csv")
-        out_geojson = os.path.join(GLOFAS_DIR, "threspoints_" + data_date + ".geojson")
+        out_csv = os.path.join(settings.GLOFAS_DIR, "threspoints_" + data_date + ".csv")
+        out_geojson = os.path.join(settings.GLOFAS_DIR, "threspoints_" + data_date + ".geojson")
         if os.path.exists(out_csv) and os.path.exists(out_geojson):
             continue
 
         logging.info("processing GLoFAS: " + data_date)
-        fixed_sites = os.path.join(GLOFAS_PROC_DIR, "threspoints_" + data_date + ".txt")
+        fixed_sites = os.path.join(settings.GLOFAS_PROC_DIR, "threspoints_" + data_date + ".txt")
         dyn_sites = os.path.join(
-            GLOFAS_PROC_DIR, "threspointsDyn_" + data_date + ".txt"
+            settings.GLOFAS_PROC_DIR, "threspointsDyn_" + data_date + ".txt"
         )
         # read fixed station data
         header_fixed_19 = [
@@ -272,12 +272,12 @@ def GFMS_download(bin_file):
 
     # find download url
     datestr = bin_file.split("_")[2]
-    baseurl = config.get("gfms", "HOST")
+    baseurl = settings.config.get("gfms", "HOST")
     dataurl = f"{baseurl.rstrip('/')}/{datestr[:4]}/{datestr[:6]}"
     download_data_url = f"{dataurl.rstrip('/')}/{bin_file}"
 
     # check if it download
-    binfile_local = os.path.join(GFMS_PROC_DIR, bin_file)
+    binfile_local = os.path.join(settings.GFMS_PROC_DIR, bin_file)
     # check if the size is ok
     if os.path.exists(binfile_local):
         binsize = os.path.getsize(binfile_local)
@@ -445,7 +445,7 @@ def GFMS_extract_by_watershed(vrt_file):
         "GFMS_Duration",
     ]
     # put summary file into proc folder before fix-duration
-    summary_file = os.path.join(GFMS_PROC_DIR, os.path.basename(vrt_file)[:-4] + ".csv")
+    summary_file = os.path.join(settings.GFMS_PROC_DIR, os.path.basename(vrt_file)[:-4] + ".csv")
     if not os.path.exists(summary_file):
         with open(summary_file, "w") as f:
             writer = csv.writer(f)
@@ -519,7 +519,7 @@ def GFMS_data_extractor(bin_file):
 
     # generate tiff from bin file
     tiff_name = os.path.basename(vrt_file).replace(".vrt", ".tiff")
-    tiff_file = os.path.join(GFMS_IMG_DIR, tiff_name)
+    tiff_file = os.path.join(settings.GFMS_IMG_DIR, tiff_name)
     gdalcmd = f"gdal_translate -co TILED=YES -co COMPRESS=LZW -of GTiff {vrt_file} {tiff_file}"
     os.system(gdalcmd)
     logging.info("generated: " + tiff_file)
@@ -534,18 +534,18 @@ def GFMS_fix_duration(csv0, csvlist):
     # unfixed are in GFMS_PROC_DIR
 
     # first check if csv0 exists
-    basecsv = os.path.join(GFMS_SUM_DIR, csv0)
+    basecsv = os.path.join(settings.GFMS_SUM_DIR, csv0)
     if os.path.exists(basecsv):
         df0 = pd.read_csv(basecsv)
         start_in = 0
     else:
-        df0 = pd.read_csv(os.path.join(GFMS_PROC_DIR, csvlist[0]))
+        df0 = pd.read_csv(os.path.join(settings.GFMS_PROC_DIR, csvlist[0]))
         start_in = 1
         # also write out to SUM folder
-        df0.to_csv(os.path.join(GFMS_SUM_DIR, csvlist[0]), index=False)
+        df0.to_csv(os.path.join(settings.GFMS_SUM_DIR, csvlist[0]), index=False)
 
     for name in csvlist[start_in:]:
-        csv_file = os.path.join(GFMS_PROC_DIR, name)
+        csv_file = os.path.join(settings.GFMS_PROC_DIR, name)
         try:
             df = pd.read_csv(csv_file)
         except:
@@ -561,7 +561,7 @@ def GFMS_fix_duration(csv0, csvlist):
             axis=1,
         )
         del df["GFMS_Duration0"]
-        fix_csv = os.path.join(GFMS_SUM_DIR, name)
+        fix_csv = os.path.join(settings.GFMS_SUM_DIR, name)
         df.to_csv(fix_csv, index=False)
         logging.info("generated: " + fix_csv)
         df0 = None
@@ -590,16 +590,16 @@ def GFMS_processing(proc_dates_list):
 
         # flood severity calculation
         # take the first file of each day ("00" hour bin)
-        gfmscsv = os.path.join(GFMS_SUM_DIR, "Flood_byStor_" + data_date + ".csv")
-        glofascsv = os.path.join(GLOFAS_DIR, "threspoints_" + data_date + ".csv")
+        gfmscsv = os.path.join(settings.GFMS_SUM_DIR, "Flood_byStor_" + data_date + ".csv")
+        glofascsv = os.path.join(settings.GLOFAS_DIR, "threspoints_" + data_date + ".csv")
 
         # in case of glofascsv data is missing, use the latest
         if not os.path.exists(glofascsv):
-            glofas_latest = findLatest(GLOFAS_DIR, "csv")
-            glofascsv = os.path.join(GLOFAS_DIR, glofas_latest)
+            glofas_latest = findLatest(settings.GLOFAS_DIR, "csv")
+            glofascsv = os.path.join(settings.GLOFAS_DIR, glofas_latest)
 
         # set directory for adding/removing files
-        os.chdir(GFMS_PROC_DIR)
+        os.chdir(settings.GFMS_PROC_DIR)
 
         if os.path.exists(glofascsv) and os.path.exists(gfmscsv):
             # only proceed if valid data is present
@@ -649,8 +649,8 @@ def GFMS_cron():
     today = datetime.now(timezone.utc)
     tstr = datetime.strftime(today, "%Y%m%d")
     tstr = tstr + "00"
-    gfmscsv = os.path.join(GFMS_SUM_DIR, "Flood_byStor_" + tstr + ".csv")
-    glofascsv = os.path.join(GLOFAS_DIR, "threspoints_" + tstr + ".csv")
+    gfmscsv = os.path.join(settings.GFMS_SUM_DIR, "Flood_byStor_" + tstr + ".csv")
+    glofascsv = os.path.join(settings.GLOFAS_DIR, "threspoints_" + tstr + ".csv")
     if os.path.exists(gfmscsv) and os.path.exists(glofascsv):
         logging.info("no hwrf: " + tstr + " generating ...")
         # update_HWRF_MoM(tstr)
@@ -679,13 +679,13 @@ def GFMS_fixdate(adate):
         for binhour in binhours:
             # bin_file = "Flood_byStor_" + real_date + binhour + ".bin"
             summary_file = "Flood_byStor_{}.csv".format(real_date + binhour)
-            summary_file = os.path.join(GFMS_SUM_DIR, summary_file)
+            summary_file = os.path.join(settings.GFMS_SUM_DIR, summary_file)
             # remove partial processed summary file
             if os.path.exists(summary_file):
                 os.remove(summary_file)
             # also need remove the file processing folder
             csv_in_proc = "Flood_byStor_{}.csv".format(real_date + binhour)
-            csv_in_proc = os.path.join(GFMS_PROC_DIR, csv_in_proc)
+            csv_in_proc = os.path.join(settings.GFMS_PROC_DIR, csv_in_proc)
             if os.path.exists(csv_in_proc):
                 os.remove(csv_in_proc)
     # reprocessing file
