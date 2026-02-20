@@ -40,7 +40,7 @@ def from_today(adate):
     # conver adate to date object
     # adate may come in as YYYYMMDD
     da = datetime.strptime(adate[:8], "%Y%m%d").date()
-    today = date.today()
+    today = datetime.now(timezone.utc)
     delta = da - today
 
     return delta.days
@@ -129,11 +129,11 @@ def main():
 
     # test from today function
     print("==> from tdoay")
-    adate = date.today().strftime("%Y%m%d")
+    adate = datetime.now(timezone.utc).strftime("%Y%m%d")
     ddays = from_today(adate)
     print("{} => {}".format(adate, ddays))
 
-    yesterday = date.today() - timedelta(days=2)
+    yesterday = datetime.now(timezone.utc) - timedelta(days=2)
     adate = yesterday.strftime("%Y%m%d")
     ddays = from_today(adate)
     print("{} => {}".format(adate, ddays))
@@ -165,7 +165,7 @@ def main():
     print(lastest_items)
 
     print("==> url exist")
-    today = date.today()
+    today = datetime.now(timezone.utc)
     tstr = today.strftime("%Y%m%d")
     aurl = f"https://ftpprd.ncep.noaa.gov/data/nccf/com/hwrf/prod/hwrf.{tstr}/00/"
     print("HWRF today: ")
