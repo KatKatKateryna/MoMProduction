@@ -20,6 +20,8 @@ epilog = """
 import argparse
 import logging
 
+# needed to discover "gdal" console commands in the modules that don't use Python gdal bindings
+from osgeo import gdal 
 
 from DFO_MoM import batchrun_DFO_MoM
 from DFO_tool import DFO_cron
