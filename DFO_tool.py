@@ -62,7 +62,7 @@ def get_hosturl():
     """get the host url"""
     baseurl = settings.config.get("dfo", "HOST")
     cur_year = datetime.now(timezone.utc).year
-    hosturl = os.path.join(baseurl, str(cur_year))
+    hosturl = f"{baseurl.rstrip('/')}/{str(cur_year)}"
 
     return hosturl
 
@@ -110,7 +110,7 @@ def dfo_download(subfolder):
             shutil.rmtree(d_dir)
 
     dfokey = settings.config.get("dfo", "TOKEN")
-    dataurl = os.path.join(get_hosturl(), subfolder)
+    dataurl = f"{get_hosturl().rstrip('/')}/{subfolder}"
 
     # os-agnostic process
     cmd = [
@@ -126,9 +126,9 @@ def dfo_download(subfolder):
         "--header", f"Authorization: Bearer {dfokey}",
         "-P", settings.DFO_PROC_DIR,
     ]
-    exitcode = subprocess.run(cmd, check=True).returncode
-
-    if not (exitcode == 0 or exitcode == 8):
+    process = subprocess.run(cmd, check=True)
+    
+    if not (process.returncode == 0 or process.returncode == 8):
         # something wrong with downloading
         logging.warning("download failed: " + dataurl)
         sys.exit()

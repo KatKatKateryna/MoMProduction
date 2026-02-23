@@ -39,7 +39,8 @@ def read_data(datafile) -> pd.DataFrame:
 def from_today(adate):
     # conver adate to date object
     # adate may come in as YYYYMMDD
-    da = datetime.strptime(adate[:8], "%Y%m%d").date()
+    da = datetime.strptime(adate[:8], "%Y%m%d")
+    da = da.replace(tzinfo=timezone.utc)
     today = datetime.now(timezone.utc)
     delta = da - today
 
