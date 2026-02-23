@@ -20,7 +20,7 @@ epilog = """
 import argparse
 import logging
 
-# needed to discover "gdal" console commands in the modules that don't use Python gdal bindings
+# needed to discover "gdal" console commands in the modules that don't use Python gdal bindings (especially for Windows .venv)
 from osgeo import gdal 
 
 from DFO_MoM import batchrun_DFO_MoM
