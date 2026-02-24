@@ -230,6 +230,7 @@ bash Miniconda3-latest-Linux-x86_64.sh
 conda config --add channels conda-forge
 conda config --set channel_priority strict
 conda config --show channels
+conda install -c conda-forge libgdal-hdf4
 
 conda create -n condaenv python=3.12
 conda activate condaenv
