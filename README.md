@@ -305,7 +305,7 @@ and paste the content of setup.sh file from this repo. Ctrl+O (Save), Ctrl+C (Ex
 . setup.sh
 ```
 
-Windows:
+Windows (tested on CI, but not on a new Windows machine):
 Create setup.ps1 file at the root folder and paste the content of setup.ps1 file from this repo. Replace branch name to "main" for stable release. Run from Admin Powershell:
 ```
 Set-ExecutionPolicy Bypass -Scope Process -Force
