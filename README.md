@@ -204,3 +204,112 @@ data
 ├── Resilience_Index.csv
 └── VIIRS_Weightage.csv
 ```
+
+## 8. Profiling scripts
+
+1. Start logging disk usage before running the script (separate shell, linux)
+```
+while true; do du -sb MoM >> disk_log_GFMS.txt; sleep 1; done
+```
+```
+while true; do du -sb MoM >> disk_log_VIIRS.txt; sleep 1; done
+```
+```
+while true; do du -sb MoM >> disk_log_DFO.txt; sleep 1; done
+```
+```
+while true; do du -sb MoM >> disk_log_HWRF.txt; sleep 1; done
+```
+
+2. If parallel processing applied (e.g. in VIIRS), track live RAM usage (separate shell, linux). 
+(Need to add 'print("Main PID:", os.getpid())' to the start on the script, if not there yet)
+```
+PID=YourPID
+while true; do
+    total_kb=$(ps --no-headers -o rss --ppid $PID | awk '{sum+=$1} END {print sum+0}')
+    parent_kb=$(ps -o rss= -p $PID)
+    echo $((total_kb + parent_kb)) >> ram_log_VIIRS.txt
+    sleep 1
+done
+```
+
+3. Total time, CPU, RAM, per-function profiling (run from the MoMProduction dir, with activated venv).
+For Linux conda setup:
+```
+pip install py-spy
+```
+```
+/usr/bin/time -v py-spy record -r 50 --subprocesses -o profile_GFMS.json --format speedscope -- python MoM_run.py -j GFMS 2> resources_GFMS.txt
+```
+```
+/usr/bin/time -v py-spy record -r 50 --subprocesses -o profile_VIIRS.json --format speedscope -- python MoM_run.py -j VIIRS 2> resources_VIIRS.txt
+```
+```
+/usr/bin/time -v py-spy record -r 50 --subprocesses -o profile_DFO.json --format speedscope -- python MoM_run.py -j DFO 2> resources_DFO.txt
+```
+```
+/usr/bin/time -v py-spy record -r 50 --subprocesses -o profile_HWRF.json --format speedscope -- python MoM_run.py -j HWRF 2> resources_HWRF.txt
+```
+
+For Windows uv setup:
+```
+uv add py-spy
+python MoM_run.py -j VIIRS
+```
+Run this from Admin Powershell (per-function profiling):
+```
+py-spy record 50 --subprocesses -o profile_VIIRS.json --format speedscope --pid <PID>
+```
+Launch this in PowerShell (get Timestamp, RAM, CPU) - does NOT include subprocesses:
+```
+typeperf "\Process(python)\Working Set" "\Process(python)\% Processor Time" -si 1 -o resources_VIIRS_win.txt
+```
+
+4. After it finished, find peak and minimum memory (during and before running the code). The difference is the temp storage needed. 
+For Linux:
+```
+awk 'NR==1{min=$1; max=$1} {if($1<min) min=$1; if($1>max) max=$1} END{print (max-min)/1024/1024/1024 " GB"}' disk_log_VIIRS.txt
+```
+For RAM live tracking (if applicable) find maximum:
+```
+sort -n ram_log_VIIRS.txt | tail -1 | awk '{print $1/1024/1024 " Gb"}'
+```
+
+For Windows (Powershell), prints max RAM and CPU:
+```
+"{0} GB" -f [math]::Round(
+    (Get-Content resources_VIIRS_win.txt |
+     Select-Object -Skip 2 |
+     ForEach-Object {
+         $cols = $_ -replace '"' -split ','
+         [double]$cols[1]
+     } |
+     Measure-Object -Maximum).Maximum / 1GB,
+3)
+```
+
+
+======================================================================
+======================================================================
+======================================================================
+
+New installation notes
+
+Linux (Ubuntu-24.04):
+Create setup.sh file at the root folder with
+```
+nano setup.sh
+```
+and paste the content of setup.sh file from this repo. Ctrl+O (Save), Ctrl+C (Exit). Replace branch name to "main" for stable release. Run the script:
+```
+. setup.sh
+```
+
+Windows:
+Create setup.ps1 file at the root folder and paste the content of setup.ps1 file from this repo. Replace branch name to "main" for stable release. Run from Admin Powershell:
+```
+Set-ExecutionPolicy Bypass -Scope Process -Force
+```
+```
+. .\setup.ps1
+```
