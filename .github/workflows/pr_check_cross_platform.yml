@@ -40,7 +40,9 @@ jobs:
           ./setup.sh
 
       - name: Run ${{ matrix.job_type }} job (Linux)
-        run: .venv/bin/python MoM_run.py -j ${{ matrix.job_type }}
+        run: |
+          conda activate myenv
+          python MoM_run.py -j ${{ matrix.job_type }}
 
 
   ########################################
@@ -77,4 +79,5 @@ jobs:
       - name: Run ${{ matrix.job_type }} job (Windows)
         shell: pwsh
         run: |
+          .\.venv\Scripts\activate
           .\.venv\Scripts\python.exe MoM_run.py -j ${{ matrix.job_type }}
