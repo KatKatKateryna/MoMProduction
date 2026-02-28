@@ -1,0 +1,84 @@
+name: pr_check_cross_platform
+
+on:
+  pull_request:
+    branches:
+      - dev
+  workflow_dispatch:
+
+jobs:
+
+  ########################################
+  # UBUNTU JOB
+  ########################################
+  mom-check-ubuntu:
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        job_type: [VIIRS, GFMS, DFO, HWRF]
+
+    permissions:
+      checks: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run setup (Linux)
+        run: |
+          chmod +x setup.sh
+          ./setup.sh
+
+      - name: Run ${{ matrix.job_type }} job (Linux)
+        run: |
+          source "$(conda info --base)/etc/profile.d/conda.sh"
+          conda activate myenv
+          python MoM_run.py -j ${{ matrix.job_type }}
+
+
+  ########################################
+  # WINDOWS JOB
+  ########################################
+  mom-check-windows:
+    runs-on: windows-2022
+
+    strategy:
+      fail-fast: false
+      matrix:
+        job_type: [VIIRS, GFMS, DFO, HWRF]
+
+    permissions:
+      checks: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run setup (Windows)
+        shell: pwsh
+        run: |
+          .\setup.ps1
+
+      - name: Run ${{ matrix.job_type }} job (Windows)
+        shell: pwsh
+        run: |
+          .\.venv\Scripts\activate
+          .\.venv\Scripts\python.exe MoM_run.py -j ${{ matrix.job_type }}
