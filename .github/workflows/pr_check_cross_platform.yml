@@ -41,6 +41,7 @@ jobs:
 
       - name: Run ${{ matrix.job_type }} job (Linux)
         run: |
+          source "$(conda info --base)/etc/profile.d/conda.sh"
           conda activate myenv
           python MoM_run.py -j ${{ matrix.job_type }}
 
