@@ -1,0 +1,25 @@
+name: testrun_VIIRS_ubuntu
+
+on:
+  pull_request:
+    branches:
+      - dev
+  workflow_dispatch:
+
+jobs:
+  viirs-check:
+    runs-on: ubuntu-24.04
+    permissions:
+      checks: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+
+      - name: Run setup and VIIRS check
+        shell: bash
+        run: |
+          . ./setup.sh
+          python MoM_run.py -j VIIRS
