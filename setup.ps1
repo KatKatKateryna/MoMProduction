@@ -9,14 +9,14 @@ $RepoDir = "$HOME\MoMProduction"
 $RepoBranch = "dev"
 $PythonVersionRequired = "3.12"
 
+
 ############################################
-# ENSURE WINGET INSTALLED
+# INSTALL CHOCOLATEY
 ############################################
 
-if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-    Write-Host "Installing winget..."
-    Add-AppxPackage -Path "https://aka.ms/getwinget"
-}
+Set-ExecutionPolicy Bypass -Scope Process -Force
+[System.Net.ServicePointManager]::SecurityProtocol = 3072
+iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 
 ############################################
 # ENSURE PYTHON 3.12 INSTALLED
@@ -33,7 +33,7 @@ try {
 
 if (-not $pythonInstalled) {
     Write-Host "Installing Python 3.12..."
-    winget install --id Python.Python.3.12 -e --silent --accept-package-agreements --accept-source-agreements
+    choco install python --version=3.12.0 -y
 } else {
     Write-Host "Python 3.12 already installed."
 }
@@ -44,7 +44,7 @@ if (-not $pythonInstalled) {
 
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Host "Installing Git..."
-    winget install --id Git.Git -e --silent --accept-package-agreements --accept-source-agreements
+    choco install git -y
 } else {
     Write-Host "Git already installed."
 }
