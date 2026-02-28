@@ -46,8 +46,6 @@ jobs:
       - name: Checkout repository
         if: github.event_name == 'workflow_dispatch' || github.event.schedule == matrix.cron
         uses: actions/checkout@v4
-        with:
-          ref: dev
 
       - name: Run setup
         if: github.event_name == 'workflow_dispatch' || github.event.schedule == matrix.cron
