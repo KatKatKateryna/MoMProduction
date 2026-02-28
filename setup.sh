@@ -80,13 +80,15 @@ if [ "$IS_GITHUB_ACTIONS" = false ]; then
         fi
 
         bash "$MINICONDA_INSTALLER" -b -p "$CONDA_DIR"
+
+    # Initialize conda for bash (safe to re-run)
+    "$CONDA_DIR/bin/conda" init bash || true
+
     fi
 else
     echo "Skipping Miniconda installation in GitHub Actions."
 fi
 
-# Initialize conda for bash (safe to re-run)
-"$CONDA_DIR/bin/conda" init bash || true
 
 # Source conda
 source "$CONDA_DIR/etc/profile.d/conda.sh"

@@ -53,7 +53,10 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 # CLONE OR UPDATE REPOSITORY
 ############################################
 
-if (-not (Test-Path "$RepoDir\.git")) {
+if ($env:GITHUB_ACTIONS -eq "true") {
+    $RepoDir = $env:GITHUB_WORKSPACE
+} else {
+
     Write-Host "Cloning repository..."
     git clone --branch $RepoBranch --single-branch --depth 1 $RepoUrl $RepoDir
 } else {
