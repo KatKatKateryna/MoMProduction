@@ -22,7 +22,7 @@ MINICONDA_URL="https://repo.anaconda.com/miniconda/$MINICONDA_INSTALLER"
 IS_GITHUB_ACTIONS=false
 if [ "$GITHUB_ACTIONS" = "true" ]; then
     IS_GITHUB_ACTIONS=true
-    echo "Running inside GitHub Actions - skipping system install, repo setup, and Miniconda install."
+    echo "Running inside GitHub Actions - skipping system install and repo setup."
 fi
 
 ############################
