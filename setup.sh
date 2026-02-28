@@ -10,7 +10,11 @@ set -o pipefail
 REPO_URL="https://github.com/Blu-H/MoMProduction.git"
 REPO_DIR="$HOME/MoMProduction"
 REPO_BRANCH="dev"
-CONDA_DIR="$HOME/miniconda3"
+if command -v conda >/dev/null 2>&1; then
+    CONDA_DIR="$(conda info --base)"
+else
+    CONDA_DIR="$HOME/miniconda3"
+fi
 CONDA_ENV_NAME="myenv"
 MINICONDA_INSTALLER="Miniconda3-latest-Linux-x86_64.sh"
 MINICONDA_URL="https://repo.anaconda.com/miniconda/$MINICONDA_INSTALLER"

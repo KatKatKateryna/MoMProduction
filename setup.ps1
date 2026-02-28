@@ -54,14 +54,12 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 ############################################
 
 if (Test-Path Env:\GITHUB_WORKSPACE) {
-    Write-Host "Running in GitHub Actions"
+    Write-Host "Running in GitHub Actions. Repository already exists. Skipping clone."
     $RepoDir = $env:GITHUB_WORKSPACE
 } else {
 
     Write-Host "Cloning repository..."
     git clone --branch $RepoBranch --single-branch --depth 1 $RepoUrl $RepoDir
-} else {
-    Write-Host "Repository already exists. Skipping clone."
 }
 
 ############################################
