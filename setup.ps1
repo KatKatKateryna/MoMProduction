@@ -53,7 +53,8 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 # CLONE OR UPDATE REPOSITORY
 ############################################
 
-if ($env:GITHUB_ACTIONS -eq "true") {
+if ($env:GITHUB_ACTIONS) {
+    Write-Host "Running in GitHub Actions: $env:GITHUB_ACTIONS"
     $RepoDir = $env:GITHUB_WORKSPACE
 } else {
 
