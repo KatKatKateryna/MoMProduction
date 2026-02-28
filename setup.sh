@@ -10,7 +10,7 @@ set -o pipefail
 REPO_URL="https://github.com/Blu-H/MoMProduction.git"
 REPO_DIR="$HOME/MoMProduction"
 REPO_BRANCH="dev"
-CONDA_DIR="$(conda info --base 2>/dev/null || echo "$HOME/miniconda3")"
+CONDA_DIR="$HOME/miniconda3"
 CONDA_ENV_NAME="myenv"
 MINICONDA_INSTALLER="Miniconda3-latest-Linux-x86_64.sh"
 MINICONDA_URL="https://repo.anaconda.com/miniconda/$MINICONDA_INSTALLER"
@@ -69,24 +69,21 @@ fi
 ############################
 # MINICONDA INSTALL
 ############################
-if [ "$IS_GITHUB_ACTIONS" = false ]; then
-    if [ ! -d "$CONDA_DIR" ]; then
-        echo "Miniconda not found. Installing..."
+if [ ! -d "$CONDA_DIR" ]; then
+    echo "Miniconda not found. Installing..."
 
-        cd "$HOME"
+    cd "$HOME"
 
-        if [ ! -f "$MINICONDA_INSTALLER" ]; then
-            wget "$MINICONDA_URL"
-        fi
-
-        bash "$MINICONDA_INSTALLER" -b -p "$CONDA_DIR"
-
+    if [ ! -f "$MINICONDA_INSTALLER" ]; then
+        wget "$MINICONDA_URL"
     fi
-else
-    echo "Skipping Miniconda installation in GitHub Actions."
+
+    bash "$MINICONDA_INSTALLER" -b -p "$CONDA_DIR"
+
 fi
 
 # Initialize conda for bash (safe to re-run)
+echo "Conda DIR: $CONDA_DIR"
 "$CONDA_DIR/bin/conda" init bash || true
 
 # Source conda
