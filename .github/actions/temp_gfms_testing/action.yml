@@ -14,7 +14,7 @@ runs:
 
         # Text replacements
         year_month = datetime.now(timezone.utc).strftime("%Y%m")
-        year_month_past = (datetime.now(timezone.utc) - timedelta(months=1)).strftime("%Y%m")
+        year_month_past = (datetime.now(timezone.utc) - timedelta(weeks=4)).strftime("%Y%m")
         replacements = {
             "(settings.GLOFAS_PROC_DIR, txt)": f"(settings.GLOFAS_PROC_DIR, txt.replace('{year_month}', '202511').replace('{year_month_past}', '202511'))",
             "job_list.append((txt": f"job_list.append((txt.replace('{year_month}', '202511').replace('{year_month_past}', '202511')"
