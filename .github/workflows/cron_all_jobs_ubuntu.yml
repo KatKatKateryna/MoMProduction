@@ -37,12 +37,6 @@ jobs:
             args: -j VIIRS
 
     steps:
-      - name: Skip non-matching schedule
-        if: github.event_name != 'workflow_dispatch' && github.event.schedule != matrix.cron
-        run: |
-          echo "Skipping ${{ matrix.name }} — not this schedule"
-          exit 0
-
       - name: Checkout repository
         if: github.event_name == 'workflow_dispatch' || github.event.schedule == matrix.cron
         uses: actions/checkout@v4
@@ -55,4 +49,7 @@ jobs:
 
       - name: Run ${{ matrix.name }}
         if: github.event_name == 'workflow_dispatch' || github.event.schedule == matrix.cron
-        run: .venv/bin/python ${{ matrix.script }} ${{ matrix.args }}
+        run: |
+          source "$(conda info --base)/etc/profile.d/conda.sh"
+          conda activate myenv
+          python ${{ matrix.script }} ${{ matrix.args }}
