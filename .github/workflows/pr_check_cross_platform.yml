@@ -47,8 +47,8 @@ jobs:
 
           # Text replacements
           replacements = {
-              "(settings.GLOFAS_PROC_DIR, txt)": "(settings.GLOFAS_PROC_DIR, txt[6:]+"202511")",
-              "job_list.append((txt": "job_list.append((txt[6:]+"202511""
+              "(settings.GLOFAS_PROC_DIR, txt)": "(settings.GLOFAS_PROC_DIR, txt[6:]+'202511')",
+              "job_list.append((txt": "job_list.append((txt[6:]+'202511'"
           }
 
           # Read file
@@ -112,8 +112,8 @@ jobs:
 
           # Text replacements
           replacements = {
-              "(settings.GLOFAS_PROC_DIR, txt)": "(settings.GLOFAS_PROC_DIR, txt[6:]+"202511")",
-              "job_list.append((txt": "job_list.append((txt[6:]+"202511""
+              "(settings.GLOFAS_PROC_DIR, txt)": "(settings.GLOFAS_PROC_DIR, txt[6:]+'202511')",
+              "job_list.append((txt": "job_list.append((txt[6:]+'202511'"
           }
 
           # Read file
