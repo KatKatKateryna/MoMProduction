@@ -1,4 +1,4 @@
-name: cron_all_jobs_ubuntu
+name: cron_jobs_ubuntu
 
 on:
   schedule:
