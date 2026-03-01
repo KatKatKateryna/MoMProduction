@@ -61,7 +61,6 @@ def GloFAS_download():
             ftp.retrbinary("RETR " + txt, fp.write)
 
     ftp.quit()
-    print(job_list, flush=True)
     return job_list
 
 
