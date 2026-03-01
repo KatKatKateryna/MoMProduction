@@ -9,7 +9,6 @@ on:
 
 jobs:
   scheduled:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
 
     strategy:
@@ -37,6 +36,12 @@ jobs:
             args: -j VIIRS
 
     steps:
+      - name: Stop if not manual trigger
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          echo "This job only runs when manually triggered."
+          exit 0
+          
       - name: Checkout repository
         uses: actions/checkout@v4
 
