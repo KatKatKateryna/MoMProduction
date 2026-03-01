@@ -47,6 +47,9 @@ jobs:
           chmod +x first_setup/setup.sh
           ./first_setup/setup.sh
 
+      - name: Replace GFMS dates temporarily (while it's down) - for testing only
+        uses: ./.github/actions/temp_gfms_testing
+        
       - name: Run ${{ matrix.name }}
         if: github.event_name == 'workflow_dispatch' || github.event.schedule == matrix.cron
         run: |
