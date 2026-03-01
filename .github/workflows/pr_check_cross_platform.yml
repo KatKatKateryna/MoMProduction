@@ -38,6 +38,31 @@ jobs:
           chmod +x first_setup/setup.sh
           ./first_setup/setup.sh
 
+      - name: Replace GFMS dates temporarily (while it's down) for testing only
+        run: |
+          python - <<'EOF'
+          import os
+
+          os.path.join(".", "GFMS_tool.py")
+
+          # Text replacements
+          replacements = {
+              "(settings.GLOFAS_PROC_DIR, txt)": "(settings.GLOFAS_PROC_DIR, txt[6:]+"202511")",
+              "job_list.append((txt": "job_list.append((txt[6:]+"202511""
+          }
+
+          # Read file
+          with open(file_path, "r", encoding="utf-8") as f:
+              content = f.read()
+
+          for old, new in replacements.items():
+              content = content.replace(old, new)
+
+          # Write file
+          with open(file_path, "w", encoding="utf-8") as f:
+              f.write(content)
+          EOF
+
       - name: Run ${{ matrix.job_type }} job
         run: |
           source "$(conda info --base)/etc/profile.d/conda.sh"
@@ -77,6 +102,31 @@ jobs:
         shell: pwsh
         run: |
           .\first_setup\setup.ps1
+
+      - name: Replace GFMS dates temporarily (while it's down) for testing only
+        shell: pwsh
+        run: |
+          python - <<'EOF'
+          import os
+          file_path = os.path.join(".", "GFMS_tool.py")
+
+          # Text replacements
+          replacements = {
+              "(settings.GLOFAS_PROC_DIR, txt)": "(settings.GLOFAS_PROC_DIR, txt[6:]+"202511")",
+              "job_list.append((txt": "job_list.append((txt[6:]+"202511""
+          }
+
+          # Read file
+          with open(file_path, "r", encoding="utf-8") as f:
+              content = f.read()
+
+          for old, new in replacements.items():
+              content = content.replace(old, new)
+
+          # Write file
+          with open(file_path, "w", encoding="utf-8") as f:
+              f.write(content)
+          EOF
 
       - name: Run ${{ matrix.job_type }} job
         shell: pwsh
