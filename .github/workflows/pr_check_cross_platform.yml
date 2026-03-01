@@ -26,13 +26,15 @@ jobs:
               - "~/MoM/Products/VIIRS/VIIRS_summary/VIIRS_Flood_*.csv"
           - job_type: GFMS
             files:
-              - "~/FolderB/file3.txt"
+              - "~/MoM/Products/GFMS/GFMS_image/Flood_byStor_*.tiff"
+              - "~/MoM/Products/GFMS/GFMS_summary/Flood_byStor_*.csv"
           - job_type: DFO
             files:
-              - "~/FolderB/file3.txt"
+              - "~/MoM/Products/DFO/DFO_image/DFO_*Flood_3-Day_250m.tiff"
+              - "~/MoM/Products/DFO/DFO_summary/DFO_*.csv"
           - job_type: HWRF
             files:
-              - "~/FolderB/file3.txt"
+              - "~/MoM/Products/HWRF"
 
     permissions:
       checks: write
@@ -96,13 +98,15 @@ jobs:
               - "~/MoM/Products/VIIRS/VIIRS_summary/VIIRS_Flood_*.csv"
           - job_type: GFMS
             files:
-              - "~/FolderB/file3.txt"
+              - "~/MoM/Products/GFMS/GFMS_image/Flood_byStor_*.tiff"
+              - "~/MoM/Products/GFMS/GFMS_summary/Flood_byStor_*.csv"
           - job_type: DFO
             files:
-              - "~/FolderB/file3.txt"
+              - "~/MoM/Products/DFO/DFO_image/DFO_*Flood_3-Day_250m.tiff"
+              - "~/MoM/Products/DFO/DFO_summary/DFO_*.csv"
           - job_type: HWRF
             files:
-              - "~/FolderB/file3.txt"
+              - "~/MoM/Products/HWRF"
 
     permissions:
       checks: write

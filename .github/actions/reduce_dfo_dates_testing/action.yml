@@ -14,7 +14,7 @@ runs:
         # Text replacements
         replacements = {
             "for key in datelist:": "dict([next(iter(datelist.items()))])"
-            "dataurl,": "'--quota=200m', dataurl,"
+            "dataurl,": "'--quota=50m', dataurl,"
         }
 
         # Read file
