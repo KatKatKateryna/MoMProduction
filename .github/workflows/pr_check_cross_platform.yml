@@ -43,6 +43,10 @@ jobs:
           source "$(conda info --base)/etc/profile.d/conda.sh"
           conda activate myenv
           python MoM_run.py -j ${{ matrix.job_type }}
+        env:
+          AUTH_GLOFAS_USER: ${{ secrets.AUTH_GLOFAS_USER }}
+          AUTH_GLOFAS_PASSWD: ${{ secrets.AUTH_GLOFAS_PASSWD }}
+          AUTH_DFO_TOKEN: ${{ secrets.AUTH_DFO_TOKEN }}
 
 
   ########################################
@@ -79,3 +83,7 @@ jobs:
         run: |
           .\.venv\Scripts\activate
           .\.venv\Scripts\python.exe MoM_run.py -j ${{ matrix.job_type }}
+        env:
+          AUTH_GLOFAS_USER: ${{ secrets.AUTH_GLOFAS_USER }}
+          AUTH_GLOFAS_PASSWD: ${{ secrets.AUTH_GLOFAS_PASSWD }}
+          AUTH_DFO_TOKEN: ${{ secrets.AUTH_DFO_TOKEN }}

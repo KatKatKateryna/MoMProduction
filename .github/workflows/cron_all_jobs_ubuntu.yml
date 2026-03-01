@@ -53,3 +53,7 @@ jobs:
           source "$(conda info --base)/etc/profile.d/conda.sh"
           conda activate myenv
           python ${{ matrix.script }} ${{ matrix.args }}
+        env:
+          AUTH_GLOFAS_USER: ${{ secrets.AUTH_GLOFAS_USER }}
+          AUTH_GLOFAS_PASSWD: ${{ secrets.AUTH_GLOFAS_PASSWD }}
+          AUTH_DFO_TOKEN: ${{ secrets.AUTH_DFO_TOKEN }}
