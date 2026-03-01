@@ -28,7 +28,7 @@ runs:
             pattern = os.path.expanduser(pattern)
 
             if runner_os == "Windows":
-                pattern = pattern.replace("/", "\\")
+                pattern = os.path.normpath(pattern)
 
             print(f"Checking pattern: {pattern}")
 
