@@ -1,4 +1,4 @@
-name: Process only 1 date for DFO
+name: Stop HWRF before MoM_update
 description: Reduce processing time
 
 runs:
@@ -9,13 +9,11 @@ runs:
       run: |
         python <<'EOF'
         import os
-        file_path = os.path.join(".", "DFO_tool.py")
+        file_path = os.path.join(".", "HWRF_MoM.py")
 
         # Text replacements
         replacements = {
-            "for key in datelist:": "dict([next(iter(datelist.items()))])"
-            "dataurl,": "'--quota=50m', dataurl,",
-            "update_DFO_MoM(datelist[key])": "import sys; sys.exit()"
+            "GFMS_fixdate(adate[:8])": "import sys; sys.exit()"
         }
 
         # Read file

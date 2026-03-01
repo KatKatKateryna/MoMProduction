@@ -4,7 +4,7 @@ description: Reduce processing time
 runs:
   using: "composite"
   steps:
-    - name: Reduce processing time
+    - name: Reduce processing time, stop before MoM_update
       shell: bash
       run: |
         python <<'EOF'
@@ -13,7 +13,8 @@ runs:
 
         # Text replacements
         replacements = {
-            "processing_dates = GloFAS_download()": "processing_dates = GloFAS_download()[:2]"
+            "processing_dates = GloFAS_download()": "processing_dates = GloFAS_download()[:2]",
+            "hwrf_workflow(tstr)": "import sys; sys.exit()"
         }
 
         # Read file
