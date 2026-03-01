@@ -30,7 +30,7 @@ runs:
         }
         
         for filename, replacements in files_to_update.items():
-            file_path = os.path.join(".", "filename")
+            file_path = os.path.join(".", filename)
 
             # Read file
             with open(file_path, "r", encoding="utf-8") as f:
