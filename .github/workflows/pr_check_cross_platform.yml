@@ -34,7 +34,8 @@ jobs:
               - "~/MoM/Products/DFO/DFO_summary/DFO_*.csv"
           - job_type: HWRF
             files:
-              - "~/MoM/Products/HWRF"
+              - "~/MoM/Products/HWRF/HWRF_image"
+              - "~/MoM/Products/HWRF/HWRF_summary"
 
     permissions:
       checks: write
@@ -100,7 +101,8 @@ jobs:
               - "~/MoM/Products/DFO/DFO_summary/DFO_*.csv"
           - job_type: HWRF
             files:
-              - "~/MoM/Products/HWRF"
+              - "~/MoM/Products/HWRF/HWRF_image"
+              - "~/MoM/Products/HWRF/HWRF_summary"
 
     permissions:
       checks: write
