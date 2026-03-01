@@ -17,8 +17,8 @@ runs:
               else (datetime.utcnow().replace(day=1) - timedelta(days=1))
              ).strftime("%Y%m")
         replacements = {
-            "(settings.GLOFAS_PROC_DIR, txt)": "(settings.GLOFAS_PROC_DIR, txt.replace(year_month, '202511'))",
-            "job_list.append((txt": "job_list.append((txt.replace(year_month, '202511')"
+            "(settings.GLOFAS_PROC_DIR, txt)": f"(settings.GLOFAS_PROC_DIR, txt.replace({year_month}, '202511'))",
+            "job_list.append((txt": f"job_list.append((txt.replace({year_month}, '202511')"
         }
 
         # Read file
