@@ -13,8 +13,8 @@ runs:
 
         # Text replacements
         replacements = {
-            "(settings.GLOFAS_PROC_DIR, txt)": "(settings.GLOFAS_PROC_DIR, txt[6:]+'202511')",
-            "job_list.append((txt": "job_list.append((txt[6:]+'202511'"
+            "(settings.GLOFAS_PROC_DIR, txt)": "(settings.GLOFAS_PROC_DIR, txt.replace((datetime.utcnow() if datetime.utcnow().day >= 20 else (datetime.utcnow().replace(day=1) - timedelta(days=1))).strftime("%Y%m"),'202511'))",
+            "job_list.append((txt": "job_list.append((txt.replace((datetime.utcnow() if datetime.utcnow().day >= 20 else (datetime.utcnow().replace(day=1) - timedelta(days=1))).strftime("%Y%m"),'202511')"
         }
 
         # Read file
