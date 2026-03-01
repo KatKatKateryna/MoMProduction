@@ -68,7 +68,7 @@ if (Test-Path Env:\GITHUB_WORKSPACE) {
 
 if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
     Write-Host "Installing uv from local installer..."
-    & "$RepoDir\installers\uv-installer.ps1"
+    & "$RepoDir\first_setup\uv-installer.ps1"
     $env:Path = "C:\Users\runneradmin\.local\bin;$env:Path"
 } else {
     Write-Host "uv already installed."
@@ -107,12 +107,12 @@ $env:REQUESTS_CA_BUNDLE = $env:SSL_CERT_FILE
 
 if (-not (Get-Module -ListAvailable -Name osgeo)) {
     Write-Host "Installing GDAL wheel..."
-    uv pip install ./installers/gdal-3.11.4-cp312-cp312-win_amd64.whl
+    uv pip install ./first_setup/gdal-3.11.4-cp312-cp312-win_amd64.whl
 }
 
 if (-not (Get-Module -ListAvailable -Name pyproj)) {
     Write-Host "Installing pyproj wheel..."
-    uv pip install ./installers/pyproj-3.7.2-cp312-cp312-win_amd64.whl
+    uv pip install ./first_setup/pyproj-3.7.2-cp312-cp312-win_amd64.whl
 }
 
 ############################################

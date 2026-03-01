@@ -44,8 +44,8 @@ jobs:
       - name: Run setup
         if: github.event_name == 'workflow_dispatch' || github.event.schedule == matrix.cron
         run: |
-          chmod +x setup.sh
-          ./setup.sh
+          chmod +x first_setup/setup.sh
+          ./first_setup/setup.sh
 
       - name: Run ${{ matrix.name }}
         if: github.event_name == 'workflow_dispatch' || github.event.schedule == matrix.cron
