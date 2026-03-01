@@ -13,7 +13,7 @@ runs:
 
         # Text replacements
         replacements = {
-            "for txt in file_list:": "for txt in file_list[:2]:"
+            "datelist = generate_procesing_list()": "datelist = list(generate_procesing_list().keys())[:1]"
         }
 
         # Read file

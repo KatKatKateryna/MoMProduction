@@ -9,11 +9,12 @@ runs:
       run: |
         python <<'EOF'
         import os
-        file_path = os.path.join(".", "DFO_tool.py")
+        file_path = os.path.join(".", "GFMS_tool.py")
 
         # Text replacements
         replacements = {
-            "datelist = generate_procesing_list()": "datelist = list(generate_procesing_list().keys())[:1]"
+            "(settings.GLOFAS_PROC_DIR, txt)": "(settings.GLOFAS_PROC_DIR, txt[6:]+'202511')",
+            "job_list.append((txt": "job_list.append((txt[6:]+'202511'"
         }
 
         # Read file
