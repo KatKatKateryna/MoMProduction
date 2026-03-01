@@ -15,7 +15,7 @@ runs:
         PATTERNS='${{ inputs.path }}'
         OS='${{ runner.os }}'
 
-        python <<'EOF'
+        python <<EOF
         import os, sys, json, glob
 
         patterns = json.loads("""$PATTERNS""")
