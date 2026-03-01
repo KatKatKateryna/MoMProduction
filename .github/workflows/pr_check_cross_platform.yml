@@ -57,10 +57,8 @@ jobs:
       - name: Replace GFMS dates temporarily (while it's down) - for testing only
         uses: ./.github/actions/temp_gfms_testing
 
-      - uses: ./.github/actions/reduce_dfo_dates_testing
-      - uses: ./.github/actions/reduce_gfms_dates_testing
-      - uses: ./.github/actions/reduce_viirs_images_testing
-      - uses: ./.github/actions/reduce_hwrf_processing_testing
+      - name: Reduce testing time
+        uses: ./.github/actions/reduce_testing_time
 
       - name: Run ${{ matrix.job_type }} job
         run: |
@@ -125,10 +123,8 @@ jobs:
       - name: Replace GFMS dates temporarily (while it's down) - for testing only
         uses: ./.github/actions/temp_gfms_testing
 
-      - uses: ./.github/actions/reduce_dfo_dates_testing
-      - uses: ./.github/actions/reduce_gfms_dates_testing
-      - uses: ./.github/actions/reduce_viirs_images_testing
-      - uses: ./.github/actions/reduce_hwrf_processing_testing
+      - name: Reduce testing time
+        uses: ./.github/actions/reduce_testing_time
 
       - name: Run ${{ matrix.job_type }} job
         shell: pwsh
