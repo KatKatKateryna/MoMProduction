@@ -23,7 +23,7 @@ runs:
                 "for key in datelist:": "for key in dict([next(iter(datelist.items()))]):",
                 "dataurl,": "'--quota=50m', dataurl,",
                 "update_DFO_MoM(datelist[key])": "import sys; sys.exit()"
-            }
+            },
             "HWRF_MoM.py": {
                 "GFMS_fixdate(adate[:8])": "import sys; sys.exit()"
             },
