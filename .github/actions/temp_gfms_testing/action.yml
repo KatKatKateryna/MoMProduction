@@ -8,23 +8,23 @@ runs:
       shell: bash
       run: |
         python <<'EOF'
-          import os
-          file_path = os.path.join(".", "GFMS_tool.py")
+        import os
+        file_path = os.path.join(".", "GFMS_tool.py")
 
-          # Text replacements
-          replacements = {
-              "(settings.GLOFAS_PROC_DIR, txt)": "(settings.GLOFAS_PROC_DIR, txt[6:]+'202511')",
-              "job_list.append((txt": "job_list.append((txt[6:]+'202511'"
-          }
+        # Text replacements
+        replacements = {
+            "(settings.GLOFAS_PROC_DIR, txt)": "(settings.GLOFAS_PROC_DIR, txt[6:]+'202511')",
+            "job_list.append((txt": "job_list.append((txt[6:]+'202511'"
+        }
 
-          # Read file
-          with open(file_path, "r", encoding="utf-8") as f:
-              content = f.read()
+        # Read file
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
 
-          for old, new in replacements.items():
-              content = content.replace(old, new)
+        for old, new in replacements.items():
+            content = content.replace(old, new)
 
-          # Write file
-          with open(file_path, "w", encoding="utf-8") as f:
-              f.write(content)
+        # Write file
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(content)
         EOF
