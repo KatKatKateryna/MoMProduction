@@ -18,7 +18,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        job_type: [VIIRS, GFMS, DFO, HWRF]
+        include:
+          - job_type: VIIRS
+            files:
+              - "~/MoM/Products/VIIRS/VIIRS_image/VIIRS_1day_composite*.tiff"
+              - "~/MoM/Products/VIIRS/VIIRS_image/VIIRS_5day_composite*.tiff"
+              - "~/MoM/Products/VIIRS/VIIRS_summary/VIIRS_Flood_*.csv"
+          - job_type: GFMS
+            files:
+              - "~/FolderB/file3.txt"
+          - job_type: DFO
+            files:
+              - "~/FolderB/file3.txt"
+          - job_type: HWRF
+            files:
+              - "~/FolderB/file3.txt"
 
     permissions:
       checks: write
@@ -60,6 +74,10 @@ jobs:
           AUTH_GLOFAS_PASSWD: ${{ secrets.AUTH_GLOFAS_PASSWD }}
           AUTH_DFO_TOKEN: ${{ secrets.AUTH_DFO_TOKEN }}
 
+      - name: Verify output files for ${{ matrix.job_type }}
+        uses: ./.github/actions/check-path
+        with:
+          path: ${{ toJson(matrix.files) }}
 
   ########################################
   # WINDOWS JOB
@@ -70,7 +88,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        job_type: [VIIRS, GFMS, DFO, HWRF]
+        include:
+          - job_type: VIIRS
+            files:
+              - "~/MoM/Products/VIIRS/VIIRS_image/VIIRS_1day_composite*.tiff"
+              - "~/MoM/Products/VIIRS/VIIRS_image/VIIRS_5day_composite*.tiff"
+              - "~/MoM/Products/VIIRS/VIIRS_summary/VIIRS_Flood_*.csv"
+          - job_type: GFMS
+            files:
+              - "~/FolderB/file3.txt"
+          - job_type: DFO
+            files:
+              - "~/FolderB/file3.txt"
+          - job_type: HWRF
+            files:
+              - "~/FolderB/file3.txt"
 
     permissions:
       checks: write
@@ -111,3 +143,8 @@ jobs:
           AUTH_GLOFAS_USER: ${{ secrets.AUTH_GLOFAS_USER }}
           AUTH_GLOFAS_PASSWD: ${{ secrets.AUTH_GLOFAS_PASSWD }}
           AUTH_DFO_TOKEN: ${{ secrets.AUTH_DFO_TOKEN }}
+
+      - name: Verify output files for ${{ matrix.job_type }}
+        uses: ./.github/actions/check-path
+        with:
+          path: ${{ toJson(matrix.files) }}

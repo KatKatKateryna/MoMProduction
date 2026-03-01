@@ -1,0 +1,43 @@
+name: Check Path Exists
+description: Verifies that a given file or directory pattern exists (supports wildcards)
+
+inputs:
+  path:
+    description: "Path or pattern to verify (example: ~/Folder1/FileNa*e.txt)"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Verify path
+      shell: bash
+      run: |
+        PATTERN='${{ inputs.path }}'
+        OS='${{ runner.os }}'
+
+        python <<EOF
+        import os, sys, glob
+
+        pattern = """$PATTERN"""
+        runner_os = "$OS"
+
+        # Expand ~
+        pattern = os.path.expanduser(pattern)
+
+        # Normalize separators for Windows
+        if runner_os == "Windows":
+            pattern = pattern.replace("/", "\\")
+
+        print(f"Checking pattern: {pattern}")
+
+        matches = glob.glob(pattern)
+
+        if not matches:
+            print(f"ERROR: No files match: {pattern}")
+            sys.exit(1)
+
+        for m in matches:
+            print(" -", m)
+
+        print("Pattern matched successfully.")
+        EOF
