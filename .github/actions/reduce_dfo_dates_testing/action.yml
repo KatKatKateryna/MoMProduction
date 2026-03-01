@@ -13,7 +13,8 @@ runs:
 
         # Text replacements
         replacements = {
-            "datelist = generate_procesing_list()": "datelist = list(generate_procesing_list().keys())[:1]"
+            "for key in datelist:": "dict([next(iter(datelist.items()))])"
+            "dataurl,": "'--quota=200m', dataurl,"
         }
 
         # Read file
