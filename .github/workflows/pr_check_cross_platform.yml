@@ -38,8 +38,17 @@ jobs:
           chmod +x first_setup/setup.sh
           ./first_setup/setup.sh
 
-      - name: Replace GFMS dates temporarily (while it's down) for testing only
+      - name: Replace GFMS dates temporarily (while it's down) - for testing only
         uses: ./.github/actions/temp_gfms_testing
+
+      - name: Keep 1 date for DFO - for testing only
+        uses: ./.github/actions/reduce_dfo_dates_testing
+
+      - name: Keep 2 dates for GFMS - for testing only
+        uses: ./.github/actions/reduce_gfms_dates_testing
+
+      - name: Less images for VIIRS - for testing only
+        uses: ./.github/actions/reduce_viirs_images_testing
 
       - name: Run ${{ matrix.job_type }} job
         run: |
@@ -81,8 +90,17 @@ jobs:
         run: |
           .\first_setup\setup.ps1
 
-      - name: Replace GFMS dates temporarily (while it's down) for testing only
+      - name: Replace GFMS dates temporarily (while it's down) - for testing only
         uses: ./.github/actions/temp_gfms_testing
+
+      - name: Keep 1 date for DFO - for testing only
+        uses: ./.github/actions/reduce_dfo_dates_testing
+
+      - name: Keep 2 dates for GFMS - for testing only
+        uses: ./.github/actions/reduce_gfms_dates_testing
+
+      - name: Less images for VIIRS - for testing only
+        uses: ./.github/actions/reduce_viirs_images_testing
 
       - name: Run ${{ matrix.job_type }} job
         shell: pwsh

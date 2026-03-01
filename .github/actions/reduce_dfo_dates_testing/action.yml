@@ -1,19 +1,20 @@
-name: Replace GFMS dates to 2025
-description: Replaces dates in GFMS_tool.py with available values (year 2025)
+name: Process only 1 date for DFO
+description: Reduce processing time
 
 runs:
   using: "composite"
   steps:
-    - name: Replace dates in GFMS_tool.py
+    - name: Reduce processing time
       shell: bash
       run: |
         python <<'EOF'
         import os
-        file_path = os.path.join(".", "DFO_tool.py")
+        file_path = os.path.join(".", "GFMS_tool.py")
 
         # Text replacements
         replacements = {
-            "datelist = generate_procesing_list()": "datelist = list(generate_procesing_list().keys())[:1]"
+            "(settings.GLOFAS_PROC_DIR, txt)": "(settings.GLOFAS_PROC_DIR, txt[6:]+'202511')",
+            "job_list.append((txt": "job_list.append((txt[6:]+'202511'"
         }
 
         # Read file

@@ -1,19 +1,19 @@
-name: Replace GFMS dates to 2025
-description: Replaces dates in GFMS_tool.py with available values (year 2025)
+name: Reduce number of VIIRS images
+description: Reduce processing time
 
 runs:
   using: "composite"
   steps:
-    - name: Replace dates in GFMS_tool.py
+    - name: Reduce processing time
       shell: bash
       run: |
         python <<'EOF'
         import os
-        file_path = os.path.join(".", "DFO_tool.py")
+        file_path = os.path.join(".", "VIIRS_tool.py")
 
         # Text replacements
         replacements = {
-            "datelist = generate_procesing_list()": "datelist = list(generate_procesing_list().keys())[:1]"
+            "for i in range(1, 137):": "for i in range(1, 10):"
         }
 
         # Read file
