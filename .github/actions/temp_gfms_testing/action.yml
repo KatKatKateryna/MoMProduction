@@ -1,45 +1,30 @@
-name: Check Path Exists
-description: Verifies that given file patterns exist (supports wildcards)
-
-inputs:
-  path:
-    description: "JSON array of file patterns"
-    required: true
+name: Replace GFMS dates to 2025
+description: Replaces dates in GFMS_tool.py with available values (year 2025)
 
 runs:
   using: "composite"
   steps:
-    - name: Verify patterns
+    - name: Replace dates in GFMS_tool.py
       shell: bash
       run: |
-        PATTERNS='${{ inputs.path }}'
-        OS='${{ runner.os }}'
+        python <<'EOF'
+        import os
+        file_path = os.path.join(".", "GFMS_tool.py")
 
-        python <<EOF
-        import os, sys, json, glob
+        # Text replacements
+        replacements = {
+            "(settings.GLOFAS_PROC_DIR, txt)": "(settings.GLOFAS_PROC_DIR, txt[6:]+'202511')",
+            "job_list.append((txt": "job_list.append((txt[6:]+'202511'"
+        }
 
-        patterns = json.loads("""$PATTERNS""")
-        runner_os = "$OS"
+        # Read file
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
 
-        home = os.path.expanduser("~")
+        for old, new in replacements.items():
+            content = content.replace(old, new)
 
-        for pattern in patterns:
-            # Expand ~
-            pattern = os.path.expanduser(pattern)
-
-            if runner_os == "Windows":
-                pattern = pattern.replace("/", "\\")
-
-            print(f"Checking pattern: {pattern}")
-
-            matches = glob.glob(pattern)
-
-            if not matches:
-                print(f"ERROR: No files match: {pattern}")
-                sys.exit(1)
-
-            for m in matches:
-                print(" -", m)
-
-        print("All required patterns matched.")
+        # Write file
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(content)
         EOF
