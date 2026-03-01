@@ -33,12 +33,12 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Run setup (Linux)
+      - name: Run setup
         run: |
           chmod +x first_setup/setup.sh
           ./first_setup/setup.sh
 
-      - name: Run ${{ matrix.job_type }} job (Linux)
+      - name: Run ${{ matrix.job_type }} job
         run: |
           source "$(conda info --base)/etc/profile.d/conda.sh"
           conda activate myenv
@@ -73,12 +73,12 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Run setup (Windows)
+      - name: Run setup
         shell: pwsh
         run: |
           .\first_setup\setup.ps1
 
-      - name: Run ${{ matrix.job_type }} job (Windows)
+      - name: Run ${{ matrix.job_type }} job
         shell: pwsh
         run: |
           .\.venv\Scripts\activate
