@@ -69,6 +69,7 @@ if (Test-Path Env:\GITHUB_WORKSPACE) {
 if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
     Write-Host "Installing uv from local installer..."
     & "$RepoDir\installers\uv-installer.ps1"
+    $env:Path = "C:\Users\runneradmin\.local\bin;$env:Path"
 } else {
     Write-Host "uv already installed."
 }
