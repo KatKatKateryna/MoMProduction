@@ -73,7 +73,7 @@ jobs:
           AUTH_DFO_TOKEN: ${{ secrets.AUTH_DFO_TOKEN }}
 
       - name: Verify output files for ${{ matrix.job_type }}
-        uses: ./.github/actions/check-path
+        uses: ./.github/actions/check_path
         with:
           path: ${{ toJson(matrix.files) }}
 
@@ -141,6 +141,6 @@ jobs:
           AUTH_DFO_TOKEN: ${{ secrets.AUTH_DFO_TOKEN }}
 
       - name: Verify output files for ${{ matrix.job_type }}
-        uses: ./.github/actions/check-path
+        uses: ./.github/actions/check_path
         with:
           path: ${{ toJson(matrix.files) }}
