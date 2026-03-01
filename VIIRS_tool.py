@@ -404,6 +404,13 @@ def VIIRS_run_adate(adate):
     VIIRS_extract_by_watershed(adate, tiffs)
 
 
+def run_job(delay):
+    print("PID:", os.getpid())
+
+    adate = generate_adate(delay=delay)
+    VIIRS_run_adate(adate)
+
+
 def VIIRS_cron(adate=""):
     """main cron script"""
 
