@@ -42,8 +42,7 @@ jobs:
         run: |
           python - <<'EOF'
           import os
-
-          os.path.join(".", "GFMS_tool.py")
+          file_path = os.path.join(".", "GFMS_tool.py")
 
           # Text replacements
           replacements = {
