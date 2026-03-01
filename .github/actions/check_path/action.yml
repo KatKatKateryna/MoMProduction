@@ -13,13 +13,12 @@ runs:
       shell: bash
       run: |
         PATTERNS='${{ inputs.path }}'
-        OS='${{ runner.os }}'
 
         python <<EOF
         import os, sys, json, glob
 
         patterns = json.loads("""$PATTERNS""")
-        runner_os = "$OS"
+        runner_os = os.environ["RUNNER_OS"]
 
         home = os.path.expanduser("~")
 

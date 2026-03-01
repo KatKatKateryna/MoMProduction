@@ -75,6 +75,8 @@ jobs:
         uses: ./.github/actions/check_path
         with:
           path: ${{ toJson(matrix.files) }}
+        env:
+          RUNNER_OS: ${{ runner.os }}
 
   ########################################
   # WINDOWS JOB
@@ -142,3 +144,5 @@ jobs:
         uses: ./.github/actions/check_path
         with:
           path: ${{ toJson(matrix.files) }}
+        env:
+          RUNNER_OS: ${{ runner.os }}
