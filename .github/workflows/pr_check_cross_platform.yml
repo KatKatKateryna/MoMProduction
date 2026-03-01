@@ -57,14 +57,10 @@ jobs:
       - name: Replace GFMS dates temporarily (while it's down) - for testing only
         uses: ./.github/actions/temp_gfms_testing
 
-      - name: Keep 1 date for DFO - for testing only
-        uses: ./.github/actions/reduce_dfo_dates_testing
-
-      - name: Keep 2 dates for GFMS - for testing only
-        uses: ./.github/actions/reduce_gfms_dates_testing
-
-      - name: Less images for VIIRS - for testing only
-        uses: ./.github/actions/reduce_viirs_images_testing
+      - uses: ./.github/actions/reduce_dfo_dates_testing
+      - uses: ./.github/actions/reduce_gfms_dates_testing
+      - uses: ./.github/actions/reduce_viirs_images_testing
+      - uses: ./.github/actions/reduce_hwrf_processing_testing
 
       - name: Run ${{ matrix.job_type }} job
         run: |
@@ -129,14 +125,10 @@ jobs:
       - name: Replace GFMS dates temporarily (while it's down) - for testing only
         uses: ./.github/actions/temp_gfms_testing
 
-      - name: Keep 1 date for DFO - for testing only
-        uses: ./.github/actions/reduce_dfo_dates_testing
-
-      - name: Keep 2 dates for GFMS - for testing only
-        uses: ./.github/actions/reduce_gfms_dates_testing
-
-      - name: Less images for VIIRS - for testing only
-        uses: ./.github/actions/reduce_viirs_images_testing
+      - uses: ./.github/actions/reduce_dfo_dates_testing
+      - uses: ./.github/actions/reduce_gfms_dates_testing
+      - uses: ./.github/actions/reduce_viirs_images_testing
+      - uses: ./.github/actions/reduce_hwrf_processing_testing
 
       - name: Run ${{ matrix.job_type }} job
         shell: pwsh
