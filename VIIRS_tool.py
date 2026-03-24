@@ -415,8 +415,9 @@ def VIIRS_cron(adate=""):
     if adate == "":
         dates = [generate_adate(delay) for delay in [2, 1]]
 
-    [VIIRS_run_adate(adate) for adate in dates]
-    [update_VIIRS_MoM(adate) for adate in dates]
+    for adate in dates:
+        VIIRS_run_adate(adate)
+        update_VIIRS_MoM(adate)
 
     # change current working directory back to base dir
     os.chdir(settings.BASE_DIR)
