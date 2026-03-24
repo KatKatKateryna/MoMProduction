@@ -9,7 +9,7 @@ set -o pipefail
 
 REPO_URL="https://github.com/KatKatKateryna/MoMProduction.git"
 REPO_DIR="$HOME/MoMProduction"
-REPO_BRANCH="dev"
+REPO_BRANCH="main"
 if command -v conda >/dev/null 2>&1; then
     CONDA_DIR="$(conda info --base)"
 else
