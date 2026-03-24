@@ -1,6 +1,5 @@
 ================================================================================
 CHANGES SUMMARY: Original Repo (Global-Flood-Assessment/MoMProduction main)
-             vs. Fork (KatKatKateryna/MoMProduction dev)
 ================================================================================
 
 12 Python files changed:
@@ -171,15 +170,6 @@ Files affected: settings.py, utilities.py, GFMS_tool.py, HWRF_tool.py,
       trigger update_VIIRS_MoM(). The MoM update step will be silently skipped.
       The working directory will also not be reset after the call.
 
-  CONSEQUENCE 2 — processing order in VIIRS_cron():
-      UPSTREAM: for each date, run VIIRS_run_adate() then immediately
-                update_VIIRS_MoM() (interleaved, one date at a time).
-      NEW:      run VIIRS_run_adate() for ALL dates first, then
-                update_VIIRS_MoM() for ALL dates (batch).
-      If VIIRS_run_adate() fails on date 1, update_VIIRS_MoM() will not be
-      called for date 1. In the upstream, date 1's MoM update would have
-      already completed before date 2 started.
-
 --- VIIRS_tool.py: VIIRS_cron() fixdate path now explicitly calls
     update_VIIRS_MoM() ---
 
@@ -308,8 +298,7 @@ Files affected: DFO_tool.py, GFMS_tool.py, initialize.py, MoM_run.py
     pop_matching_string_from_list(): finds and removes a URL from a list
 
   Parallel processing Pool code moved into a raw string literal r"""..."""
-  (effectively commented out). Previously it was dead code after a return
-  statement; now it is preserved as documentation of a future option.
+  (effectively commented out), preserved as documentation of a future option.
 
 --- initialize.py ---
   Typo fixed: "crete " -> "create " in the directory creation print message.
@@ -332,13 +321,11 @@ Files affected: DFO_tool.py, GFMS_tool.py, initialize.py, MoM_run.py
   pyproject.toml             Package build configuration (replaces/supplements
                              environment.yml for pip-based installs)
   environment.yml            (present in fork, may differ from upstream)
-  production.cfg             Live config file (not in upstream — gitignored)
   Dockerfile                 Container build definition
   .github/workflows/         CI/CD workflows (cron_jobs_ubuntu.yml,
                              pr_check_cross_platform.yml)
   data/watershed_shp/        Shapefiles moved from root watershed_shp/ into
                              data/watershed_shp/ (matches new settings.py path)
-  sample_data/               Sample HWRF test data
 
 ================================================================================
 END OF CHANGES SUMMARY
