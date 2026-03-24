@@ -415,7 +415,14 @@ def VIIRS_cron(adate=""):
     gdal.SetConfigOption("GDAL_NUM_THREADS", str(os.cpu_count() / processes))
 
     if adate == "":
-        # check two days
+        dates = [generate_adate(delay) for delay in [2, 1]]
+        [VIIRS_run_adate(adate) for adate in dates]
+        [update_VIIRS_MoM(adate) for adate in dates]
+        # change current working directory back to base dir
+        os.chdir(settings.BASE_DIR)
+
+        return
+        # using parallel processing - too much RAM
         with Pool(processes=2) as p:
             # p.map(run_job, [2, 1])
             dates = [generate_adate(delay) for delay in [2, 1]]
