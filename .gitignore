@@ -132,4 +132,5 @@ production.cfg
 *.lock
 .vscode/*
 database_update/download*
+database_update/*.csv
 *.tiff

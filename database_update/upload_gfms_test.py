@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DOWNLOAD_DIR = "downloads/gfms_csv_files"
+DOWNLOAD_DIR = "download_gfms_csv_files"
 DB_PARAMS = {
     "host":     "aws-1-eu-central-1.pooler.supabase.com",
     "port":     5432,
@@ -31,9 +31,10 @@ VALUES %s
 
 def main():
     # Pick the first (alphabetically sorted) file
-    files = sorted(os.listdir(DOWNLOAD_DIR))
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    files = sorted(os.listdir(base_dir))
     filename = files[0]
-    filepath = os.path.join(DOWNLOAD_DIR, filename)
+    filepath = os.path.join(base_dir, DOWNLOAD_DIR, filename)
 
     # Extract timestamp from filename: part after last '_' and before '.'
     timestamp = filename.rsplit("_", 1)[-1].split(".")[0]
