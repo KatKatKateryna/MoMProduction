@@ -14,8 +14,9 @@ import csv
 import os
 import shutil
 
-DOWNLOAD_DIR = "download_gfms_csv_files"
-OUTPUT_FILE  = "gfms_summary_filtered.csv"
+base_dir = os.path.dirname(os.path.abspath(__file__))
+DOWNLOAD_DIR = os.path.join(base_dir, "download_gfms_csv_files")
+OUTPUT_FILE = os.path.join(base_dir, "gfms_summary_filtered.csv")
 MIN_DISK_GB  = 0.5
 
 FLOOD_COLS = ["GFMS_TotalArea_km", "GFMS_perc_Area", "GFMS_MeanDepth", "GFMS_MaxDepth", "GFMS_Duration"]
