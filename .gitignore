@@ -131,3 +131,5 @@ production.cfg
 
 *.lock
 .vscode/*
+.download*
+*.tiff
