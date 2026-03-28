@@ -236,10 +236,6 @@ def append_merged_rows(rows):
 
 
 def main():
-    print("Loading stations lookup...")
-    stations_rows, rows_by_id, geojson_lookup, csv_lookup, next_id = load_stations()
-    print(f"  {len(stations_rows)} stations loaded")
-
     print("Reading existing timestamps from merged CSV...")
     existing  = read_existing_timestamps()
     print(f"  {len(existing)} timestamps already processed")
@@ -256,6 +252,10 @@ def main():
     if not new_files:
         print("Nothing to do.")
         return
+
+    print("Loading stations lookup...")
+    stations_rows, rows_by_id, geojson_lookup, csv_lookup, next_id = load_stations()
+    print(f"  {len(stations_rows)} stations loaded\n")
 
     total_rows          = 0
     total_new_stations  = 0

@@ -236,10 +236,6 @@ def process_file(local_path, filename, writer, lookup, full_rows, max_id):
 def main():
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-    print("Loading watershed lookup...")
-    lookup, max_id, full_rows = load_lookup()
-    print(f"  {len(lookup):,} entries loaded (max id={max_id})")
-
     print("Reading existing timestamps from output CSV...")
     existing_ts = load_existing_timestamps()
     print(f"  {len(existing_ts):,} timestamps already present in {OUTPUT_FILE}")
@@ -254,6 +250,10 @@ def main():
     if not to_process:
         print("Nothing to do.")
         return
+
+    print("Loading watershed lookup...")
+    lookup, max_id, full_rows = load_lookup()
+    print(f"  {len(lookup):,} entries loaded (max id={max_id})\n")
 
     out_f, writer = open_output_csv()
 
