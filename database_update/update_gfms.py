@@ -1,12 +1,12 @@
 """
-Incrementally update gfms_summary_filtered.csv with new GFMS summary files.
+Incrementally update summary_gfms_filtered.csv with new GFMS summary files.
 
-1. Read existing timestamps from gfms_summary_filtered.csv.
+1. Read existing timestamps from summary_gfms_filtered.csv.
 2. Fetch the file listing from the server and identify new timestamps.
 3. For each new file (in sorted order):
    a. Download content into memory.
    b. Keep only flood rows (any numeric column non-zero); fall back to last row if none.
-   c. Append filtered rows to gfms_summary_filtered.csv.
+   c. Append filtered rows to summary_gfms_filtered.csv.
 """
 
 import csv
@@ -20,7 +20,7 @@ import requests
 
 BASE_URL    = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/GFMS/GFMS_summary/"
 base_dir    = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_FILE = os.path.join(base_dir, "gfms_summary_filtered.csv")
+OUTPUT_FILE = os.path.join(base_dir, "summary_gfms_filtered.csv")
 
 RETRY_ATTEMPTS = 3
 RETRY_DELAY    = 5

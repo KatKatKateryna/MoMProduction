@@ -1,11 +1,11 @@
 """
-Incrementally update hwrf_summary_all.csv with new HWRF summary files.
+Incrementally update summary_hwrf_all.csv with new HWRF summary files.
 
-1. Read existing timestamps from hwrf_summary_all.csv.
+1. Read existing timestamps from summary_hwrf_all.csv.
 2. Fetch the file listing from the server and identify new timestamps.
 3. For each new file (in sorted order):
    a. Download content into memory.
-   b. Append all rows to hwrf_summary_all.csv.
+   b. Append all rows to summary_hwrf_all.csv.
 """
 
 import csv
@@ -19,7 +19,7 @@ import requests
 
 BASE_URL    = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/HWRF/HWRF_summary/"
 base_dir    = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_FILE = os.path.join(base_dir, "hwrf_summary_all.csv")
+OUTPUT_FILE = os.path.join(base_dir, "summary_hwrf_all.csv")
 
 RETRY_ATTEMPTS = 3
 RETRY_DELAY    = 5

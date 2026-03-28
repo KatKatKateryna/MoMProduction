@@ -6,7 +6,7 @@ For each file on the server:
   2. Download the file.
   3. Keep all rows (no filtering).
   4. Resolve matching_id_watershed from lookup; add new entries to lookup if missing.
-  5. Append rows to final_alert_filtered.csv.
+  5. Append rows to summary_final_alert_all_partial.csv.
   6. Delete the downloaded file immediately.
 
 Run repeatedly to pick up new files without reprocessing old ones.
@@ -23,7 +23,7 @@ import requests
 BASE_URL       = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/Final_Alert/"
 base_dir       = os.path.dirname(os.path.abspath(__file__))
 DOWNLOAD_DIR   = os.path.join(base_dir, "final_alert_csv_files")
-OUTPUT_FILE    = os.path.join(base_dir, "final_alert_filtered.csv")
+OUTPUT_FILE    = os.path.join(base_dir, "summary_final_alert_all_partial.csv")
 LOOKUP_FILE    = os.path.join(base_dir, "all_watersheds.csv")
 MIN_DISK_GB    = 0.1
 RETRY_ATTEMPTS = 3
