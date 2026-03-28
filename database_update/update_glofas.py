@@ -5,9 +5,10 @@ Each timestamp on the server has either a .geojson or a .csv file; GeoJSON is pr
 when both exist. For each new timestamp:
   1. Parse each row/feature's properties.
   2. Match against glofas_stations.csv:
-     - GeoJSON: exact match on all STATIC_COLS.
-     - CSV:     match on CSV_STATIC_COLS (subset available in CSV); Lat/Lon/Upstream area
-                are float-normalised so "72.250" matches the stored "72.25".
+     - GeoJSON: match on all STATIC_COLS with numeric cols float-normalised.
+     - CSV:     match on CSV_STATIC_COLS (subset available in CSV) with the same
+                float normalisation, so "72.250" matches "72.25" and "198000.0"
+                matches "198000" regardless of source file format.
      In both cases: match found → reuse station_id; no match → new row.
      CSV-sourced new rows leave GeoJSON-only columns as empty strings.
   3. Write station_id, pfaf_id, ID, Point No, and dynamic columns to glofas_merged.csv.
@@ -48,8 +49,11 @@ CSV_STATIC_COLS = [
     "Station", "Basin", "Country",
     "Lat", "Lon", "Upstream area", "pfaf_id",
 ]
-# These CSV cols are numeric and need float-normalisation to match GeoJSON-sourced values.
-CSV_NUMERIC_COLS = {"Lat", "Lon", "Upstream area"}
+
+# Numeric cols that need float-normalisation so that "198000" matches "198000.0"
+# and "72.250" matches "72.25" regardless of source file format.
+# Applied in both the GeoJSON and CSV match keys.
+NUMERIC_COLS = {"Lat", "Lon", "Upstream area", "area_km2", "rfr_score", "cfr_score"}
 
 # Columns only available in GeoJSON — filled in when a CSV-sourced station is later matched.
 GEOJSON_ONLY_COLS = [c for c in STATIC_COLS if c not in CSV_STATIC_COLS]
@@ -84,14 +88,17 @@ def norm_float(v):
 
 
 def geojson_key(props):
-    """Match key for GeoJSON rows: exact string match on all STATIC_COLS."""
-    return tuple(prop(props, c) for c in STATIC_COLS)
+    """Match key for GeoJSON rows: all STATIC_COLS, numeric ones float-normalised."""
+    return tuple(
+        norm_float(prop(props, c)) if c in NUMERIC_COLS else prop(props, c)
+        for c in STATIC_COLS
+    )
 
 
 def csv_key(props):
     """Match key for CSV rows: CSV_STATIC_COLS, numeric ones float-normalised."""
     return tuple(
-        norm_float(prop(props, c)) if c in CSV_NUMERIC_COLS else prop(props, c)
+        norm_float(prop(props, c)) if c in NUMERIC_COLS else prop(props, c)
         for c in CSV_STATIC_COLS
     )
 
@@ -101,8 +108,8 @@ def load_stations():
     Load glofas_stations.csv.
     Returns (rows list, rows_by_id, geojson_lookup, csv_lookup, next_id).
     rows_by_id:     {station_id: row dict} for fast in-place updates
-    geojson_lookup: keyed by geojson_key (STATIC_COLS exact match)
-    csv_lookup:     keyed by csv_key     (CSV_STATIC_COLS float-normalised match)
+    geojson_lookup: keyed by geojson_key (STATIC_COLS, numerics float-normalised)
+    csv_lookup:     keyed by csv_key     (CSV_STATIC_COLS, numerics float-normalised)
     """
     if not os.path.exists(STATIONS_FILE):
         return [], {}, {}, {}, 1

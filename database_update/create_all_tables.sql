@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS hwrf_summary (
 );
 
 -- GloFAS stations (static per-station metadata)
+-- Lat/Lon use NUMERIC(8,3) rather than DOUBLE PRECISION so that equality
+-- comparisons in the unique constraint are always exact (GloFAS coordinates
+-- are always 3 decimal places; binary float can produce false mismatches).
 CREATE TABLE IF NOT EXISTS glofas_stations (
     station_id          INTEGER         PRIMARY KEY,
     "Station"           TEXT,
@@ -36,13 +39,14 @@ CREATE TABLE IF NOT EXISTS glofas_stations (
     "Admin0"            TEXT,
     "Admin1"            TEXT,
     "Location"          TEXT,
-    "Lat"               DOUBLE PRECISION,
-    "Lon"               DOUBLE PRECISION,
-    "Upstream area"     DOUBLE PRECISION,
+    "Lat"               NUMERIC(8,3),
+    "Lon"               NUMERIC(8,3),
+    "Upstream area"     NUMERIC(15,3),
     "area_km2"          DOUBLE PRECISION,
     pfaf_id             INTEGER,
     "rfr_score"         DOUBLE PRECISION,
-    "cfr_score"         DOUBLE PRECISION
+    "cfr_score"         DOUBLE PRECISION,
+    CONSTRAINT uq_station UNIQUE ("Station", "Country", "Lat", "Lon", pfaf_id)
 );
 
 -- GloFAS merged (dynamic per-timestamp forecast data)
@@ -89,16 +93,20 @@ CREATE TABLE IF NOT EXISTS dfo_summary (
 );
 
 -- Watershed lookup (static per-watershed metadata)
+-- CentroidX/CentroidY use NUMERIC(10,6) rather than DOUBLE PRECISION so that
+-- equality comparisons in the unique constraint are always exact. 6 decimal
+-- places matches the precision in the source data (~0.1 m resolution).
 CREATE TABLE IF NOT EXISTS watershed_lookup (
     watershed_id        INTEGER         PRIMARY KEY,
     pfaf_id             INTEGER,
     "name"              TEXT,
     "name_1"            TEXT,
-    "CentroidX"         DOUBLE PRECISION,
-    "CentroidY"         DOUBLE PRECISION,
+    "CentroidX"         NUMERIC(10,6),
+    "CentroidY"         NUMERIC(10,6),
     "Admin1_count"      INTEGER,
     "Admin1_names"      TEXT,
-    "area_km2"          DOUBLE PRECISION
+    "area_km2"          DOUBLE PRECISION,
+    CONSTRAINT uq_watershed UNIQUE (pfaf_id, "name", "name_1", "CentroidX", "CentroidY")
 );
 
 -- Final Alert (dynamic per-timestamp alert data)
