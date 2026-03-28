@@ -1,7 +1,10 @@
+-- current server: https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/ 
+
 -- Enable PostGIS extension
 CREATE EXTENSION IF NOT EXISTS postgis;
 
--- GFMS
+-- GFMS (8 csvs per day, every 3h)
+-- image (1-4 tiffs per day (inconsistent): Flood_byStore)
 CREATE TABLE IF NOT EXISTS gfms_summary (
     pfaf_id              INTEGER,
     "timestamp"          VARCHAR(64),
@@ -13,7 +16,7 @@ CREATE TABLE IF NOT EXISTS gfms_summary (
     PRIMARY KEY (pfaf_id, "timestamp")
 );
 
--- HWRF
+-- HWRF (1-4 csvs per day, inconsistent)
 CREATE TABLE IF NOT EXISTS hwrf_summary (
     pfaf_id              INTEGER,
     "timestamp"          VARCHAR(64),
@@ -24,7 +27,7 @@ CREATE TABLE IF NOT EXISTS hwrf_summary (
     PRIMARY KEY (pfaf_id, "timestamp")
 );
 
--- GloFAS stations (static per-station metadata)
+-- All GloFAS stations: static per-station metadata
 -- Lat/Lon use NUMERIC(8,3) rather than DOUBLE PRECISION so that equality
 -- comparisons in the unique constraint are always exact (GloFAS coordinates
 -- are always 3 decimal places; binary float can produce false mismatches).
@@ -49,7 +52,7 @@ CREATE TABLE IF NOT EXISTS all_glofas_stations (
     CONSTRAINT uq_station UNIQUE ("Station", "Country", "Lat", "Lon", pfaf_id)
 );
 
--- GloFAS merged (dynamic per-timestamp forecast data)
+-- GloFAS merged: dynamic per-timestamp forecast data (1 csv, 1 geojson per day)
 CREATE TABLE IF NOT EXISTS glofas_merged (
     "timestamp"         VARCHAR(64),
     matching_id_station          INTEGER         REFERENCES all_glofas_stations(matching_id_station),
@@ -66,7 +69,8 @@ CREATE TABLE IF NOT EXISTS glofas_merged (
     PRIMARY KEY ("timestamp", matching_id_station)
 );
 
--- VIIRS
+-- VIIRS (1 csv per day)
+-- image (2 tiffs per day: 1day, 5day)
 CREATE TABLE IF NOT EXISTS viirs_summary (
     pfaf_id                  INTEGER,
     "timestamp"              VARCHAR(64),
@@ -77,7 +81,8 @@ CREATE TABLE IF NOT EXISTS viirs_summary (
     PRIMARY KEY (pfaf_id, "timestamp")
 );
 
--- DFO
+-- DFO (1 csv per day)
+-- image (1 tiff per day (inconsistent, some days are missing): Flood_3-Day_250m)
 CREATE TABLE IF NOT EXISTS dfo_summary (
     pfaf_id                   INTEGER,
     "timestamp"               VARCHAR(64),
@@ -92,7 +97,7 @@ CREATE TABLE IF NOT EXISTS dfo_summary (
     PRIMARY KEY (pfaf_id, "timestamp")
 );
 
--- Watershed lookup (static per-watershed metadata)
+-- All Watersheds: static per-watershed metadata
 -- CentroidX/CentroidY use NUMERIC(10,6) rather than DOUBLE PRECISION so that
 -- equality comparisons in the unique constraint are always exact. 6 decimal
 -- places matches the precision in the source data (~0.1 m resolution).
@@ -109,7 +114,7 @@ CREATE TABLE IF NOT EXISTS all_watersheds (
     CONSTRAINT uq_watershed UNIQUE (pfaf_id, "name", "name_1", "CentroidX", "CentroidY")
 );
 
--- Final Alert (dynamic per-timestamp alert data)
+-- Final Alert: dynamic per-timestamp alert data (4 csvs per day)
 CREATE TABLE IF NOT EXISTS final_alert (
     "timestamp"                 VARCHAR(64),
     matching_id_watershed                INTEGER         REFERENCES all_watersheds(matching_id_watershed),
