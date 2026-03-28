@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS hwrf_summary (
 -- Lat/Lon use NUMERIC(8,3) rather than DOUBLE PRECISION so that equality
 -- comparisons in the unique constraint are always exact (GloFAS coordinates
 -- are always 3 decimal places; binary float can produce false mismatches).
-CREATE TABLE IF NOT EXISTS glofas_stations (
+CREATE TABLE IF NOT EXISTS all_glofas_stations (
     station_id          INTEGER         PRIMARY KEY,
     "Station"           TEXT,
     "Basin"             TEXT,
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS glofas_stations (
 -- GloFAS merged (dynamic per-timestamp forecast data)
 CREATE TABLE IF NOT EXISTS glofas_merged (
     "timestamp"         VARCHAR(64),
-    station_id          INTEGER         REFERENCES glofas_stations(station_id),
+    station_id          INTEGER         REFERENCES all_glofas_stations(station_id),
     pfaf_id             INTEGER,
     "ID"                TEXT,
     "Point No"          INTEGER,
@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS dfo_summary (
 -- CentroidX/CentroidY use NUMERIC(10,6) rather than DOUBLE PRECISION so that
 -- equality comparisons in the unique constraint are always exact. 6 decimal
 -- places matches the precision in the source data (~0.1 m resolution).
-CREATE TABLE IF NOT EXISTS watershed_lookup (
+CREATE TABLE IF NOT EXISTS all_watersheds (
     watershed_id        INTEGER         PRIMARY KEY,
     pfaf_id             INTEGER,
     "name"              TEXT,
@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS watershed_lookup (
 -- Final Alert (dynamic per-timestamp alert data)
 CREATE TABLE IF NOT EXISTS final_alert (
     "timestamp"                 VARCHAR(64),
-    watershed_id                INTEGER         REFERENCES watershed_lookup(watershed_id),
+    watershed_id                INTEGER         REFERENCES all_watersheds(watershed_id),
     pfaf_id                     INTEGER,
     "rfr_score"                 DOUBLE PRECISION,
     "cfr_score"                 DOUBLE PRECISION,

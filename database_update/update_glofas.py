@@ -1,10 +1,10 @@
 """
-Incrementally update glofas_stations.csv and glofas_merged.csv from GloFAS files.
+Incrementally update all_glofas_stations.csv and glofas_merged.csv from GloFAS files.
 
 Each timestamp on the server has either a .geojson or a .csv file; GeoJSON is preferred
 when both exist. For each new timestamp:
   1. Parse each row/feature's properties.
-  2. Match against glofas_stations.csv:
+  2. Match against all_glofas_stations.csv:
      - GeoJSON: match on all STATIC_COLS with numeric cols float-normalised.
      - CSV:     match on CSV_STATIC_COLS (subset available in CSV) with the same
                 float normalisation, so "72.250" matches "72.25" and "198000.0"
@@ -26,14 +26,14 @@ import requests
 
 BASE_URL      = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/GLOFAS/"
 base_dir      = os.path.dirname(os.path.abspath(__file__))
-STATIONS_FILE = os.path.join(base_dir, "glofas_stations.csv")
+STATIONS_FILE = os.path.join(base_dir, "all_glofas_stations.csv")
 MERGED_FILE   = os.path.join(base_dir, "glofas_merged.csv")
 
 RETRY_ATTEMPTS = 3
 RETRY_DELAY    = 5
 MIN_DISK_GB    = 0.5
 
-# All columns stored in glofas_stations.csv.
+# All columns stored in all_glofas_stations.csv.
 # ID and Point No are excluded from matching and written to the merged table instead.
 # CSV-sourced rows leave the GeoJSON-only columns as empty strings.
 STATIC_COLS = [
@@ -46,8 +46,7 @@ STATIONS_COLS = ["station_id"] + STATIC_COLS
 
 # Subset of STATIC_COLS present in CSV files (used for CSV-only matching).
 CSV_STATIC_COLS = [
-    "Station", "Basin", "Country",
-    "Lat", "Lon", "Upstream area", "pfaf_id",
+    "Station", "Country", "Lat", "Lon", "pfaf_id",
 ]
 
 # Numeric cols that need float-normalisation so that "198000" matches "198000.0"
@@ -57,6 +56,9 @@ NUMERIC_COLS = {"Lat", "Lon", "Upstream area", "area_km2", "rfr_score", "cfr_sco
 
 # Columns only available in GeoJSON — filled in when a CSV-sourced station is later matched.
 GEOJSON_ONLY_COLS = [c for c in STATIC_COLS if c not in CSV_STATIC_COLS]
+
+# Columns that can be backfilled from any newer row if the stored value is empty.
+COMPLETABLE_COLS = ["Basin", "Upstream area"]
 
 # Dynamic columns written to glofas_merged.csv (change per forecast file).
 # pfaf_id is repeated as a convenience join key.
@@ -105,7 +107,7 @@ def csv_key(props):
 
 def load_stations():
     """
-    Load glofas_stations.csv.
+    Load all_glofas_stations.csv.
     Returns (rows list, rows_by_id, geojson_lookup, csv_lookup, next_id).
     rows_by_id:     {station_id: row dict} for fast in-place updates
     geojson_lookup: keyed by geojson_key (STATIC_COLS, numerics float-normalised)
@@ -170,6 +172,19 @@ def parse_csv(resp):
     return list(csv.DictReader(io.StringIO(resp.content.decode("utf-8"))))
 
 
+def complete_row(existing_row, props):
+    """Overwrite COMPLETABLE_COLS on an existing station row if the incoming
+    value is non-empty and the stored value is currently empty.
+    Returns True if any value was updated."""
+    changed = False
+    for c in COMPLETABLE_COLS:
+        incoming = prop(props, c)
+        if incoming and not existing_row.get(c):
+            existing_row[c] = incoming
+            changed = True
+    return changed
+
+
 def process_rows(props_list, fmt, timestamp,
                  stations_rows, rows_by_id, geojson_lookup, csv_lookup, next_id):
     """
@@ -181,11 +196,12 @@ def process_rows(props_list, fmt, timestamp,
     CSV:     use csv_lookup only.
 
     Mutates stations_rows, rows_by_id, and both lookups.
-    Returns (merged_rows, new_stations_count, updated_rows_count, updated_next_id).
+    Returns (merged_rows, new_stations_count, updated_rows_count, completed_rows_count, updated_next_id).
     """
-    merged_rows   = []
-    new_stations  = 0
-    updated_rows  = 0
+    merged_rows    = []
+    new_stations   = 0
+    updated_rows   = 0
+    completed_rows = 0
 
     for props in props_list:
         station_id = None
@@ -193,19 +209,27 @@ def process_rows(props_list, fmt, timestamp,
         if fmt == "geojson":
             station_id = geojson_lookup.get(geojson_key(props))
 
-            if station_id is None:
-                # Fall back: try matching on the 8 CSV-available cols
+            if station_id is not None:
+                if complete_row(rows_by_id[station_id], props):
+                    completed_rows += 1
+            else:
+                # Fall back: try matching on CSV-available cols
                 station_id = csv_lookup.get(csv_key(props))
                 if station_id is not None:
                     # Found a CSV-sourced row — fill in the GeoJSON-only columns
                     existing_row = rows_by_id[station_id]
                     for c in GEOJSON_ONLY_COLS:
                         existing_row[c] = prop(props, c)
+                    if complete_row(existing_row, props):
+                        completed_rows += 1
                     # Register the complete key so future GeoJSON files match directly
                     geojson_lookup[geojson_key(existing_row)] = station_id
                     updated_rows += 1
         else:
             station_id = csv_lookup.get(csv_key(props))
+            if station_id is not None:
+                if complete_row(rows_by_id[station_id], props):
+                    completed_rows += 1
 
         if station_id is None:
             station_id = next_id
@@ -219,6 +243,12 @@ def process_rows(props_list, fmt, timestamp,
             csv_lookup[csv_key(new_row)]         = station_id
             new_stations += 1
 
+        if station_id is None:
+            raise RuntimeError(
+                f"station_id is None for props: {props}. "
+                f"This should never happen — check lookup logic."
+            )
+
         merged_row = {
             "timestamp":  timestamp,
             "station_id": station_id,
@@ -230,7 +260,22 @@ def process_rows(props_list, fmt, timestamp,
             merged_row[c] = prop(props, c)
         merged_rows.append(merged_row)
 
-    return merged_rows, new_stations, updated_rows, next_id
+    return merged_rows, new_stations, updated_rows, completed_rows, next_id
+
+
+def check_merged_schema():
+    """Abort if the existing merged file's header doesn't match MERGED_COLS."""
+    if not os.path.exists(MERGED_FILE):
+        return
+    with open(MERGED_FILE, newline="", encoding="utf-8") as f:
+        existing_header = next(csv.reader(f), [])
+    if existing_header != MERGED_COLS:
+        raise RuntimeError(
+            f"Schema mismatch in {MERGED_FILE}.\n"
+            f"  File header : {existing_header}\n"
+            f"  MERGED_COLS : {MERGED_COLS}\n"
+            f"Delete or migrate the file before running."
+        )
 
 
 def append_merged_rows(rows):
@@ -260,13 +305,16 @@ def main():
         print("Nothing to do.")
         return
 
+    check_merged_schema()
+
     print("Loading stations lookup...")
     stations_rows, rows_by_id, geojson_lookup, csv_lookup, next_id = load_stations()
     print(f"  {len(stations_rows)} stations loaded\n")
 
-    total_rows          = 0
-    total_new_stations  = 0
-    total_updated_rows  = 0
+    total_rows           = 0
+    total_new_stations   = 0
+    total_updated_rows   = 0
+    total_completed_rows = 0
 
     for i, (timestamp, filename) in enumerate(new_files.items(), 1):
         disk = free_disk_gb()
@@ -280,29 +328,31 @@ def main():
             resp       = download(filename)
             props_list = parse_geojson(resp) if fmt == "geojson" else parse_csv(resp)
 
-            merged_rows, new_stations, updated_rows, next_id = process_rows(
+            merged_rows, new_stations, updated_rows, completed_rows, next_id = process_rows(
                 props_list, fmt, timestamp,
                 stations_rows, rows_by_id, geojson_lookup, csv_lookup, next_id
             )
             append_merged_rows(merged_rows)
 
-            if new_stations or updated_rows:
+            if new_stations or updated_rows or completed_rows:
                 save_stations(stations_rows)
 
-            total_rows         += len(merged_rows)
-            total_new_stations += new_stations
-            total_updated_rows += updated_rows
+            total_rows           += len(merged_rows)
+            total_new_stations   += new_stations
+            total_updated_rows   += updated_rows
+            total_completed_rows += completed_rows
             print(
                 f"  [{i}/{len(new_files)}] {filename} ({fmt}) -> "
                 f"{len(merged_rows)} rows, {new_stations} new, "
-                f"{updated_rows} updated | disk: {disk:.2f} GB"
+                f"{updated_rows} updated, {completed_rows} completed | disk: {disk:.2f} GB"
             )
         except Exception as exc:
             print(f"  [{i}/{len(new_files)}] FAILED {filename}: {exc}")
 
     print(f"\nDone. {total_rows:,} rows appended to {MERGED_FILE}")
     print(f"      {total_new_stations} new stations, "
-          f"{total_updated_rows} stations filled from GeoJSON")
+          f"{total_updated_rows} stations filled from GeoJSON, "
+          f"{total_completed_rows} Basin/Upstream area completions")
 
 
 if __name__ == "__main__":

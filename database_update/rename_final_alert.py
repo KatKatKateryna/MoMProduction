@@ -24,7 +24,7 @@ BASE_URL       = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofM
 base_dir       = os.path.dirname(os.path.abspath(__file__))
 DOWNLOAD_DIR   = os.path.join(base_dir, "final_alert_csv_files")
 OUTPUT_FILE    = os.path.join(base_dir, "final_alert_filtered.csv")
-LOOKUP_FILE    = os.path.join(base_dir, "watershed_lookup.csv")
+LOOKUP_FILE    = os.path.join(base_dir, "all_watersheds.csv")
 MIN_DISK_GB    = 0.1
 RETRY_ATTEMPTS = 3
 RETRY_DELAY    = 5
@@ -142,20 +142,24 @@ def add_to_lookup(row, lookup, full_rows, max_id):
 # Output CSV helpers
 # ---------------------------------------------------------------------------
 
-def load_existing_timestamps():
-    """Return a set of timestamp strings already present in the output CSV."""
-    if not os.path.exists(OUTPUT_FILE):
-        return set()
-    timestamps = set()
-    with open(OUTPUT_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        if "timestamp" not in (reader.fieldnames or []):
-            return set()
-        for row in reader:
-            ts = row.get("timestamp", "").strip()
-            if ts:
-                timestamps.add(ts)
-    return timestamps
+def load_last_timestamp():
+    """Return the last timestamp in the output CSV by reading the final line only."""
+    if not os.path.exists(OUTPUT_FILE) or os.path.getsize(OUTPUT_FILE) == 0:
+        return None
+    with open(OUTPUT_FILE, "rb") as f:
+        # Read last 4 KB — enough to contain the last line
+        f.seek(0, 2)
+        size = f.tell()
+        f.seek(max(0, size - 4096))
+        tail = f.read().decode("utf-8", errors="ignore")
+    lines = [l.strip() for l in tail.splitlines() if l.strip()]
+    if not lines:
+        return None
+    last_line = lines[-1]
+    ts = last_line.split(",")[0].strip()
+    if ts == "timestamp":
+        return None
+    return ts if ts else None
 
 
 def open_output_csv():
@@ -236,16 +240,21 @@ def process_file(local_path, filename, writer, lookup, full_rows, max_id):
 def main():
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-    print("Reading existing timestamps from output CSV...")
-    existing_ts = load_existing_timestamps()
-    print(f"  {len(existing_ts):,} timestamps already present in {OUTPUT_FILE}")
+    print("Reading last timestamp from output CSV...")
+    last_ts = load_last_timestamp()
+    if last_ts:
+        print(f"  Last timestamp in file: {last_ts} — skipping all files up to and including this timestamp")
+    else:
+        print("  Output file is empty or missing — processing all files")
 
     print("Fetching file list from server...")
-    all_files   = list_server_filenames()
-    to_process  = [f for f in all_files if get_timestamp(f) not in existing_ts]
-    print(f"  {len(all_files)} files on server | "
-          f"{len(all_files) - len(to_process)} skipped (already merged) | "
-          f"{len(to_process)} to process\n")
+    all_files  = list_server_filenames()
+    if last_ts:
+        to_process = [f for f in all_files if get_timestamp(f) > last_ts]
+    else:
+        to_process = all_files
+    skipped = len(all_files) - len(to_process)
+    print(f"  {len(all_files)} files on server | {skipped} skipped | {len(to_process)} to process\n")
 
     if not to_process:
         print("Nothing to do.")
