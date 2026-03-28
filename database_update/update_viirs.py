@@ -1,11 +1,11 @@
 """
-Incrementally update viirs_summary.csv with new VIIRS summary files.
+Incrementally update summary_viirs_all.csv with new VIIRS summary files.
 
-1. Read existing timestamps from viirs_summary.csv.
+1. Read existing timestamps from summary_viirs_all.csv.
 2. Fetch the file listing from the server and identify new timestamps.
 3. For each new file (in sorted order):
    a. Download content into memory (no temp file written to disk).
-   b. Append all rows to viirs_summary.csv.
+   b. Append all rows to summary_viirs_all.csv.
 """
 
 import csv
@@ -19,7 +19,7 @@ import requests
 
 BASE_URL    = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/VIIRS/VIIRS_summary/"
 base_dir    = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_FILE = os.path.join(base_dir, "viirs_summary.csv")
+OUTPUT_FILE = os.path.join(base_dir, "summary_viirs_all.csv")
 
 RETRY_ATTEMPTS = 3
 RETRY_DELAY    = 5

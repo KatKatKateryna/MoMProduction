@@ -5,7 +5,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 
 -- GFMS (8 csvs per day, every 3h)
 -- image (1-4 tiffs per day (inconsistent): Flood_byStore)
-CREATE TABLE IF NOT EXISTS gfms_summary (
+CREATE TABLE IF NOT EXISTS summary_gfms (
     pfaf_id              INTEGER,
     "timestamp"          VARCHAR(64),
     "GFMS_TotalArea_km"  DOUBLE PRECISION,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS gfms_summary (
 );
 
 -- HWRF (1-4 csvs per day, inconsistent)
-CREATE TABLE IF NOT EXISTS hwrf_summary (
+CREATE TABLE IF NOT EXISTS summary_hwrf (
     pfaf_id              INTEGER,
     "timestamp"          VARCHAR(64),
     "Rain_TotalArea_km"  DOUBLE PRECISION,
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS all_glofas_stations (
 );
 
 -- GloFAS merged: dynamic per-timestamp forecast data (1 csv, 1 geojson per day)
-CREATE TABLE IF NOT EXISTS glofas_merged (
+CREATE TABLE IF NOT EXISTS summary_glofas (
     "timestamp"         VARCHAR(64),
     matching_id_station          INTEGER         REFERENCES all_glofas_stations(matching_id_station),
     pfaf_id             INTEGER,
@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS glofas_merged (
 
 -- VIIRS (1 csv per day)
 -- image (2 tiffs per day: 1day, 5day)
-CREATE TABLE IF NOT EXISTS viirs_summary (
+CREATE TABLE IF NOT EXISTS summary_viirs (
     pfaf_id                  INTEGER,
     "timestamp"              VARCHAR(64),
     "onedayFlood_Area_km"    DOUBLE PRECISION,
@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS viirs_summary (
 
 -- DFO (1 csv per day)
 -- image (1 tiff per day (inconsistent, some days are missing): Flood_3-Day_250m)
-CREATE TABLE IF NOT EXISTS dfo_summary (
+CREATE TABLE IF NOT EXISTS summary_dfo (
     pfaf_id                   INTEGER,
     "timestamp"               VARCHAR(64),
     "1-Day_TotalArea_km2"     DOUBLE PRECISION,
@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS all_watersheds (
 );
 
 -- Final Alert: dynamic per-timestamp alert data (4 csvs per day)
-CREATE TABLE IF NOT EXISTS final_alert (
+CREATE TABLE IF NOT EXISTS summary_final_alert (
     "timestamp"                 VARCHAR(64),
     matching_id_watershed                INTEGER         REFERENCES all_watersheds(matching_id_watershed),
     pfaf_id                     INTEGER,

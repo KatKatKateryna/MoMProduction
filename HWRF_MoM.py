@@ -654,7 +654,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
     )
     if dfo_date == "":
         return
-    [viirs_date, viirs_summary] = find_latest_summary(
+    [viirs_date, summary_viirs_all] = find_latest_summary(
         datestr, settings.VIIRS_SUM_DIR, "VIIRS_Flood_{}.csv", hourstr
     )
     if viirs_date == "":
@@ -901,7 +901,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
 
     # generate HWRF_DFO_VIIRS_MoM
     DFO_MOMOutput = DFO_Final_Attributes_csv
-    VIIRS_summary_csv = viirs_summary
+    VIIRS_summary_csv = summary_viirs_all
 
     # output files
     Final_Attributes_csv = "Final_Attributes_{}HWRF+{}DFO+{}VIIRSUpdated.csv".format(
