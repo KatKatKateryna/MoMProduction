@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS hwrf_summary (
 -- comparisons in the unique constraint are always exact (GloFAS coordinates
 -- are always 3 decimal places; binary float can produce false mismatches).
 CREATE TABLE IF NOT EXISTS all_glofas_stations (
-    station_id          INTEGER         PRIMARY KEY,
+    matching_id_station          INTEGER         PRIMARY KEY,
     "Station"           TEXT,
     "Basin"             TEXT,
     "Country"           TEXT,
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS all_glofas_stations (
 -- GloFAS merged (dynamic per-timestamp forecast data)
 CREATE TABLE IF NOT EXISTS glofas_merged (
     "timestamp"         VARCHAR(64),
-    station_id          INTEGER         REFERENCES all_glofas_stations(station_id),
+    matching_id_station          INTEGER         REFERENCES all_glofas_stations(matching_id_station),
     pfaf_id             INTEGER,
     "ID"                TEXT,
     "Point No"          INTEGER,
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS glofas_merged (
     "GloFAS_20yr"       DOUBLE PRECISION,
     "max_EPS"           TEXT,
     "Forecast Date"     TIMESTAMP,
-    PRIMARY KEY ("timestamp", station_id)
+    PRIMARY KEY ("timestamp", matching_id_station)
 );
 
 -- VIIRS
@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS dfo_summary (
 -- equality comparisons in the unique constraint are always exact. 6 decimal
 -- places matches the precision in the source data (~0.1 m resolution).
 CREATE TABLE IF NOT EXISTS all_watersheds (
-    watershed_id        INTEGER         PRIMARY KEY,
+    matching_id_watershed        INTEGER         PRIMARY KEY,
     pfaf_id             INTEGER,
     "name"              TEXT,
     "name_1"            TEXT,
@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS all_watersheds (
 -- Final Alert (dynamic per-timestamp alert data)
 CREATE TABLE IF NOT EXISTS final_alert (
     "timestamp"                 VARCHAR(64),
-    watershed_id                INTEGER         REFERENCES all_watersheds(watershed_id),
+    matching_id_watershed                INTEGER         REFERENCES all_watersheds(matching_id_watershed),
     pfaf_id                     INTEGER,
     "rfr_score"                 DOUBLE PRECISION,
     "cfr_score"                 DOUBLE PRECISION,
@@ -170,5 +170,5 @@ CREATE TABLE IF NOT EXISTS final_alert (
     "Severity"                  DOUBLE PRECISION,
     "Alert"                     TEXT,
     "Status"                    TEXT,
-    PRIMARY KEY ("timestamp", watershed_id)
+    PRIMARY KEY ("timestamp", matching_id_watershed)
 );

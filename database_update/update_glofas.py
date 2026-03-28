@@ -9,9 +9,9 @@ when both exist. For each new timestamp:
      - CSV:     match on CSV_STATIC_COLS (subset available in CSV) with the same
                 float normalisation, so "72.250" matches "72.25" and "198000.0"
                 matches "198000" regardless of source file format.
-     In both cases: match found → reuse station_id; no match → new row.
+     In both cases: match found → reuse matching_id_station; no match → new row.
      CSV-sourced new rows leave GeoJSON-only columns as empty strings.
-  3. Write station_id, pfaf_id, ID, Point No, and dynamic columns to glofas_merged.csv.
+  3. Write matching_id_station, pfaf_id, ID, Point No, and dynamic columns to glofas_merged.csv.
      ID and Point No are written to the merged table only, not used for matching.
 """
 
@@ -42,7 +42,7 @@ STATIC_COLS = [
     "Lat", "Lon", "Upstream area", "area_km2", "pfaf_id",
     "rfr_score", "cfr_score",
 ]
-STATIONS_COLS = ["station_id"] + STATIC_COLS
+STATIONS_COLS = ["matching_id_station"] + STATIC_COLS
 
 # Subset of STATIC_COLS present in CSV files (used for CSV-only matching).
 CSV_STATIC_COLS = [
@@ -68,7 +68,7 @@ DYNAMIC_COLS = [
     "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr",
     "max_EPS", "Forecast Date",
 ]
-MERGED_COLS = ["timestamp", "station_id", "pfaf_id", "ID", "Point No"] + DYNAMIC_COLS
+MERGED_COLS = ["timestamp", "matching_id_station", "pfaf_id", "ID", "Point No"] + DYNAMIC_COLS
 
 
 def free_disk_gb():
@@ -109,7 +109,7 @@ def load_stations():
     """
     Load all_glofas_stations.csv.
     Returns (rows list, rows_by_id, geojson_lookup, csv_lookup, next_id).
-    rows_by_id:     {station_id: row dict} for fast in-place updates
+    rows_by_id:     {matching_id_station: row dict} for fast in-place updates
     geojson_lookup: keyed by geojson_key (STATIC_COLS, numerics float-normalised)
     csv_lookup:     keyed by csv_key     (CSV_STATIC_COLS, numerics float-normalised)
     """
@@ -117,9 +117,9 @@ def load_stations():
         return [], {}, {}, {}, 1
     with open(STATIONS_FILE, newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
-    rows_by_id     = {int(r["station_id"]): r for r in rows}
-    geojson_lookup = {geojson_key(row): int(row["station_id"]) for row in rows}
-    csv_lookup     = {csv_key(row):     int(row["station_id"]) for row in rows}
+    rows_by_id     = {int(r["matching_id_station"]): r for r in rows}
+    geojson_lookup = {geojson_key(row): int(row["matching_id_station"]) for row in rows}
+    csv_lookup     = {csv_key(row):     int(row["matching_id_station"]) for row in rows}
     next_id        = max(rows_by_id) + 1 if rows_by_id else 1
     return rows, rows_by_id, geojson_lookup, csv_lookup, next_id
 
@@ -204,54 +204,54 @@ def process_rows(props_list, fmt, timestamp,
     completed_rows = 0
 
     for props in props_list:
-        station_id = None
+        matching_id_station = None
 
         if fmt == "geojson":
-            station_id = geojson_lookup.get(geojson_key(props))
+            matching_id_station = geojson_lookup.get(geojson_key(props))
 
-            if station_id is not None:
-                if complete_row(rows_by_id[station_id], props):
+            if matching_id_station is not None:
+                if complete_row(rows_by_id[matching_id_station], props):
                     completed_rows += 1
             else:
                 # Fall back: try matching on CSV-available cols
-                station_id = csv_lookup.get(csv_key(props))
-                if station_id is not None:
+                matching_id_station = csv_lookup.get(csv_key(props))
+                if matching_id_station is not None:
                     # Found a CSV-sourced row — fill in the GeoJSON-only columns
-                    existing_row = rows_by_id[station_id]
+                    existing_row = rows_by_id[matching_id_station]
                     for c in GEOJSON_ONLY_COLS:
                         existing_row[c] = prop(props, c)
                     if complete_row(existing_row, props):
                         completed_rows += 1
                     # Register the complete key so future GeoJSON files match directly
-                    geojson_lookup[geojson_key(existing_row)] = station_id
+                    geojson_lookup[geojson_key(existing_row)] = matching_id_station
                     updated_rows += 1
         else:
-            station_id = csv_lookup.get(csv_key(props))
-            if station_id is not None:
-                if complete_row(rows_by_id[station_id], props):
+            matching_id_station = csv_lookup.get(csv_key(props))
+            if matching_id_station is not None:
+                if complete_row(rows_by_id[matching_id_station], props):
                     completed_rows += 1
 
-        if station_id is None:
-            station_id = next_id
+        if matching_id_station is None:
+            matching_id_station = next_id
             next_id   += 1
-            new_row    = {"station_id": station_id}
+            new_row    = {"matching_id_station": matching_id_station}
             for c in STATIC_COLS:
                 new_row[c] = prop(props, c)  # GeoJSON-only cols are empty string for CSV rows
             stations_rows.append(new_row)
-            rows_by_id[station_id]               = new_row
-            geojson_lookup[geojson_key(new_row)] = station_id
-            csv_lookup[csv_key(new_row)]         = station_id
+            rows_by_id[matching_id_station]               = new_row
+            geojson_lookup[geojson_key(new_row)] = matching_id_station
+            csv_lookup[csv_key(new_row)]         = matching_id_station
             new_stations += 1
 
-        if station_id is None:
+        if matching_id_station is None:
             raise RuntimeError(
-                f"station_id is None for props: {props}. "
+                f"matching_id_station is None for props: {props}. "
                 f"This should never happen — check lookup logic."
             )
 
         merged_row = {
             "timestamp":  timestamp,
-            "station_id": station_id,
+            "matching_id_station": matching_id_station,
             "pfaf_id":    prop(props, "pfaf_id"),
             "ID":         prop(props, "ID"),
             "Point No":   prop(props, "Point No"),

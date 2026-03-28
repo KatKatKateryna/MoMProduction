@@ -5,7 +5,7 @@ For each file on the server:
   1. Skip if its timestamp is already present in the output CSV.
   2. Download the file.
   3. Keep all rows (no filtering).
-  4. Resolve watershed_id from lookup; add new entries to lookup if missing.
+  4. Resolve matching_id_watershed from lookup; add new entries to lookup if missing.
   5. Append rows to final_alert_filtered.csv.
   6. Delete the downloaded file immediately.
 
@@ -30,11 +30,11 @@ RETRY_ATTEMPTS = 3
 RETRY_DELAY    = 5
 
 LOOKUP_KEY = ("pfaf_id", "name", "name_1", "CentroidX", "CentroidY")
-LOOKUP_COLS = ["watershed_id", "pfaf_id", "name", "name_1", "CentroidX", "CentroidY",
+LOOKUP_COLS = ["matching_id_watershed", "pfaf_id", "name", "name_1", "CentroidX", "CentroidY",
                "Admin1_count", "Admin1_names", "area_km2"]
 
 ALL_COLS = [
-    "timestamp", "watershed_id", "pfaf_id",
+    "timestamp", "matching_id_watershed", "pfaf_id",
     "rfr_score", "cfr_score",
     "Alert_level", "Days_until_peak", "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr",
     "Alert_Score", "PeakArrivalScore", "TwoYScore", "FiveYScore", "TwtyYScore",
@@ -92,10 +92,10 @@ def load_lookup():
     with open(LOOKUP_FILE, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             key = tuple(row[c] for c in LOOKUP_KEY)
-            lookup[key] = row["watershed_id"]
+            lookup[key] = row["matching_id_watershed"]
             full_rows.append(row)
             try:
-                max_id = max(max_id, int(row["watershed_id"]))
+                max_id = max(max_id, int(row["matching_id_watershed"]))
             except (ValueError, TypeError):
                 pass
     return lookup, max_id, full_rows
@@ -104,14 +104,14 @@ def load_lookup():
 def add_to_lookup(row, lookup, full_rows, max_id):
     """Add a new watershed row to the in-memory structures and append it to the CSV.
 
-    Returns the new watershed_id string.
+    Returns the new matching_id_watershed string.
     """
     new_id   = max_id + 1
     new_id_s = str(new_id)
     key      = tuple(row.get(c, "") for c in LOOKUP_KEY)
 
     new_entry = {
-        "watershed_id": new_id_s,
+        "matching_id_watershed": new_id_s,
         "pfaf_id":      row.get("pfaf_id", ""),
         "name":         row.get("name", ""),
         "name_1":       row.get("name_1", ""),
@@ -219,13 +219,13 @@ def process_file(local_path, filename, writer, lookup, full_rows, max_id):
 
     for row in rows_to_write:
         key          = tuple(row.get(c, "") for c in LOOKUP_KEY)
-        watershed_id = lookup.get(key)
+        matching_id_watershed = lookup.get(key)
 
-        if watershed_id is None:
-            watershed_id, max_id = add_to_lookup(row, lookup, full_rows, max_id)
+        if matching_id_watershed is None:
+            matching_id_watershed, max_id = add_to_lookup(row, lookup, full_rows, max_id)
 
-        out_row = {"timestamp": timestamp, "watershed_id": watershed_id}
-        for col in ALL_COLS[2:]:  # skip timestamp and watershed_id
+        out_row = {"timestamp": timestamp, "matching_id_watershed": matching_id_watershed}
+        for col in ALL_COLS[2:]:  # skip timestamp and matching_id_watershed
             out_row[col] = row.get(col, "")
         writer.writerow(out_row)
 
