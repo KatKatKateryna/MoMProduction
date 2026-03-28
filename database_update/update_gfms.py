@@ -5,7 +5,7 @@ Incrementally update gfms_summary_filtered.csv with new GFMS summary files.
 2. Fetch the file listing from the server and identify new timestamps.
 3. For each new file (in sorted order):
    a. Download content into memory.
-   b. Keep only flood rows (any numeric column non-zero); skip file if none.
+   b. Keep only flood rows (any numeric column non-zero); fall back to last row if none.
    c. Append filtered rows to gfms_summary_filtered.csv.
 """
 

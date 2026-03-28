@@ -25,8 +25,7 @@ RETRY_ATTEMPTS = 3
 RETRY_DELAY    = 5
 MIN_DISK_GB    = 0.5
 
-COLS     = ["pfaf_id", "onedayFlood_Area_km", "onedayperc_Area", "fivedayFlood_Area_km", "fivedayperc_Area"]
-ALL_COLS = ["timestamp"] + COLS
+ALL_COLS = ["timestamp", "pfaf_id", "onedayFlood_Area_km", "onedayperc_Area", "fivedayFlood_Area_km", "fivedayperc_Area"]
 
 
 def free_disk_gb():
