@@ -24,36 +24,42 @@ CREATE TABLE IF NOT EXISTS hwrf_summary (
     PRIMARY KEY (pfaf_id, "timestamp")
 );
 
--- GloFAS
-CREATE TABLE IF NOT EXISTS glofas_summary (
-    pfaf_id             INTEGER,
-    "timestamp"         VARCHAR(64),
-    "Point No"          INTEGER,
-    "ID"                TEXT,
-    "Basin"             TEXT,
-    "Location"          TEXT,
+-- GloFAS stations (static per-station metadata)
+CREATE TABLE IF NOT EXISTS glofas_stations (
+    station_id          INTEGER         PRIMARY KEY,
     "Station"           TEXT,
+    "Basin"             TEXT,
     "Country"           TEXT,
+    "Country_code"      VARCHAR(8),
     "Continent"         TEXT,
-    "Country_code"      VARCHAR(3),
-    "Upstream area"     DOUBLE PRECISION,
-    "Lon"               DOUBLE PRECISION,
+    "ISO"               VARCHAR(8),
+    "Admin0"            TEXT,
+    "Admin1"            TEXT,
+    "Location"          TEXT,
     "Lat"               DOUBLE PRECISION,
-    "unknown_2"         INTEGER,
+    "Lon"               DOUBLE PRECISION,
+    "Upstream area"     DOUBLE PRECISION,
+    "area_km2"          DOUBLE PRECISION,
+    pfaf_id             INTEGER,
+    "rfr_score"         DOUBLE PRECISION,
+    "cfr_score"         DOUBLE PRECISION
+);
+
+-- GloFAS merged (dynamic per-timestamp forecast data)
+CREATE TABLE IF NOT EXISTS glofas_merged (
+    "timestamp"         VARCHAR(64),
+    station_id          INTEGER         REFERENCES glofas_stations(station_id),
+    pfaf_id             INTEGER,
+    "ID"                TEXT,
+    "Point No"          INTEGER,
+    "Alert_level"       INTEGER,
     "Days_until_peak"   INTEGER,
     "GloFAS_2yr"        DOUBLE PRECISION,
     "GloFAS_5yr"        DOUBLE PRECISION,
     "GloFAS_20yr"       DOUBLE PRECISION,
-    "Alert_level"       INTEGER,
-    "area_km2"          DOUBLE PRECISION,
-    "ISO"               VARCHAR(3),
-    "Admin0"            TEXT,
-    "Admin1"            TEXT,
-    "rfr_score"         DOUBLE PRECISION,
-    "cfr_score"         DOUBLE PRECISION,
-    "Forecast Date"     TIMESTAMP,
     "max_EPS"           TEXT,
-    PRIMARY KEY (pfaf_id, "timestamp")
+    "Forecast Date"     TIMESTAMP,
+    PRIMARY KEY ("timestamp", station_id)
 );
 
 -- VIIRS
@@ -82,17 +88,24 @@ CREATE TABLE IF NOT EXISTS dfo_summary (
     PRIMARY KEY (pfaf_id, "timestamp")
 );
 
--- Final Alert
+-- Watershed lookup (static per-watershed metadata)
+CREATE TABLE IF NOT EXISTS watershed_lookup (
+    watershed_id        INTEGER         PRIMARY KEY,
+    pfaf_id             INTEGER,
+    "name"              TEXT,
+    "name_1"            TEXT,
+    "CentroidX"         DOUBLE PRECISION,
+    "CentroidY"         DOUBLE PRECISION,
+    "Admin1_count"      INTEGER,
+    "Admin1_names"      TEXT,
+    "area_km2"          DOUBLE PRECISION
+);
+
+-- Final Alert (dynamic per-timestamp alert data)
 CREATE TABLE IF NOT EXISTS final_alert (
-    pfaf_id                     INTEGER,
     "timestamp"                 VARCHAR(64),
-    "name"                      TEXT,
-    "name_1"                    TEXT,
-    "CentroidX"                 DOUBLE PRECISION,
-    "CentroidY"                 DOUBLE PRECISION,
-    "Admin1_count"              DOUBLE PRECISION,
-    "Admin1_names"              TEXT,
-    "area_km2"                  DOUBLE PRECISION,
+    watershed_id                INTEGER         REFERENCES watershed_lookup(watershed_id),
+    pfaf_id                     INTEGER,
     "rfr_score"                 DOUBLE PRECISION,
     "cfr_score"                 DOUBLE PRECISION,
     "Alert_level"               DOUBLE PRECISION,
@@ -149,5 +162,5 @@ CREATE TABLE IF NOT EXISTS final_alert (
     "Severity"                  DOUBLE PRECISION,
     "Alert"                     TEXT,
     "Status"                    TEXT,
-    PRIMARY KEY (pfaf_id, "timestamp")
+    PRIMARY KEY ("timestamp", watershed_id)
 );
