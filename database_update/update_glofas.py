@@ -1,5 +1,5 @@
 """
-Incrementally update all_glofas_stations.csv and glofas_merged.csv from GloFAS files.
+Incrementally update all_glofas_stations.csv and summary_glofas_all.csv from GloFAS files.
 
 Each timestamp on the server has either a .geojson or a .csv file; GeoJSON is preferred
 when both exist. For each new timestamp:
@@ -11,7 +11,7 @@ when both exist. For each new timestamp:
                 matches "198000" regardless of source file format.
      In both cases: match found → reuse matching_id_station; no match → new row.
      CSV-sourced new rows leave GeoJSON-only columns as empty strings.
-  3. Write matching_id_station, pfaf_id, ID, Point No, and dynamic columns to glofas_merged.csv.
+  3. Write matching_id_station, pfaf_id, ID, Point No, and dynamic columns to summary_glofas_all.csv.
      ID and Point No are written to the merged table only, not used for matching.
 """
 
@@ -27,7 +27,7 @@ import requests
 BASE_URL      = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/GLOFAS/"
 base_dir      = os.path.dirname(os.path.abspath(__file__))
 STATIONS_FILE = os.path.join(base_dir, "all_glofas_stations.csv")
-MERGED_FILE   = os.path.join(base_dir, "glofas_merged.csv")
+MERGED_FILE   = os.path.join(base_dir, "summary_glofas_all.csv")
 
 RETRY_ATTEMPTS = 3
 RETRY_DELAY    = 5
@@ -60,7 +60,7 @@ GEOJSON_ONLY_COLS = [c for c in STATIC_COLS if c not in CSV_STATIC_COLS]
 # Columns that can be backfilled from any newer row if the stored value is empty.
 COMPLETABLE_COLS = ["Basin", "Upstream area"]
 
-# Dynamic columns written to glofas_merged.csv (change per forecast file).
+# Dynamic columns written to summary_glofas_all.csv (change per forecast file).
 # pfaf_id is repeated as a convenience join key.
 # ID and Point No are written here instead of the stations table.
 DYNAMIC_COLS = [
