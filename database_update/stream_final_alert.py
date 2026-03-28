@@ -30,7 +30,7 @@ RETRY_ATTEMPTS = 3
 RETRY_DELAY    = 5
 
 LOOKUP_KEY = ("pfaf_id", "name", "name_1", "CentroidX", "CentroidY")
-LOOKUP_COLS = ["id", "pfaf_id", "name", "name_1", "CentroidX", "CentroidY",
+LOOKUP_COLS = ["watershed_id", "pfaf_id", "name", "name_1", "CentroidX", "CentroidY",
                "Admin1_count", "Admin1_names", "area_km2"]
 
 ALL_COLS = [
@@ -92,10 +92,10 @@ def load_lookup():
     with open(LOOKUP_FILE, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             key = tuple(row[c] for c in LOOKUP_KEY)
-            lookup[key] = row["id"]
+            lookup[key] = row["watershed_id"]
             full_rows.append(row)
             try:
-                max_id = max(max_id, int(row["id"]))
+                max_id = max(max_id, int(row["watershed_id"]))
             except (ValueError, TypeError):
                 pass
     return lookup, max_id, full_rows
@@ -111,7 +111,7 @@ def add_to_lookup(row, lookup, full_rows, max_id):
     key      = tuple(row.get(c, "") for c in LOOKUP_KEY)
 
     new_entry = {
-        "id":           new_id_s,
+        "watershed_id": new_id_s,
         "pfaf_id":      row.get("pfaf_id", ""),
         "name":         row.get("name", ""),
         "name_1":       row.get("name_1", ""),
