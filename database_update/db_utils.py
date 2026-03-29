@@ -17,13 +17,18 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 
 DB_PARAMS = {
-    "host":            os.getenv("DB_HOST"),
-    "port":            int(os.getenv("DB_PORT", 5432)),
-    "dbname":          os.getenv("DB_NAME", "postgres"),
-    "user":            os.getenv("DB_USER"),
-    "password":        os.getenv("DB_PASSWORD"),
-    "sslmode":         os.getenv("DB_SSLMODE", "require"),
-    "connect_timeout": 10,
+    "host":               os.getenv("DB_HOST"),
+    "port":               int(os.getenv("DB_PORT", 5432)),
+    "dbname":             os.getenv("DB_NAME", "postgres"),
+    "user":               os.getenv("DB_USER"),
+    "password":           os.getenv("DB_PASSWORD"),
+    "sslmode":            os.getenv("DB_SSLMODE", "require"),
+    "connect_timeout":    10,
+    "keepalives":         1,
+    "keepalives_idle":    30,
+    "keepalives_interval": 10,
+    "keepalives_count":   5,
+    "options":            "-c statement_timeout=300000",  # 5 minutes
 }
 
 RETRY_ATTEMPTS = 3
@@ -92,10 +97,10 @@ def get_processed_timestamps(conn, table):
 
 
 def upsert_rows(conn, sql, rows):
-    """Batch-upsert rows using execute_values and commit."""
+    """Batch-insert rows using execute_values and commit."""
     import psycopg2.extras
     with conn.cursor() as cur:
-        psycopg2.extras.execute_values(cur, sql, rows, page_size=500)
+        psycopg2.extras.execute_values(cur, sql, rows, page_size=len(rows))
     conn.commit()
 
 
@@ -156,8 +161,8 @@ def upsert_dataframe(table, df, conn=None):
                     "%Y-%m-%dT%H:%M:%S",
                     "%Y-%m-%d %H:%M:%S.%f",
                     "%Y-%m-%dT%H:%M:%S.%f",
+                    "%Y%m%d",               # filename daily   e.g. 20240101 — must be before %Y%m%d%H
                     "%Y%m%d%H",             # filename hourly  e.g. 2024010112
-                    "%Y%m%d",               # filename daily   e.g. 20240101
                 ):
                     try:
                         dt_val = datetime.strptime(s, fmt)
@@ -199,6 +204,24 @@ def upsert_dataframe(table, df, conn=None):
             for row in df[cols].itertuples(index=False, name=None)
         ]
         upsert_rows(conn, sql, rows)
+
+        # Confirm the batch landed in the corresponding _latest table:
+        # row count and timestamp must match the pushed DataFrame exactly.
+        latest_table    = table.replace("stage_", "summary_") + "_latest"
+        batch_timestamp = _coerce(df["timestamp"].iloc[0], col_types.get("timestamp", "text"))
+        expected_rows   = len(df)
+        with conn.cursor() as cur:
+            cur.execute(
+                f'SELECT COUNT(*) FROM {latest_table} WHERE "timestamp" = %s',
+                (batch_timestamp,),
+            )
+            confirmed = cur.fetchone()[0]
+        if confirmed != expected_rows:
+            raise RuntimeError(
+                f"Insert into {table} verification failed: pushed {expected_rows} rows "
+                f"with timestamp {batch_timestamp} but {latest_table} has {confirmed} "
+                f"matching rows — trigger may have discarded the batch or failed silently."
+            )
     finally:
         if _own_conn:
             conn.close()

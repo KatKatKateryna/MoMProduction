@@ -30,10 +30,13 @@ def list_server_files():
     resp = requests.get(BASE_URL, timeout=30)
     resp.raise_for_status()
     files = {}
-    for filename, ts in re.findall(r'href="(threspoints_(\d+)\.csv)"', resp.text):
-        files[ts] = filename
+    # GeoJSON first — preferred format
     for filename, ts in re.findall(r'href="(threspoints_(\d+)\.geojson)"', resp.text):
-        files[ts] = filename  # GeoJSON overwrites CSV for the same timestamp
+        files[ts] = filename
+    # CSV second — only add if no GeoJSON exists for that timestamp
+    for filename, ts in re.findall(r'href="(threspoints_(\d+)\.csv)"', resp.text):
+        if ts not in files:
+            files[ts] = filename
     return files
 
 
