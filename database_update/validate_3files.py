@@ -91,8 +91,36 @@ DOWNLOAD_DELAY = 0.5
 _RUN_TS     = datetime.now().strftime("%Y%m%d_%H%M%S")
 SAVE_DIR    = Path("downloaded") / _RUN_TS
 REPORT_FILE = Path(__file__).parent / "validation_report.txt"
+LOG_FILE    = Path(__file__).parent / "validation_log.txt"
 
 SAVE_DIR.mkdir(parents=True, exist_ok=True)
+
+
+class _Tee:
+    """Write to both the original stream and a log file."""
+    def __init__(self, stream, log_path):
+        self._stream = stream
+        self._log    = open(log_path, "a", encoding="utf-8", buffering=1)
+        self._log.write(f"\n{'=' * 70}\nRUN {_RUN_TS}\n{'=' * 70}\n")
+
+    def write(self, data):
+        self._stream.write(data)
+        self._log.write(data)
+
+    def flush(self):
+        self._stream.flush()
+        self._log.flush()
+
+    def close(self):
+        self._log.close()
+
+    # Pass through anything else (e.g. fileno) to the real stream.
+    def __getattr__(self, name):
+        return getattr(self._stream, name)
+
+
+_tee    = _Tee(sys.stdout, LOG_FILE)
+sys.stdout = _tee
 
 # ── Report file — fixed-width column layout ───────────────────────────────────
 _COL_WIDTHS = {
@@ -667,3 +695,7 @@ finally:
 
 print(f"\nFiles saved to : {SAVE_DIR}")
 print(f"Report saved to: {REPORT_FILE}")
+print(f"Log saved to   : {LOG_FILE}")
+
+sys.stdout = _tee._stream
+_tee.close()
