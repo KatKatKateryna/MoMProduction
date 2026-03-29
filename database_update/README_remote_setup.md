@@ -10,7 +10,14 @@ chmod +x setup_dev.sh
 
 cd ~/MoMProduction
 git switch db_structure
+git config --global credential.helper store
+
 conda activate myenv
+
+git status
+git add <file>
+git commit
+git pull
 
 ## For the docker image apps (e.g. DO container registry):
 docker build -t mom_local_repo:latest .
