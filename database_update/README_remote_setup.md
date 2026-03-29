@@ -16,6 +16,7 @@ conda activate myenv
 
 git status
 git add <file>
+git restore --staged first_setup/db_setup/db_config.cfg
 git commit
 git push
 git pull
