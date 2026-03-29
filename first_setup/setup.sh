@@ -7,7 +7,7 @@ set -o pipefail
 # CONFIG
 ############################
 
-REPO_URL="https://github.com/KatKatKateryna/MoMProduction.git"
+REPO_URL="https://github.com/Blu-H/MoMProduction.git"
 REPO_DIR="$HOME/MoMProduction"
 REPO_BRANCH="dev"
 if command -v conda >/dev/null 2>&1; then
@@ -45,7 +45,6 @@ if [ "$IS_GITHUB_ACTIONS" = false ]; then
         curl \
         git \
         wget
-    sudo apt install libpq-dev python3-dev gcc
 else
     echo "Skipping system package installation in GitHub Actions."
 fi
