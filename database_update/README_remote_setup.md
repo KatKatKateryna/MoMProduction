@@ -17,6 +17,7 @@ conda activate myenv
 git status
 git add <file>
 git commit
+git push
 git pull
 
 ## For the docker image apps (e.g. DO container registry):
