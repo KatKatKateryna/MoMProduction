@@ -10,31 +10,17 @@ Push latest VIIRS data to summary_viirs_latest in the database.
 
 import csv
 import io
-import os
 import re
-import time
 
 import psycopg2
 import psycopg2.extras
-import requests
-from dotenv import load_dotenv
 
-load_dotenv()
+from db_utils import (
+    DB_PARAMS, download_text, get_processed_timestamps,
+    parse_timestamp_day, to_float, to_int,
+)
 
 BASE_URL = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/VIIRS/VIIRS_summary/"
-
-RETRY_ATTEMPTS = 3
-RETRY_DELAY    = 5
-
-DB_PARAMS = {
-    "host":            os.getenv("DB_HOST"),
-    "port":            int(os.getenv("DB_PORT", 5432)),
-    "dbname":          os.getenv("DB_NAME", "postgres"),
-    "user":            os.getenv("DB_USER"),
-    "password":        os.getenv("DB_PASSWORD"),
-    "sslmode":         os.getenv("DB_SSLMODE", "require"),
-    "connect_timeout": 10,
-}
 
 UPSERT_SQL = """
 INSERT INTO summary_viirs_latest (
@@ -48,31 +34,11 @@ ON CONFLICT (pfaf_id) DO UPDATE SET
     "onedayperc_Area"      = EXCLUDED."onedayperc_Area",
     "fivedayFlood_Area_km" = EXCLUDED."fivedayFlood_Area_km",
     "fivedayperc_Area"     = EXCLUDED."fivedayperc_Area"
-WHERE EXCLUDED."timestamp" >= summary_viirs_latest."timestamp"
 """
 
 
-def to_float(v):
-    try:
-        return float(v) if v not in (None, "") else None
-    except (ValueError, TypeError):
-        return None
-
-
-def to_int(v):
-    try:
-        return int(v) if v not in (None, "") else None
-    except (ValueError, TypeError):
-        return None
-
-
-def get_last_timestamp(conn):
-    with conn.cursor() as cur:
-        cur.execute('SELECT MAX("timestamp") FROM summary_viirs_latest')
-        return cur.fetchone()[0]
-
-
 def list_server_filenames():
+    import requests
     resp = requests.get(BASE_URL, timeout=30)
     resp.raise_for_status()
     return sorted(re.findall(r'href="(VIIRS_Flood_\d+\.csv)"', resp.text))
@@ -82,25 +48,11 @@ def get_timestamp(filename):
     return filename.replace("VIIRS_Flood_", "").replace(".csv", "")
 
 
-def download_content(filename):
-    url = BASE_URL + filename
-    for attempt in range(RETRY_ATTEMPTS):
-        try:
-            resp = requests.get(url, timeout=60)
-            resp.raise_for_status()
-            return resp.content.decode("utf-8")
-        except Exception as exc:
-            if attempt < RETRY_ATTEMPTS - 1:
-                time.sleep(RETRY_DELAY)
-            else:
-                raise RuntimeError(f"Failed to download {filename}: {exc}") from exc
-
-
 def extract_rows(content, timestamp):
     reader = csv.DictReader(io.StringIO(content))
     return [
         (
-            timestamp,
+            parse_timestamp_day(timestamp),
             to_int(row["pfaf_id"]),
             to_float(row["onedayFlood_Area_km"]),
             to_float(row["onedayperc_Area"]),
@@ -120,14 +72,16 @@ def upsert_rows(conn, rows):
 def main():
     conn = psycopg2.connect(**DB_PARAMS)
     try:
-        print("Querying latest timestamp from DB...")
-        last_ts = get_last_timestamp(conn)
-        print(f"  Latest timestamp in summary_viirs_latest: {last_ts or '(none)'}")
+        print("Querying processed timestamps from DB...")
+        processed = get_processed_timestamps(conn, "summary_viirs_latest")
+        print(f"  {len(processed)} timestamps in summary_viirs_latest")
 
         print("Fetching file list from server...")
         all_files = list_server_filenames()
-        new_files = [f for f in all_files if get_timestamp(f) > (last_ts or "")]
-        print(f"  {len(all_files)} files on server, {len(new_files)} new to process\n")
+        new_files = [f for f in all_files
+                     if parse_timestamp_day(get_timestamp(f)) not in processed]
+        print(f"  {len(all_files)} files on server, {len(processed)} already in DB, "
+              f"{len(new_files)} to process\n")
 
         if not new_files:
             print("Nothing to do.")
@@ -137,7 +91,7 @@ def main():
         for i, filename in enumerate(new_files, 1):
             timestamp = get_timestamp(filename)
             try:
-                content = download_content(filename)
+                content = download_text(BASE_URL + filename)
                 rows    = extract_rows(content, timestamp)
                 upsert_rows(conn, rows)
                 total_rows += len(rows)

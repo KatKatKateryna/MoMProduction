@@ -7,7 +7,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 -- image (1-4 tiffs per day (inconsistent): Flood_byStore)
 CREATE TABLE IF NOT EXISTS summary_gfms (
     pfaf_id              INTEGER,
-    "timestamp"          VARCHAR(64),
+    "timestamp"          TIMESTAMPTZ,
     "GFMS_TotalArea_km"  DOUBLE PRECISION,
     "GFMS_perc_Area"     DOUBLE PRECISION,
     "GFMS_MeanDepth"     DOUBLE PRECISION,
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS summary_gfms (
 -- HWRF (1-4 csvs per day, inconsistent)
 CREATE TABLE IF NOT EXISTS summary_hwrf (
     pfaf_id              INTEGER,
-    "timestamp"          VARCHAR(64),
+    "timestamp"          TIMESTAMPTZ,
     "Rain_TotalArea_km"  DOUBLE PRECISION,
     "perc_Area"          DOUBLE PRECISION,
     "MeanRain"           DOUBLE PRECISION,
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS all_glofas_stations (
 
 -- GloFAS merged: dynamic per-timestamp forecast data (1 csv, 1 geojson per day)
 CREATE TABLE IF NOT EXISTS summary_glofas (
-    "timestamp"         VARCHAR(64),
+    "timestamp"         TIMESTAMPTZ,
     matching_id_station          INTEGER         REFERENCES all_glofas_stations(matching_id_station),
     pfaf_id             INTEGER,
     "ID"                TEXT,
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS summary_glofas (
 -- image (2 tiffs per day: 1day, 5day)
 CREATE TABLE IF NOT EXISTS summary_viirs (
     pfaf_id                  INTEGER,
-    "timestamp"              VARCHAR(64),
+    "timestamp"              TIMESTAMPTZ,
     "onedayFlood_Area_km"    DOUBLE PRECISION,
     "onedayperc_Area"        DOUBLE PRECISION,
     "fivedayFlood_Area_km"   DOUBLE PRECISION,
@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS summary_viirs (
 -- image (1 tiff per day (inconsistent, some days are missing): Flood_3-Day_250m)
 CREATE TABLE IF NOT EXISTS summary_dfo (
     pfaf_id                   INTEGER,
-    "timestamp"               VARCHAR(64),
+    "timestamp"               TIMESTAMPTZ,
     "1-Day_TotalArea_km2"     DOUBLE PRECISION,
     "1-Day_perc_Area"         DOUBLE PRECISION,
     "1-Day_CS_TotalArea_km2"  DOUBLE PRECISION,
@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS all_watersheds (
 
 -- Final Alert: dynamic per-timestamp alert data (4 csvs per day)
 CREATE TABLE IF NOT EXISTS summary_final_alert (
-    "timestamp"                 VARCHAR(64),
+    "timestamp"                 TIMESTAMPTZ,
     matching_id_watershed                INTEGER         REFERENCES all_watersheds(matching_id_watershed),
     pfaf_id                     INTEGER,
     "rfr_score"                 DOUBLE PRECISION,
@@ -184,7 +184,7 @@ CREATE TABLE IF NOT EXISTS summary_final_alert (
 
 -- GFMS Latest
 CREATE TABLE IF NOT EXISTS summary_gfms_latest (
-    "timestamp"          VARCHAR(64),
+    "timestamp"          TIMESTAMPTZ,
     pfaf_id              INTEGER         PRIMARY KEY,
     "GFMS_TotalArea_km"  DOUBLE PRECISION,
     "GFMS_perc_Area"     DOUBLE PRECISION,
@@ -195,7 +195,7 @@ CREATE TABLE IF NOT EXISTS summary_gfms_latest (
 
 -- HWRF Latest
 CREATE TABLE IF NOT EXISTS summary_hwrf_latest (
-    "timestamp"          VARCHAR(64),
+    "timestamp"          TIMESTAMPTZ,
     pfaf_id              INTEGER         PRIMARY KEY,
     "Rain_TotalArea_km"  DOUBLE PRECISION,
     "perc_Area"          DOUBLE PRECISION,
@@ -205,7 +205,7 @@ CREATE TABLE IF NOT EXISTS summary_hwrf_latest (
 
 -- GloFAS Latest: forecast data + station metadata
 CREATE TABLE IF NOT EXISTS summary_glofas_latest (
-    "timestamp"          VARCHAR(64),
+    "timestamp"          TIMESTAMPTZ,
     matching_id_station  INTEGER         PRIMARY KEY,
     pfaf_id              INTEGER,
     "ID"                 TEXT,
@@ -237,7 +237,7 @@ CREATE TABLE IF NOT EXISTS summary_glofas_latest (
 
 -- VIIRS Latest
 CREATE TABLE IF NOT EXISTS summary_viirs_latest (
-    "timestamp"              VARCHAR(64),
+    "timestamp"              TIMESTAMPTZ,
     pfaf_id                  INTEGER         PRIMARY KEY,
     "onedayFlood_Area_km"    DOUBLE PRECISION,
     "onedayperc_Area"        DOUBLE PRECISION,
@@ -247,7 +247,7 @@ CREATE TABLE IF NOT EXISTS summary_viirs_latest (
 
 -- DFO Latest
 CREATE TABLE IF NOT EXISTS summary_dfo_latest (
-    "timestamp"               VARCHAR(64),
+    "timestamp"               TIMESTAMPTZ,
     pfaf_id                   INTEGER         PRIMARY KEY,
     "1-Day_TotalArea_km2"     DOUBLE PRECISION,
     "1-Day_perc_Area"         DOUBLE PRECISION,
@@ -261,7 +261,7 @@ CREATE TABLE IF NOT EXISTS summary_dfo_latest (
 
 -- Final Alert Latest: alert data + watershed metadata
 CREATE TABLE IF NOT EXISTS summary_final_alert_latest (
-    "timestamp"                 VARCHAR(64),
+    "timestamp"                 TIMESTAMPTZ,
     matching_id_watershed       INTEGER         PRIMARY KEY,
     pfaf_id                     INTEGER,
     "rfr_score"                 DOUBLE PRECISION,

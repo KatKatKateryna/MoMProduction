@@ -15,22 +15,18 @@ Station management mirrors update_glofas.py but uses the DB instead of CSVs.
 
 import csv
 import io
-import os
 import re
-import time
-from decimal import Decimal, InvalidOperation
 
 import psycopg2
 import psycopg2.extras
-import requests
-from dotenv import load_dotenv
 
-load_dotenv()
+from db_utils import (
+    DB_PARAMS, download_resp, get_processed_timestamps,
+    parse_forecast_date, parse_timestamp_hh,
+    to_dec, to_float, to_int,
+)
 
 BASE_URL = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/GLOFAS/"
-
-RETRY_ATTEMPTS = 3
-RETRY_DELAY    = 5
 
 STATIC_COLS = [
     "Station", "Basin", "Country", "Country_code",
@@ -38,34 +34,17 @@ STATIC_COLS = [
     "Lat", "Lon", "Upstream area", "area_km2", "pfaf_id",
     "rfr_score", "cfr_score",
 ]
-STATIONS_COLS = ["matching_id_station"] + STATIC_COLS
 
-CSV_STATIC_COLS = ["Station", "Country", "Lat", "Lon", "pfaf_id"]
-NUMERIC_COLS    = {"Lat", "Lon", "Upstream area", "area_km2", "rfr_score", "cfr_score"}
-GEOJSON_ONLY_COLS  = [c for c in STATIC_COLS if c not in CSV_STATIC_COLS]
-COMPLETABLE_COLS   = ["Basin", "Upstream area"]
+CSV_STATIC_COLS   = ["Station", "Country", "Lat", "Lon", "pfaf_id"]
+NUMERIC_COLS      = {"Lat", "Lon", "Upstream area", "area_km2", "rfr_score", "cfr_score"}
+GEOJSON_ONLY_COLS = [c for c in STATIC_COLS if c not in CSV_STATIC_COLS]
+COMPLETABLE_COLS  = ["Basin", "Upstream area"]
 
 DYNAMIC_COLS = [
     "Alert_level", "Days_until_peak",
     "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr",
     "max_EPS", "Forecast Date",
 ]
-# All columns written to summary_glofas_latest (forecast + station metadata)
-LATEST_COLS = (
-    ["timestamp", "matching_id_station", "pfaf_id", "ID", "Point No"]
-    + DYNAMIC_COLS
-    + STATIC_COLS
-)
-
-DB_PARAMS = {
-    "host":            os.getenv("DB_HOST"),
-    "port":            int(os.getenv("DB_PORT", 5432)),
-    "dbname":          os.getenv("DB_NAME", "postgres"),
-    "user":            os.getenv("DB_USER"),
-    "password":        os.getenv("DB_PASSWORD"),
-    "sslmode":         os.getenv("DB_SSLMODE", "require"),
-    "connect_timeout": 10,
-}
 
 # Upsert into summary_glofas_latest — newest timestamp wins per matching_id_station
 UPSERT_LATEST_SQL = """
@@ -105,42 +84,13 @@ ON CONFLICT (matching_id_station) DO UPDATE SET
     "area_km2"         = EXCLUDED."area_km2",
     "rfr_score"        = EXCLUDED."rfr_score",
     "cfr_score"        = EXCLUDED."cfr_score"
-WHERE EXCLUDED."timestamp" >= summary_glofas_latest."timestamp"
 """
 
 # ---------------------------------------------------------------------------
-# Type helpers
+# Lookup key helpers (identical logic to update_glofas.py)
 # ---------------------------------------------------------------------------
 
-def to_str(v):
-    return "" if v is None else str(v)
-
-
-def to_int_or_none(v):
-    try:
-        return int(v) if v not in (None, "") else None
-    except (ValueError, TypeError):
-        return None
-
-
-def to_float_or_none(v):
-    try:
-        return float(v) if v not in (None, "") else None
-    except (ValueError, TypeError, InvalidOperation):
-        return None
-
-
-def to_decimal_or_none(v, places=3):
-    try:
-        if v in (None, ""):
-            return None
-        return round(Decimal(str(float(v))), places)
-    except (ValueError, TypeError, InvalidOperation):
-        return None
-
-
 def norm_float(v):
-    """Normalise a numeric string to float repr for lookup keys."""
     try:
         return str(float(v))
     except (TypeError, ValueError):
@@ -151,10 +101,6 @@ def prop(props, key):
     v = props.get(key)
     return "" if v is None else str(v)
 
-
-# ---------------------------------------------------------------------------
-# Lookup key builders (identical logic to update_glofas.py)
-# ---------------------------------------------------------------------------
 
 def geojson_key(props):
     return tuple(
@@ -174,25 +120,16 @@ def csv_key(props):
 # DB helpers
 # ---------------------------------------------------------------------------
 
-def get_last_timestamp(conn):
-    with conn.cursor() as cur:
-        cur.execute('SELECT MAX("timestamp") FROM summary_glofas_latest')
-        return cur.fetchone()[0]
-
-
 def load_stations(conn):
     """Load all_glofas_stations from DB into the same in-memory structure as update_glofas.py."""
     with conn.cursor() as cur:
         cur.execute("SELECT * FROM all_glofas_stations")
-        cols = [desc[0] for desc in cur.description]
+        cols    = [desc[0] for desc in cur.description]
         db_rows = cur.fetchall()
 
-    # Normalise all values to strings to match the CSV-sourced behaviour
     rows = []
     for db_row in db_rows:
-        row = {}
-        for col, val in zip(cols, db_row):
-            row[col] = "" if val is None else str(val)
+        row = {col: ("" if val is None else str(val)) for col, val in zip(cols, db_row)}
         rows.append(row)
 
     rows_by_id     = {int(r["matching_id_station"]): r for r in rows}
@@ -203,7 +140,6 @@ def load_stations(conn):
 
 
 def insert_station(conn, row):
-    """INSERT a new station row into all_glofas_stations."""
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -226,19 +162,18 @@ def insert_station(conn, row):
                 row.get("Admin0") or None,
                 row.get("Admin1") or None,
                 row.get("Location") or None,
-                to_decimal_or_none(row.get("Lat"), 3),
-                to_decimal_or_none(row.get("Lon"), 3),
-                to_decimal_or_none(row.get("Upstream area"), 3),
-                to_float_or_none(row.get("area_km2")),
-                to_int_or_none(row.get("pfaf_id")),
-                to_float_or_none(row.get("rfr_score")),
-                to_float_or_none(row.get("cfr_score")),
+                to_dec(row.get("Lat"), 3),
+                to_dec(row.get("Lon"), 3),
+                to_dec(row.get("Upstream area"), 3),
+                to_float(row.get("area_km2")),
+                to_int(row.get("pfaf_id")),
+                to_float(row.get("rfr_score")),
+                to_float(row.get("cfr_score")),
             ),
         )
 
 
 def update_station(conn, row):
-    """UPDATE an existing station row in all_glofas_stations (for completions and GeoJSON fills)."""
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -261,20 +196,19 @@ def update_station(conn, row):
                 row.get("Admin0") or None,
                 row.get("Admin1") or None,
                 row.get("Location") or None,
-                to_decimal_or_none(row.get("Lat"), 3),
-                to_decimal_or_none(row.get("Lon"), 3),
-                to_decimal_or_none(row.get("Upstream area"), 3),
-                to_float_or_none(row.get("area_km2")),
-                to_int_or_none(row.get("pfaf_id")),
-                to_float_or_none(row.get("rfr_score")),
-                to_float_or_none(row.get("cfr_score")),
+                to_dec(row.get("Lat"), 3),
+                to_dec(row.get("Lon"), 3),
+                to_dec(row.get("Upstream area"), 3),
+                to_float(row.get("area_km2")),
+                to_int(row.get("pfaf_id")),
+                to_float(row.get("rfr_score")),
+                to_float(row.get("cfr_score")),
                 int(row["matching_id_station"]),
             ),
         )
 
 
 def upsert_latest(conn, rows):
-    """Upsert merged forecast+station rows into summary_glofas_latest."""
     with conn.cursor() as cur:
         psycopg2.extras.execute_values(cur, UPSERT_LATEST_SQL, rows, page_size=500)
     conn.commit()
@@ -285,6 +219,7 @@ def upsert_latest(conn, rows):
 # ---------------------------------------------------------------------------
 
 def list_server_files():
+    import requests
     resp = requests.get(BASE_URL, timeout=30)
     resp.raise_for_status()
     files = {}
@@ -293,20 +228,6 @@ def list_server_files():
     for filename, ts in re.findall(r'href="(threspoints_(\d+)\.geojson)"', resp.text):
         files[ts] = filename  # GeoJSON overwrites CSV for the same timestamp
     return files
-
-
-def download(filename):
-    url = BASE_URL + filename
-    for attempt in range(RETRY_ATTEMPTS):
-        try:
-            resp = requests.get(url, timeout=120)
-            resp.raise_for_status()
-            return resp
-        except Exception as exc:
-            if attempt < RETRY_ATTEMPTS - 1:
-                time.sleep(RETRY_DELAY)
-            else:
-                raise RuntimeError(f"Failed to download {filename}: {exc}") from exc
 
 
 def parse_geojson(resp):
@@ -337,7 +258,7 @@ def process_rows(props_list, fmt, timestamp,
     Match or create stations and build merged (forecast + station metadata) rows.
     Returns (merged_tuples, new_station_rows, updated_station_rows, updated_next_id).
     """
-    merged_tuples    = []
+    merged_tuples        = []
     new_station_rows     = []
     updated_station_rows = []
 
@@ -347,7 +268,6 @@ def process_rows(props_list, fmt, timestamp,
 
         if fmt == "geojson":
             matching_id_station = geojson_lookup.get(geojson_key(props))
-
             if matching_id_station is not None:
                 if complete_row(rows_by_id[matching_id_station], props):
                     station_changed = True
@@ -383,22 +303,19 @@ def process_rows(props_list, fmt, timestamp,
 
         station = rows_by_id[matching_id_station]
 
-        # Build the merged tuple matching UPSERT_LATEST_SQL column order:
-        # timestamp, matching_id_station, pfaf_id(forecast), ID, Point No,
-        # dynamic cols..., static cols... (station)
         merged_tuples.append((
-            timestamp,
+            parse_timestamp_hh(timestamp),
             matching_id_station,
-            to_int_or_none(prop(props, "pfaf_id")),
+            to_int(prop(props, "pfaf_id")),
             prop(props, "ID") or None,
-            to_int_or_none(prop(props, "Point No")),
-            to_int_or_none(prop(props, "Alert_level")),
-            to_int_or_none(prop(props, "Days_until_peak")),
-            to_float_or_none(prop(props, "GloFAS_2yr")),
-            to_float_or_none(prop(props, "GloFAS_5yr")),
-            to_float_or_none(prop(props, "GloFAS_20yr")),
+            to_int(prop(props, "Point No")),
+            to_int(prop(props, "Alert_level")),
+            to_int(prop(props, "Days_until_peak")),
+            to_float(prop(props, "GloFAS_2yr")),
+            to_float(prop(props, "GloFAS_5yr")),
+            to_float(prop(props, "GloFAS_20yr")),
             prop(props, "max_EPS") or None,
-            prop(props, "Forecast Date") or None,
+            parse_forecast_date(prop(props, "Forecast Date")),
             # station metadata
             station.get("Station") or None,
             station.get("Basin") or None,
@@ -409,12 +326,12 @@ def process_rows(props_list, fmt, timestamp,
             station.get("Admin0") or None,
             station.get("Admin1") or None,
             station.get("Location") or None,
-            to_decimal_or_none(station.get("Lat"), 3),
-            to_decimal_or_none(station.get("Lon"), 3),
-            to_decimal_or_none(station.get("Upstream area"), 3),
-            to_float_or_none(station.get("area_km2")),
-            to_float_or_none(station.get("rfr_score")),
-            to_float_or_none(station.get("cfr_score")),
+            to_dec(station.get("Lat"), 3),
+            to_dec(station.get("Lon"), 3),
+            to_dec(station.get("Upstream area"), 3),
+            to_float(station.get("area_km2")),
+            to_float(station.get("rfr_score")),
+            to_float(station.get("cfr_score")),
         ))
 
     return merged_tuples, new_station_rows, updated_station_rows, next_id
@@ -427,19 +344,19 @@ def process_rows(props_list, fmt, timestamp,
 def main():
     conn = psycopg2.connect(**DB_PARAMS)
     try:
-        print("Querying latest timestamp from DB...")
-        last_ts = get_last_timestamp(conn)
-        print(f"  Latest timestamp in summary_glofas_latest: {last_ts or '(none)'}")
+        print("Querying processed timestamps from DB...")
+        processed = get_processed_timestamps(conn, "summary_glofas_latest")
+        print(f"  {len(processed)} timestamps in summary_glofas_latest")
 
         print("Fetching file list from server...")
         all_files     = list_server_files()
         new_files     = {ts: fn for ts, fn in sorted(all_files.items())
-                         if ts > (last_ts or "")}
+                         if parse_timestamp_hh(ts) not in processed}
         geojson_count = sum(1 for fn in all_files.values() if fn.endswith(".geojson"))
         csv_count     = sum(1 for fn in all_files.values() if fn.endswith(".csv"))
         print(f"  {len(all_files)} timestamps on server "
               f"({geojson_count} geojson, {csv_count} csv), "
-              f"{len(new_files)} new to process\n")
+              f"{len(processed)} already in DB, {len(new_files)} to process\n")
 
         if not new_files:
             print("Nothing to do.")
@@ -456,7 +373,7 @@ def main():
         for i, (timestamp, filename) in enumerate(new_files.items(), 1):
             fmt = "geojson" if filename.endswith(".geojson") else "csv"
             try:
-                resp       = download(filename)
+                resp       = download_resp(BASE_URL + filename)
                 props_list = parse_geojson(resp) if fmt == "geojson" else parse_csv(resp)
 
                 merged_tuples, new_station_rows, updated_station_rows, next_id = process_rows(
@@ -464,13 +381,11 @@ def main():
                     stations_rows, rows_by_id, geojson_lookup, csv_lookup, next_id
                 )
 
-                # Persist station changes first
                 for row in new_station_rows:
                     insert_station(conn, row)
                 for row in updated_station_rows:
                     update_station(conn, row)
 
-                # Upsert merged rows into summary_glofas_latest
                 upsert_latest(conn, merged_tuples)
 
                 total_rows         += len(merged_tuples)
@@ -484,6 +399,8 @@ def main():
             except Exception as exc:
                 conn.rollback()
                 print(f"  [{i}/{len(new_files)}] FAILED {filename}: {exc}")
+                # Reload stations so in-memory state matches the DB after rollback
+                stations_rows, rows_by_id, geojson_lookup, csv_lookup, next_id = load_stations(conn)
 
         print(f"\nDone. {total_rows:,} rows upserted into summary_glofas_latest")
         print(f"      {total_new_stations} new stations, {total_updated} stations updated")

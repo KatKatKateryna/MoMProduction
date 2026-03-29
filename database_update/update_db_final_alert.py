@@ -13,20 +13,17 @@ Watershed management mirrors update_final_alert.py but uses the DB instead of CS
 
 import csv
 import io
-import os
 import re
-import time
 
 import psycopg2
 import psycopg2.extras
-import requests
-from dotenv import load_dotenv
 
-load_dotenv()
+from db_utils import (
+    DB_PARAMS, download_text, get_processed_timestamps,
+    parse_timestamp_hh, to_dec, to_float, to_int, to_str,
+)
 
-BASE_URL       = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/Final_Alert/"
-RETRY_ATTEMPTS = 3
-RETRY_DELAY    = 5
+BASE_URL = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/Final_Alert/"
 
 LOOKUP_KEY  = ("pfaf_id", "name", "name_1", "CentroidX", "CentroidY")
 LOOKUP_COLS = ["matching_id_watershed", "pfaf_id", "name", "name_1",
@@ -55,16 +52,6 @@ ALERT_COLS = [
 # Watershed metadata columns appended to ALERT_COLS in summary_final_alert_latest
 WATERSHED_EXTRA_COLS = ["name", "name_1", "CentroidX", "CentroidY",
                         "Admin1_count", "Admin1_names", "area_km2"]
-
-DB_PARAMS = {
-    "host":            os.getenv("DB_HOST"),
-    "port":            int(os.getenv("DB_PORT", 5432)),
-    "dbname":          os.getenv("DB_NAME", "postgres"),
-    "user":            os.getenv("DB_USER"),
-    "password":        os.getenv("DB_PASSWORD"),
-    "sslmode":         os.getenv("DB_SSLMODE", "require"),
-    "connect_timeout": 10,
-}
 
 # fmt: off
 UPSERT_LATEST_SQL = """
@@ -156,41 +143,12 @@ ON CONFLICT (matching_id_watershed) DO UPDATE SET
     "Admin1_count"            = EXCLUDED."Admin1_count",
     "Admin1_names"            = EXCLUDED."Admin1_names",
     "area_km2"                = EXCLUDED."area_km2"
-WHERE EXCLUDED."timestamp" >= summary_final_alert_latest."timestamp"
 """
 # fmt: on
 
 # ---------------------------------------------------------------------------
-# Type helpers
-# ---------------------------------------------------------------------------
-
-def to_float(v):
-    try:
-        return float(v) if v not in (None, "") else None
-    except (ValueError, TypeError):
-        return None
-
-
-def to_int(v):
-    try:
-        return int(v) if v not in (None, "") else None
-    except (ValueError, TypeError):
-        return None
-
-
-def to_str(v):
-    return v if v not in (None, "") else None
-
-
-# ---------------------------------------------------------------------------
 # DB helpers
 # ---------------------------------------------------------------------------
-
-def get_last_timestamp(conn):
-    with conn.cursor() as cur:
-        cur.execute('SELECT MAX("timestamp") FROM summary_final_alert_latest')
-        return cur.fetchone()[0]
-
 
 def load_lookup(conn):
     """Load all_watersheds from DB. Returns (lookup_dict, max_id, rows_by_id)."""
@@ -216,14 +174,6 @@ def load_lookup(conn):
 
 def insert_watershed(conn, row, new_id):
     """INSERT a new watershed into all_watersheds and return the new matching_id_watershed."""
-    from decimal import Decimal, InvalidOperation
-
-    def to_dec(v, places=6):
-        try:
-            return round(Decimal(str(float(v))), places) if v not in (None, "") else None
-        except (ValueError, TypeError, InvalidOperation):
-            return None
-
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -255,16 +205,8 @@ def build_merged_tuple(timestamp, matching_id_watershed, row, watershed):
     f = to_float
     i = to_int
     s = to_str
-    from decimal import Decimal, InvalidOperation
-
-    def to_dec(v, places=6):
-        try:
-            return round(Decimal(str(float(v))), places) if v not in (None, "") else None
-        except (ValueError, TypeError, InvalidOperation):
-            return None
-
     return (
-        timestamp,
+        parse_timestamp_hh(timestamp),
         i(matching_id_watershed),
         i(row.get("pfaf_id")),
         f(row.get("rfr_score")),
@@ -339,6 +281,7 @@ def build_merged_tuple(timestamp, matching_id_watershed, row, watershed):
 # ---------------------------------------------------------------------------
 
 def list_server_filenames():
+    import requests
     resp = requests.get(BASE_URL, timeout=30)
     resp.raise_for_status()
     return sorted(re.findall(r'href="(Final_Attributes_[^"]+\.csv)"', resp.text))
@@ -347,20 +290,6 @@ def list_server_filenames():
 def get_timestamp(filename):
     match = re.search(r'Final_Attributes_(\d{10})', filename)
     return match.group(1) if match else ""
-
-
-def download_content(filename):
-    url = BASE_URL + filename
-    for attempt in range(RETRY_ATTEMPTS):
-        try:
-            resp = requests.get(url, timeout=60)
-            resp.raise_for_status()
-            return resp.content.decode("utf-8", errors="ignore")
-        except Exception as exc:
-            if attempt < RETRY_ATTEMPTS - 1:
-                time.sleep(RETRY_DELAY)
-            else:
-                raise RuntimeError(f"Failed to download {filename}: {exc}") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -420,15 +349,16 @@ def process_file(conn, content, filename, lookup, max_id, rows_by_id):
 def main():
     conn = psycopg2.connect(**DB_PARAMS)
     try:
-        print("Querying latest timestamp from DB...")
-        last_ts = get_last_timestamp(conn)
-        print(f"  Latest timestamp in summary_final_alert_latest: {last_ts or '(none)'}")
+        print("Querying processed timestamps from DB...")
+        processed = get_processed_timestamps(conn, "summary_final_alert_latest")
+        print(f"  {len(processed)} timestamps in summary_final_alert_latest")
 
         print("Fetching file list from server...")
         all_files  = list_server_filenames()
-        to_process = [f for f in all_files if get_timestamp(f) > (last_ts or "")]
+        to_process = [f for f in all_files
+                      if parse_timestamp_hh(get_timestamp(f)) not in processed]
         print(f"  {len(all_files)} files on server | "
-              f"{len(all_files) - len(to_process)} skipped | "
+              f"{len(processed)} already in DB | "
               f"{len(to_process)} to process\n")
 
         if not to_process:
@@ -445,7 +375,7 @@ def main():
 
         for i, filename in enumerate(to_process, 1):
             try:
-                content = download_content(filename)
+                content = download_text(BASE_URL + filename, errors="ignore")
                 rows_written, max_id, new_ws = process_file(
                     conn, content, filename, lookup, max_id, rows_by_id
                 )
@@ -460,6 +390,8 @@ def main():
                 conn.rollback()
                 print(f"  FAILED {filename}: {exc}")
                 failed.append(filename)
+                # Reload lookup so in-memory state matches the DB after rollback
+                lookup, max_id, rows_by_id = load_lookup(conn)
 
         print(f"\nDone. {len(to_process) - len(failed)}/{len(to_process)} files processed, "
               f"{total_rows:,} rows upserted into summary_final_alert_latest")
