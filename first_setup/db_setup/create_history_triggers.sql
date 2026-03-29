@@ -6,7 +6,7 @@
 -- UPDATE-path rows; a first-ever load produces INSERT-path rows).
 --
 -- Each trigger function does three things:
---   1. CLEAR-AND-REPLACE: if the incoming batch has >= 500 rows, delete all
+--   1. CLEAR-AND-REPLACE: if the incoming batch has >= 1 rows, delete all
 --      rows in _latest whose timestamp differs from the batch timestamp.
 --      This is effectively "clear first, then keep only the new data".
 --      It is atomic — no external reader sees a mixed state.
@@ -46,14 +46,14 @@ BEGIN
     FROM new_rows;
 
     -- If this timestamp already exists in history, skip everything
-    IF row_count >= 500 AND EXISTS (
+    IF row_count >= 1 AND EXISTS (
         SELECT 1 FROM summary_gfms WHERE "timestamp" = batch_ts
     ) THEN
         RETURN NULL;
     END IF;
 
     -- Clear stale rows from _latest when a full batch arrives
-    IF row_count >= 500 THEN
+    IF row_count >= 1 THEN
         DELETE FROM summary_gfms_latest
         WHERE "timestamp" != batch_ts;
     END IF;
@@ -135,13 +135,13 @@ BEGIN
     FROM new_rows;
 
     -- If this timestamp already exists in history, skip everything
-    IF row_count >= 500 AND EXISTS (
+    IF row_count >= 1 AND EXISTS (
         SELECT 1 FROM summary_hwrf WHERE "timestamp" = batch_ts
     ) THEN
         RETURN NULL;
     END IF;
 
-    IF row_count >= 500 THEN
+    IF row_count >= 1 THEN
         DELETE FROM summary_hwrf_latest
         WHERE "timestamp" != batch_ts;
     END IF;
@@ -189,13 +189,13 @@ BEGIN
     FROM new_rows;
 
     -- If this timestamp already exists in history, skip everything
-    IF row_count >= 500 AND EXISTS (
+    IF row_count >= 1 AND EXISTS (
         SELECT 1 FROM summary_viirs WHERE "timestamp" = batch_ts
     ) THEN
         RETURN NULL;
     END IF;
 
-    IF row_count >= 500 THEN
+    IF row_count >= 1 THEN
         DELETE FROM summary_viirs_latest
         WHERE "timestamp" != batch_ts;
     END IF;
@@ -246,13 +246,13 @@ BEGIN
     FROM new_rows;
 
     -- If this timestamp already exists in history, skip everything
-    IF row_count >= 500 AND EXISTS (
+    IF row_count >= 1 AND EXISTS (
         SELECT 1 FROM summary_dfo WHERE "timestamp" = batch_ts
     ) THEN
         RETURN NULL;
     END IF;
 
-    IF row_count >= 500 THEN
+    IF row_count >= 1 THEN
         DELETE FROM summary_dfo_latest
         WHERE "timestamp" != batch_ts;
     END IF;
@@ -348,13 +348,13 @@ BEGIN
     FROM new_rows;
 
     -- If this timestamp already exists in history, skip everything
-    IF row_count >= 500 AND EXISTS (
+    IF row_count >= 1 AND EXISTS (
         SELECT 1 FROM summary_glofas WHERE "timestamp" = batch_ts
     ) THEN
         RETURN NULL;
     END IF;
 
-    IF row_count >= 500 THEN
+    IF row_count >= 1 THEN
         DELETE FROM summary_glofas_latest
         WHERE "timestamp" != batch_ts;
     END IF;
@@ -410,13 +410,13 @@ BEGIN
     FROM new_rows;
 
     -- If this timestamp already exists in history, skip everything
-    IF row_count >= 500 AND EXISTS (
+    IF row_count >= 1 AND EXISTS (
         SELECT 1 FROM summary_final_alert WHERE "timestamp" = batch_ts
     ) THEN
         RETURN NULL;
     END IF;
 
-    IF row_count >= 500 THEN
+    IF row_count >= 1 THEN
         DELETE FROM summary_final_alert_latest
         WHERE "timestamp" != batch_ts;
     END IF;

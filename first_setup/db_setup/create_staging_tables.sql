@@ -40,7 +40,7 @@ DECLARE rc INTEGER;
 BEGIN
     SELECT COUNT(*) INTO rc FROM new_rows;
 
-    IF rc < 500 THEN
+    IF rc < 1 THEN
         DELETE FROM stage_gfms;
         RETURN NULL;
     END IF;
@@ -94,7 +94,7 @@ DECLARE rc INTEGER;
 BEGIN
     SELECT COUNT(*) INTO rc FROM new_rows;
 
-    IF rc < 500 THEN
+    IF rc < 1 THEN
         DELETE FROM stage_hwrf;
         RETURN NULL;
     END IF;
@@ -145,7 +145,7 @@ DECLARE rc INTEGER;
 BEGIN
     SELECT COUNT(*) INTO rc FROM new_rows;
 
-    IF rc < 500 THEN
+    IF rc < 1 THEN
         DELETE FROM stage_viirs;
         RETURN NULL;
     END IF;
@@ -202,7 +202,7 @@ DECLARE rc INTEGER;
 BEGIN
     SELECT COUNT(*) INTO rc FROM new_rows;
 
-    IF rc < 500 THEN
+    IF rc < 1 THEN
         DELETE FROM stage_dfo;
         RETURN NULL;
     END IF;
@@ -285,7 +285,7 @@ DECLARE rc INTEGER;
 BEGIN
     SELECT COUNT(*) INTO rc FROM new_rows;
 
-    IF rc < 500 THEN
+    IF rc < 1 THEN
         DELETE FROM stage_glofas;
         RETURN NULL;
     END IF;
@@ -434,7 +434,7 @@ DECLARE rc INTEGER;
 BEGIN
     SELECT COUNT(*) INTO rc FROM new_rows;
 
-    IF rc < 500 THEN
+    IF rc < 1 THEN
         DELETE FROM stage_final_alert;
         RETURN NULL;
     END IF;
