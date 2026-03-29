@@ -45,6 +45,13 @@ BEGIN
     INTO row_count, batch_ts
     FROM new_rows;
 
+    -- If this timestamp already exists in history, skip everything
+    IF row_count >= 1000 AND EXISTS (
+        SELECT 1 FROM summary_gfms WHERE "timestamp" = batch_ts
+    ) THEN
+        RETURN NULL;
+    END IF;
+
     -- Clear stale rows from _latest when a full batch arrives
     IF row_count >= 1000 THEN
         DELETE FROM summary_gfms_latest
@@ -127,6 +134,13 @@ BEGIN
     INTO row_count, batch_ts
     FROM new_rows;
 
+    -- If this timestamp already exists in history, skip everything
+    IF row_count >= 1000 AND EXISTS (
+        SELECT 1 FROM summary_hwrf WHERE "timestamp" = batch_ts
+    ) THEN
+        RETURN NULL;
+    END IF;
+
     IF row_count >= 1000 THEN
         DELETE FROM summary_hwrf_latest
         WHERE "timestamp" != batch_ts;
@@ -173,6 +187,13 @@ BEGIN
     SELECT COUNT(*), MAX("timestamp")
     INTO row_count, batch_ts
     FROM new_rows;
+
+    -- If this timestamp already exists in history, skip everything
+    IF row_count >= 1000 AND EXISTS (
+        SELECT 1 FROM summary_viirs WHERE "timestamp" = batch_ts
+    ) THEN
+        RETURN NULL;
+    END IF;
 
     IF row_count >= 1000 THEN
         DELETE FROM summary_viirs_latest
@@ -223,6 +244,13 @@ BEGIN
     SELECT COUNT(*), MAX("timestamp")
     INTO row_count, batch_ts
     FROM new_rows;
+
+    -- If this timestamp already exists in history, skip everything
+    IF row_count >= 1000 AND EXISTS (
+        SELECT 1 FROM summary_dfo WHERE "timestamp" = batch_ts
+    ) THEN
+        RETURN NULL;
+    END IF;
 
     IF row_count >= 1000 THEN
         DELETE FROM summary_dfo_latest
@@ -319,6 +347,13 @@ BEGIN
     INTO row_count, batch_ts
     FROM new_rows;
 
+    -- If this timestamp already exists in history, skip everything
+    IF row_count >= 1000 AND EXISTS (
+        SELECT 1 FROM summary_glofas WHERE "timestamp" = batch_ts
+    ) THEN
+        RETURN NULL;
+    END IF;
+
     IF row_count >= 1000 THEN
         DELETE FROM summary_glofas_latest
         WHERE "timestamp" != batch_ts;
@@ -373,6 +408,13 @@ BEGIN
     SELECT COUNT(*), MAX("timestamp")
     INTO row_count, batch_ts
     FROM new_rows;
+
+    -- If this timestamp already exists in history, skip everything
+    IF row_count >= 1000 AND EXISTS (
+        SELECT 1 FROM summary_final_alert WHERE "timestamp" = batch_ts
+    ) THEN
+        RETURN NULL;
+    END IF;
 
     IF row_count >= 1000 THEN
         DELETE FROM summary_final_alert_latest

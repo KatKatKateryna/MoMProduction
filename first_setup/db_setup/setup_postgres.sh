@@ -124,10 +124,16 @@ END
 GRANT CONNECT ON DATABASE "${DB_NAME}" TO "${ADMIN_USER}";
 GRANT USAGE ON SCHEMA public TO "${ADMIN_USER}";
 
--- SELECT, INSERT, UPDATE — no DELETE, no DROP
+-- SELECT, INSERT, UPDATE on all tables; DELETE also granted on staging tables
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO "${ADMIN_USER}";
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
     GRANT SELECT, INSERT, UPDATE ON TABLES TO "${ADMIN_USER}";
+
+-- DELETE on staging tables (needed to flush stage data after ingestion)
+GRANT DELETE ON
+    stage_gfms, stage_hwrf, stage_viirs,
+    stage_dfo, stage_glofas, stage_final_alert
+    TO "${ADMIN_USER}";
 
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "${ADMIN_USER}";
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
