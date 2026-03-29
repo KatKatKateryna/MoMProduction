@@ -17,10 +17,10 @@ from db_utils import (
     list_server_files, parse_timestamp_hh, upsert_dataframe,
 )
 
-STAGE_TABLE  = "stage_gfms"
-LATEST_TABLE = "summary_gfms_latest"
-BASE_URL     = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/GFMS/GFMS_summary/"
-FLOOD_COLS   = ["GFMS_TotalArea_km", "GFMS_perc_Area", "GFMS_MeanDepth", "GFMS_MaxDepth", "GFMS_Duration"]
+STAGE_TABLE   = "stage_gfms"
+HISTORY_TABLE = "summary_gfms"
+BASE_URL      = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/GFMS/GFMS_summary/"
+FLOOD_COLS    = ["GFMS_TotalArea_km", "GFMS_perc_Area", "GFMS_MeanDepth", "GFMS_MaxDepth", "GFMS_Duration"]
 
 
 def get_timestamp(filename):
@@ -49,8 +49,8 @@ def main():
     conn = psycopg2.connect(**DB_PARAMS)
     try:
         print("Querying processed timestamps from DB...")
-        processed = get_processed_timestamps(conn, LATEST_TABLE)
-        print(f"  {len(processed)} timestamps in {LATEST_TABLE}")
+        processed = get_processed_timestamps(conn, HISTORY_TABLE)
+        print(f"  {len(processed)} timestamps in {HISTORY_TABLE}")
 
         print("Fetching file list from server...")
         all_files = list_server_files(BASE_URL, r'href="(Flood_byStor_\d+\.csv)"')
