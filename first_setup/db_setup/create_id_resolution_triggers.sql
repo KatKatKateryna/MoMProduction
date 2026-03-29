@@ -67,15 +67,15 @@ BEGIN
         INSERT INTO all_glofas_stations (
             matching_id_station,
             "Station", "Basin", "Country", "Country_code",
-            "Continent", "ISO", "Admin0", "Admin1", "Location",
-            "Lat", "Lon", "Upstream area", "area_km2",
-            pfaf_id, "rfr_score", "cfr_score"
+            "Continent", "Location",
+            "Lat", "Lon", "Upstream area",
+            pfaf_id
         ) VALUES (
             v_id,
             NEW."Station", NEW."Basin", NEW."Country", NEW."Country_code",
-            NEW."Continent", NEW."ISO", NEW."Admin0", NEW."Admin1", NEW."Location",
-            NEW."Lat", NEW."Lon", NEW."Upstream area", NEW."area_km2",
-            NEW.pfaf_id, NEW."rfr_score", NEW."cfr_score"
+            NEW."Continent", NEW."Location",
+            NEW."Lat", NEW."Lon", NEW."Upstream area",
+            NEW.pfaf_id
         );
     END IF;
 
@@ -122,12 +122,12 @@ BEGIN
             matching_id_watershed,
             pfaf_id, "name", "name_1",
             "CentroidX", "CentroidY",
-            "Admin1_count", "Admin1_names", "area_km2"
+            "Admin1_count", "Admin1_names"
         ) VALUES (
             v_id,
             NEW.pfaf_id, NEW."name", NEW."name_1",
             NEW."CentroidX", NEW."CentroidY",
-            NEW."Admin1_count", NEW."Admin1_names", NEW."area_km2"
+            NEW."Admin1_count", NEW."Admin1_names"
         );
     END IF;
 

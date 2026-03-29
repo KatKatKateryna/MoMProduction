@@ -38,9 +38,8 @@ MIN_DISK_GB    = 0.5
 # CSV-sourced rows leave the GeoJSON-only columns as empty strings.
 STATIC_COLS = [
     "Station", "Basin", "Country", "Country_code",
-    "Continent", "ISO", "Admin0", "Admin1", "Location",
-    "Lat", "Lon", "Upstream area", "area_km2", "pfaf_id",
-    "rfr_score", "cfr_score",
+    "Continent", "Location",
+    "Lat", "Lon", "Upstream area", "pfaf_id",
 ]
 STATIONS_COLS = ["matching_id_station"] + STATIC_COLS
 
@@ -52,7 +51,7 @@ CSV_STATIC_COLS = [
 # Numeric cols that need float-normalisation so that "198000" matches "198000.0"
 # and "72.250" matches "72.25" regardless of source file format.
 # Applied in both the GeoJSON and CSV match keys.
-NUMERIC_COLS = {"Lat", "Lon", "Upstream area", "area_km2", "rfr_score", "cfr_score"}
+NUMERIC_COLS = {"Lat", "Lon", "Upstream area"}
 
 # Columns only available in GeoJSON — filled in when a CSV-sourced station is later matched.
 GEOJSON_ONLY_COLS = [c for c in STATIC_COLS if c not in CSV_STATIC_COLS]

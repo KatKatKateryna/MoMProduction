@@ -267,16 +267,10 @@ CREATE TABLE IF NOT EXISTS stage_glofas (
     "Country"            TEXT,
     "Country_code"       VARCHAR(8),
     "Continent"          TEXT,
-    "ISO"                VARCHAR(8),
-    "Admin0"             TEXT,
-    "Admin1"             TEXT,
     "Location"           TEXT,
     "Lat"                NUMERIC(8,3),
     "Lon"                NUMERIC(8,3),
-    "Upstream area"      NUMERIC(15,3),
-    "area_km2"           DOUBLE PRECISION,
-    "rfr_score"          DOUBLE PRECISION,
-    "cfr_score"          DOUBLE PRECISION
+    "Upstream area"      NUMERIC(15,3)
 );
 
 CREATE OR REPLACE FUNCTION fn_stage_glofas_flush()
@@ -299,9 +293,8 @@ BEGIN
         "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr",
         "max_EPS", "Forecast Date",
         "Station", "Basin", "Country", "Country_code",
-        "Continent", "ISO", "Admin0", "Admin1", "Location",
-        "Lat", "Lon", "Upstream area", "area_km2",
-        "rfr_score", "cfr_score"
+        "Continent", "Location",
+        "Lat", "Lon", "Upstream area"
     )
     SELECT
         "timestamp", pfaf_id,
@@ -310,13 +303,11 @@ BEGIN
         "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr",
         "max_EPS", "Forecast Date",
         "Station", "Basin", "Country", "Country_code",
-        "Continent", "ISO", "Admin0", "Admin1", "Location",
-        "Lat", "Lon", "Upstream area", "area_km2",
-        "rfr_score", "cfr_score"
+        "Continent", "Location",
+        "Lat", "Lon", "Upstream area"
     FROM stage_glofas
-    ON CONFLICT (matching_id_station) DO UPDATE SET
+    ON CONFLICT (pfaf_id) DO UPDATE SET
         "timestamp"      = EXCLUDED."timestamp",
-        pfaf_id          = EXCLUDED.pfaf_id,
         "ID"             = EXCLUDED."ID",
         "Point No"       = EXCLUDED."Point No",
         "Alert_level"    = EXCLUDED."Alert_level",
@@ -331,16 +322,10 @@ BEGIN
         "Country"        = EXCLUDED."Country",
         "Country_code"   = EXCLUDED."Country_code",
         "Continent"      = EXCLUDED."Continent",
-        "ISO"            = EXCLUDED."ISO",
-        "Admin0"         = EXCLUDED."Admin0",
-        "Admin1"         = EXCLUDED."Admin1",
         "Location"       = EXCLUDED."Location",
         "Lat"            = EXCLUDED."Lat",
         "Lon"            = EXCLUDED."Lon",
-        "Upstream area"  = EXCLUDED."Upstream area",
-        "area_km2"       = EXCLUDED."area_km2",
-        "rfr_score"      = EXCLUDED."rfr_score",
-        "cfr_score"      = EXCLUDED."cfr_score";
+        "Upstream area"  = EXCLUDED."Upstream area";
 
     DELETE FROM stage_glofas;
     RETURN NULL;
@@ -424,8 +409,7 @@ CREATE TABLE IF NOT EXISTS stage_final_alert (
     "CentroidX"                 NUMERIC(10,6),
     "CentroidY"                 NUMERIC(10,6),
     "Admin1_count"              INTEGER,
-    "Admin1_names"              TEXT,
-    "area_km2"                  DOUBLE PRECISION
+    "Admin1_names"              TEXT
 );
 
 CREATE OR REPLACE FUNCTION fn_stage_final_alert_flush()
@@ -470,7 +454,7 @@ BEGIN
         "VIIRSTotal_Score",
         "Severity", "Alert", "Status",
         "name", "name_1", "CentroidX", "CentroidY",
-        "Admin1_count", "Admin1_names", "area_km2"
+        "Admin1_count", "Admin1_names"
     )
     SELECT
         "timestamp", pfaf_id,
@@ -500,11 +484,10 @@ BEGIN
         "VIIRSTotal_Score",
         "Severity", "Alert", "Status",
         "name", "name_1", "CentroidX", "CentroidY",
-        "Admin1_count", "Admin1_names", "area_km2"
+        "Admin1_count", "Admin1_names"
     FROM stage_final_alert
-    ON CONFLICT (matching_id_watershed) DO UPDATE SET
+    ON CONFLICT (pfaf_id) DO UPDATE SET
         "timestamp"                 = EXCLUDED."timestamp",
-        pfaf_id                     = EXCLUDED.pfaf_id,
         "rfr_score"                 = EXCLUDED."rfr_score",
         "cfr_score"                 = EXCLUDED."cfr_score",
         "Alert_level"               = EXCLUDED."Alert_level",
@@ -566,8 +549,7 @@ BEGIN
         "CentroidX"                 = EXCLUDED."CentroidX",
         "CentroidY"                 = EXCLUDED."CentroidY",
         "Admin1_count"              = EXCLUDED."Admin1_count",
-        "Admin1_names"              = EXCLUDED."Admin1_names",
-        "area_km2"                  = EXCLUDED."area_km2";
+        "Admin1_names"              = EXCLUDED."Admin1_names";
 
     DELETE FROM stage_final_alert;
     RETURN NULL;

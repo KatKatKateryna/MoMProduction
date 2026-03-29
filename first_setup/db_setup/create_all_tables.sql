@@ -1,12 +1,78 @@
--- current server: https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/ 
+-- current server: https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/
 
 -- Enable PostGIS extension
 CREATE EXTENSION IF NOT EXISTS postgis;
 
+-- ============================================================
+-- Watershed Shapes: must be created first — all other tables
+-- reference watershed_shapes(pfaf_id) as a foreign key.
+-- One polygon per watershed from Watershed_pfaf_id.shp.
+-- Columns mirror the shapefile schema exactly (WGS84 / EPSG:4326).
+-- ============================================================
+CREATE TABLE IF NOT EXISTS watershed_shapes (
+    pfaf_id             INTEGER         PRIMARY KEY,
+    "area_km2"          DOUBLE PRECISION,
+    "ISO"               VARCHAR(8),
+    "Admin0"            TEXT,
+    "Admin1"            TEXT,
+    "rfr_score"         DOUBLE PRECISION,
+    "cfr_score"         DOUBLE PRECISION,
+    geom                GEOMETRY(Polygon, 4326)
+);
+
+CREATE INDEX IF NOT EXISTS idx_watershed_shapes_geom
+    ON watershed_shapes USING GIST (geom);
+
+
+-- ============================================================
+-- Reference tables
+-- ============================================================
+
+-- All GloFAS stations: static per-station metadata
+-- Lat/Lon use NUMERIC(8,3) rather than DOUBLE PRECISION so that equality
+-- comparisons in the unique constraint are always exact (GloFAS coordinates
+-- are always 3 decimal places; binary float can produce false mismatches).
+CREATE TABLE IF NOT EXISTS all_glofas_stations (
+    matching_id_station INTEGER         PRIMARY KEY,
+    "Station"           TEXT,
+    "Basin"             TEXT,
+    "Country"           TEXT,
+    "Country_code"      VARCHAR(8),
+    "Continent"         TEXT,
+    "Location"          TEXT,
+    "Lat"               NUMERIC(8,3),
+    "Lon"               NUMERIC(8,3),
+    "Upstream area"     NUMERIC(15,3),
+    pfaf_id             INTEGER         REFERENCES watershed_shapes(pfaf_id),
+    CONSTRAINT uq_station UNIQUE ("Station", "Country", "Lat", "Lon", pfaf_id)
+);
+
+-- All Watersheds: static per-watershed metadata
+-- CentroidX/CentroidY use NUMERIC(10,6) rather than DOUBLE PRECISION so that
+-- equality comparisons in the unique constraint are always exact. 6 decimal
+-- places matches the precision in the source data (~0.1 m resolution).
+-- pfaf_id may appear more than once (one row per country slice of the watershed).
+CREATE TABLE IF NOT EXISTS all_watersheds (
+    matching_id_watershed INTEGER         PRIMARY KEY,
+    pfaf_id               INTEGER         REFERENCES watershed_shapes(pfaf_id),
+    "name"                TEXT,
+    "name_1"              TEXT,
+    "CentroidX"           NUMERIC(10,6),
+    "CentroidY"           NUMERIC(10,6),
+    "Admin1_count"        INTEGER,
+    "Admin1_names"        TEXT,
+    CONSTRAINT uq_watershed UNIQUE (pfaf_id, "name", "name_1", "CentroidX", "CentroidY")
+);
+
+
+-- ============================================================
+-- History tables: one row per (entity, timestamp) per batch
+-- ============================================================
+
 -- GFMS (8 csvs per day, every 3h)
 -- image (1-4 tiffs per day (inconsistent): Flood_byStore)
 CREATE TABLE IF NOT EXISTS summary_gfms (
-    pfaf_id              INTEGER,
+    pfaf_id              INTEGER         REFERENCES watershed_shapes(pfaf_id),
     "timestamp"          TIMESTAMPTZ,
     "GFMS_TotalArea_km"  DOUBLE PRECISION,
     "GFMS_perc_Area"     DOUBLE PRECISION,
@@ -18,7 +84,7 @@ CREATE TABLE IF NOT EXISTS summary_gfms (
 
 -- HWRF (1-4 csvs per day, inconsistent)
 CREATE TABLE IF NOT EXISTS summary_hwrf (
-    pfaf_id              INTEGER,
+    pfaf_id              INTEGER         REFERENCES watershed_shapes(pfaf_id),
     "timestamp"          TIMESTAMPTZ,
     "Rain_TotalArea_km"  DOUBLE PRECISION,
     "perc_Area"          DOUBLE PRECISION,
@@ -27,52 +93,10 @@ CREATE TABLE IF NOT EXISTS summary_hwrf (
     PRIMARY KEY ("timestamp", pfaf_id)
 );
 
--- All GloFAS stations: static per-station metadata
--- Lat/Lon use NUMERIC(8,3) rather than DOUBLE PRECISION so that equality
--- comparisons in the unique constraint are always exact (GloFAS coordinates
--- are always 3 decimal places; binary float can produce false mismatches).
-CREATE TABLE IF NOT EXISTS all_glofas_stations (
-    matching_id_station          INTEGER         PRIMARY KEY,
-    "Station"           TEXT,
-    "Basin"             TEXT,
-    "Country"           TEXT,
-    "Country_code"      VARCHAR(8),
-    "Continent"         TEXT,
-    "ISO"               VARCHAR(8),
-    "Admin0"            TEXT,
-    "Admin1"            TEXT,
-    "Location"          TEXT,
-    "Lat"               NUMERIC(8,3),
-    "Lon"               NUMERIC(8,3),
-    "Upstream area"     NUMERIC(15,3),
-    "area_km2"          DOUBLE PRECISION,
-    pfaf_id             INTEGER,
-    "rfr_score"         DOUBLE PRECISION,
-    "cfr_score"         DOUBLE PRECISION,
-    CONSTRAINT uq_station UNIQUE ("Station", "Country", "Lat", "Lon", pfaf_id)
-);
-
--- GloFAS merged: dynamic per-timestamp forecast data (1 csv, 1 geojson per day)
-CREATE TABLE IF NOT EXISTS summary_glofas (
-    "timestamp"         TIMESTAMPTZ,
-    matching_id_station          INTEGER         REFERENCES all_glofas_stations(matching_id_station),
-    pfaf_id             INTEGER,
-    "ID"                TEXT,
-    "Point No"          INTEGER,
-    "Alert_level"       INTEGER,
-    "Days_until_peak"   INTEGER,
-    "GloFAS_2yr"        DOUBLE PRECISION,
-    "GloFAS_5yr"        DOUBLE PRECISION,
-    "GloFAS_20yr"       DOUBLE PRECISION,
-    "max_EPS"           TEXT,
-    "Forecast Date"     TIMESTAMP,
-    PRIMARY KEY ("timestamp", matching_id_station)
-);
-
 -- VIIRS (1 csv per day)
 -- image (2 tiffs per day: 1day, 5day)
 CREATE TABLE IF NOT EXISTS summary_viirs (
-    pfaf_id                  INTEGER,
+    pfaf_id                  INTEGER         REFERENCES watershed_shapes(pfaf_id),
     "timestamp"              TIMESTAMPTZ,
     "onedayFlood_Area_km"    DOUBLE PRECISION,
     "onedayperc_Area"        DOUBLE PRECISION,
@@ -84,7 +108,7 @@ CREATE TABLE IF NOT EXISTS summary_viirs (
 -- DFO (1 csv per day)
 -- image (1 tiff per day (inconsistent, some days are missing): Flood_3-Day_250m)
 CREATE TABLE IF NOT EXISTS summary_dfo (
-    pfaf_id                   INTEGER,
+    pfaf_id                   INTEGER         REFERENCES watershed_shapes(pfaf_id),
     "timestamp"               TIMESTAMPTZ,
     "1-Day_TotalArea_km2"     DOUBLE PRECISION,
     "1-Day_perc_Area"         DOUBLE PRECISION,
@@ -97,28 +121,28 @@ CREATE TABLE IF NOT EXISTS summary_dfo (
     PRIMARY KEY ("timestamp", pfaf_id)
 );
 
--- All Watersheds: static per-watershed metadata
--- CentroidX/CentroidY use NUMERIC(10,6) rather than DOUBLE PRECISION so that
--- equality comparisons in the unique constraint are always exact. 6 decimal
--- places matches the precision in the source data (~0.1 m resolution).
-CREATE TABLE IF NOT EXISTS all_watersheds (
-    matching_id_watershed        INTEGER         PRIMARY KEY,
-    pfaf_id             INTEGER,
-    "name"              TEXT,
-    "name_1"            TEXT,
-    "CentroidX"         NUMERIC(10,6),
-    "CentroidY"         NUMERIC(10,6),
-    "Admin1_count"      INTEGER,
-    "Admin1_names"      TEXT,
-    "area_km2"          DOUBLE PRECISION,
-    CONSTRAINT uq_watershed UNIQUE (pfaf_id, "name", "name_1", "CentroidX", "CentroidY")
+-- GloFAS merged: dynamic per-timestamp forecast data (1 csv, 1 geojson per day)
+CREATE TABLE IF NOT EXISTS summary_glofas (
+    "timestamp"         TIMESTAMPTZ,
+    matching_id_station INTEGER         REFERENCES all_glofas_stations(matching_id_station),
+    pfaf_id             INTEGER         REFERENCES watershed_shapes(pfaf_id),
+    "ID"                TEXT,
+    "Point No"          INTEGER,
+    "Alert_level"       INTEGER,
+    "Days_until_peak"   INTEGER,
+    "GloFAS_2yr"        DOUBLE PRECISION,
+    "GloFAS_5yr"        DOUBLE PRECISION,
+    "GloFAS_20yr"       DOUBLE PRECISION,
+    "max_EPS"           TEXT,
+    "Forecast Date"     TIMESTAMP,
+    PRIMARY KEY ("timestamp", matching_id_station)
 );
 
 -- Final Alert: dynamic per-timestamp alert data (4 csvs per day)
 CREATE TABLE IF NOT EXISTS summary_final_alert (
     "timestamp"                 TIMESTAMPTZ,
-    matching_id_watershed                INTEGER         REFERENCES all_watersheds(matching_id_watershed),
-    pfaf_id                     INTEGER,
+    matching_id_watershed       INTEGER         REFERENCES all_watersheds(matching_id_watershed),
+    pfaf_id                     INTEGER         REFERENCES watershed_shapes(pfaf_id),
     "rfr_score"                 DOUBLE PRECISION,
     "cfr_score"                 DOUBLE PRECISION,
     "Alert_level"               DOUBLE PRECISION,
@@ -178,6 +202,7 @@ CREATE TABLE IF NOT EXISTS summary_final_alert (
     PRIMARY KEY ("timestamp", matching_id_watershed)
 );
 
+
 -- ============================================================
 -- "Latest" tables: one row per entity, most recent snapshot
 -- ============================================================
@@ -185,7 +210,7 @@ CREATE TABLE IF NOT EXISTS summary_final_alert (
 -- GFMS Latest
 CREATE TABLE IF NOT EXISTS summary_gfms_latest (
     "timestamp"          TIMESTAMPTZ,
-    pfaf_id              INTEGER         PRIMARY KEY,
+    pfaf_id              INTEGER         PRIMARY KEY REFERENCES watershed_shapes(pfaf_id),
     "GFMS_TotalArea_km"  DOUBLE PRECISION,
     "GFMS_perc_Area"     DOUBLE PRECISION,
     "GFMS_MeanDepth"     DOUBLE PRECISION,
@@ -196,7 +221,7 @@ CREATE TABLE IF NOT EXISTS summary_gfms_latest (
 -- HWRF Latest
 CREATE TABLE IF NOT EXISTS summary_hwrf_latest (
     "timestamp"          TIMESTAMPTZ,
-    pfaf_id              INTEGER         PRIMARY KEY,
+    pfaf_id              INTEGER         PRIMARY KEY REFERENCES watershed_shapes(pfaf_id),
     "Rain_TotalArea_km"  DOUBLE PRECISION,
     "perc_Area"          DOUBLE PRECISION,
     "MeanRain"           DOUBLE PRECISION,
@@ -206,7 +231,7 @@ CREATE TABLE IF NOT EXISTS summary_hwrf_latest (
 -- GloFAS Latest: forecast data + station metadata
 CREATE TABLE IF NOT EXISTS summary_glofas_latest (
     "timestamp"          TIMESTAMPTZ,
-    pfaf_id              INTEGER         PRIMARY KEY,
+    pfaf_id              INTEGER         PRIMARY KEY REFERENCES watershed_shapes(pfaf_id),
     "ID"                 TEXT,
     "Point No"           INTEGER,
     "Alert_level"        INTEGER,
@@ -222,22 +247,16 @@ CREATE TABLE IF NOT EXISTS summary_glofas_latest (
     "Country"            TEXT,
     "Country_code"       VARCHAR(8),
     "Continent"          TEXT,
-    "ISO"                VARCHAR(8),
-    "Admin0"             TEXT,
-    "Admin1"             TEXT,
     "Location"           TEXT,
     "Lat"                NUMERIC(8,3),
     "Lon"                NUMERIC(8,3),
-    "Upstream area"      NUMERIC(15,3),
-    "area_km2"           DOUBLE PRECISION,
-    "rfr_score"          DOUBLE PRECISION,
-    "cfr_score"          DOUBLE PRECISION
+    "Upstream area"      NUMERIC(15,3)
 );
 
 -- VIIRS Latest
 CREATE TABLE IF NOT EXISTS summary_viirs_latest (
     "timestamp"              TIMESTAMPTZ,
-    pfaf_id                  INTEGER         PRIMARY KEY,
+    pfaf_id                  INTEGER         PRIMARY KEY REFERENCES watershed_shapes(pfaf_id),
     "onedayFlood_Area_km"    DOUBLE PRECISION,
     "onedayperc_Area"        DOUBLE PRECISION,
     "fivedayFlood_Area_km"   DOUBLE PRECISION,
@@ -247,7 +266,7 @@ CREATE TABLE IF NOT EXISTS summary_viirs_latest (
 -- DFO Latest
 CREATE TABLE IF NOT EXISTS summary_dfo_latest (
     "timestamp"               TIMESTAMPTZ,
-    pfaf_id                   INTEGER         PRIMARY KEY,
+    pfaf_id                   INTEGER         PRIMARY KEY REFERENCES watershed_shapes(pfaf_id),
     "1-Day_TotalArea_km2"     DOUBLE PRECISION,
     "1-Day_perc_Area"         DOUBLE PRECISION,
     "1-Day_CS_TotalArea_km2"  DOUBLE PRECISION,
@@ -261,7 +280,7 @@ CREATE TABLE IF NOT EXISTS summary_dfo_latest (
 -- Final Alert Latest: alert data + watershed metadata
 CREATE TABLE IF NOT EXISTS summary_final_alert_latest (
     "timestamp"                 TIMESTAMPTZ,
-    pfaf_id                     INTEGER         PRIMARY KEY,
+    pfaf_id                     INTEGER         PRIMARY KEY REFERENCES watershed_shapes(pfaf_id),
     "rfr_score"                 DOUBLE PRECISION,
     "cfr_score"                 DOUBLE PRECISION,
     "Alert_level"               DOUBLE PRECISION,
@@ -324,6 +343,5 @@ CREATE TABLE IF NOT EXISTS summary_final_alert_latest (
     "CentroidX"                 NUMERIC(10,6),
     "CentroidY"                 NUMERIC(10,6),
     "Admin1_count"              INTEGER,
-    "Admin1_names"              TEXT,
-    "area_km2"                  DOUBLE PRECISION
+    "Admin1_names"              TEXT
 );

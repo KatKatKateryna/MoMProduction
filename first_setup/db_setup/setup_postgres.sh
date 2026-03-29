@@ -45,7 +45,7 @@ for f in "$SQL_FILE" "$SQL_ID_TRIGGERS" "$SQL_HISTORY_TRIGGERS" "$SQL_STAGING" "
     fi
 done
 
-echo "=== [1/6] Installing PostgreSQL and PostGIS ==="
+echo "=== [1/7] Installing PostgreSQL and PostGIS ==="
 sudo apt-get update -y
 sudo apt-get install -y \
     postgresql \
@@ -57,7 +57,7 @@ PG_VERSION=$(ls /usr/lib/postgresql/ | sort -V | tail -1)
 PG_CONF_DIR="/etc/postgresql/${PG_VERSION}/main"
 echo "    PostgreSQL version: ${PG_VERSION}"
 
-echo "=== [2/6] Setting up database cluster at ${DATA_DIR} ==="
+echo "=== [2/7] Setting up database cluster at ${DATA_DIR} ==="
 EXISTING_DATADIR=$(pg_lsclusters -h 2>/dev/null | awk 'NR==1{print $6}')
 
 if [[ "$EXISTING_DATADIR" == "$DATA_DIR" ]]; then
@@ -77,7 +77,7 @@ else
     sudo pg_createcluster --datadir "${DATA_DIR}" "${PG_VERSION}" main
 fi
 
-echo "=== [3/6] Enabling remote connections ==="
+echo "=== [3/7] Enabling remote connections ==="
 sudo sed -i "s/^#*listen_addresses\s*=.*/listen_addresses = '*'/" \
     "${PG_CONF_DIR}/postgresql.conf"
 
@@ -93,18 +93,46 @@ if command -v ufw &>/dev/null; then
     sudo ufw allow 5432/tcp
 fi
 
-echo "=== [4/6] Starting PostgreSQL service ==="
+echo "=== [4/7] Starting PostgreSQL service ==="
 sudo systemctl enable postgresql
 sudo systemctl restart postgresql
 
-echo "=== [5/6] Running schema DDL (PostGIS extension + all tables + triggers + functions) ==="
+echo "=== [5/7] Running schema DDL (PostGIS extension + all tables + triggers + functions) ==="
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_FILE}"
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_ID_TRIGGERS}"
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_HISTORY_TRIGGERS}"
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_STAGING}"
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_QUERY_FUNCTIONS}"
 
-echo "=== [6/6] Creating/updating restricted admin user '${ADMIN_USER}' ==="
+echo "=== [6/7] Loading watershed shapefile into watershed_shapes ==="
+PROJECT_ROOT="$(realpath "${SCRIPT_DIR}/../..")"
+WATERSHED_DIR="${PROJECT_ROOT}/data/watershed_shp"
+SHP_FILE="${WATERSHED_DIR}/Watershed_pfaf_id.shp"
+SHP_ZIP="${SHP_FILE}.zip"
+
+ROW_COUNT=$(sudo -u postgres psql -t -d "${DB_NAME}" \
+    -c "SELECT COUNT(*) FROM watershed_shapes;" | tr -d ' \n')
+
+if [[ "$ROW_COUNT" -gt 0 ]]; then
+    echo "    watershed_shapes already has ${ROW_COUNT} rows, skipping load."
+else
+    if [[ ! -f "$SHP_FILE" ]]; then
+        if [[ -f "$SHP_ZIP" ]]; then
+            echo "    Shapefile not found — unzipping ${SHP_ZIP}..."
+            unzip -q "$SHP_ZIP" -d "$WATERSHED_DIR"
+        else
+            echo "ERROR: Shapefile not found at ${SHP_FILE}"
+            echo "       Expected zip at ${SHP_ZIP}"
+            exit 1
+        fi
+    fi
+    echo "    Loading ${SHP_FILE} into watershed_shapes..."
+    shp2pgsql -s 4326 -a "${SHP_FILE}" watershed_shapes \
+        | sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}"
+    echo "    Shapefile loaded."
+fi
+
+echo "=== [7/7] Creating/updating restricted admin user '${ADMIN_USER}' ==="
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" <<SQL
 DO \$\$
 BEGIN
