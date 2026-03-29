@@ -230,7 +230,7 @@ SOURCE_CFG = {
         "history_table": "summary_glofas",
         "latest_table":  "summary_glofas_latest",
         "history_pk":    "pfaf_id",
-        "latest_pk":     "pfaf_id",
+        "latest_pk":     "matching_id_station",
         "join_key":      ["pfaf_id", "ID"],
         "ref_fk":        "matching_id_station",
         "ref_table":     "all_glofas_stations",
@@ -240,8 +240,8 @@ SOURCE_CFG = {
         "history_table": "summary_final_alert",
         "latest_table":  "summary_final_alert_latest",
         "history_pk":    "pfaf_id",
-        "latest_pk":     "pfaf_id",
-        "join_key":      ["pfaf_id"],
+        "latest_pk":     "matching_id_watershed",
+        "join_key":      ["pfaf_id", "name", "name_1"],
         "ref_fk":        "matching_id_watershed",
         "ref_table":     "all_watersheds",
         "ref_pk":        "matching_id_watershed",
@@ -316,9 +316,16 @@ def _crosscheck_values(conn, src_df, parsed_ts, cfg):
 
     src_work = src_df.copy()
     db_work  = db_df.copy()
+    # pfaf_id is always an integer — coerce via _to_int_safe.
+    # Other join-key columns (e.g. "ID" = "G0001", "name") are text — cast to
+    # stripped string so the merge works correctly without losing information.
     for k in join_key:
-        src_work[k] = src_work[k].apply(_to_int_safe)
-        db_work[k]  = db_work[k].apply(_to_int_safe)
+        if k == "pfaf_id":
+            src_work[k] = src_work[k].apply(_to_int_safe)
+            db_work[k]  = db_work[k].apply(_to_int_safe)
+        else:
+            src_work[k] = src_work[k].fillna("").astype(str).str.strip()
+            db_work[k]  = db_work[k].fillna("").astype(str).str.strip()
 
     merged = pd.merge(src_work, db_work, on=join_key, how="inner", suffixes=("_src", "_db"))
     if merged.empty:
