@@ -136,4 +136,3 @@ database_update/*/*
 database_update/*.csv
 *.tiff
 */db_config.cfg
-first_setup/db_setup/db_config.cfg
