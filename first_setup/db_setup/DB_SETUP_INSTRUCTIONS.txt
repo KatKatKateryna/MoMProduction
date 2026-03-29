@@ -20,7 +20,7 @@ STEP 1 — Copy and edit the config file
 The script reads credentials from db_config.cfg. You must create this file
 from the provided sample before running the script.
 
-    cd /path/to/first_setup/db_setup
+    cd first_setup/db_setup/db_setup
     cp sample_db_config.cfg db_config.cfg
 
 Then open it and replace the ??? placeholders with your chosen passwords:
@@ -38,8 +38,8 @@ The script will refuse to run if either password is still set to ???
 
 STEP 2 — Run the script
 ------------------------
-    chmod +x /path/to/database_update/setup_postgres.sh
-    /path/to/database_update/setup_postgres.sh
+    chmod +x first_setup/db_setup/setup_postgres.sh
+    ./first_setup/db_setup/setup_postgres.sh
 
 You can run it from any folder. Safe to re-run at any time:
   - Skips cluster creation if already set up correctly
