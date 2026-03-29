@@ -47,7 +47,7 @@ sudo apt-get install -y \
     postgis \
     postgresql-postgis
 
-PG_VERSION=$(pg_lsclusters -h | awk 'NR==1{print $1}')
+PG_VERSION=$(ls /usr/lib/postgresql/ | sort -V | tail -1)
 PG_CONF_DIR="/etc/postgresql/${PG_VERSION}/main"
 echo "    PostgreSQL version: ${PG_VERSION}"
 
@@ -58,10 +58,13 @@ if [[ "$EXISTING_DATADIR" == "$DATA_DIR" ]]; then
     echo "    Cluster already at ${DATA_DIR}, skipping cluster creation."
 else
     echo "    Creating new cluster at ${DATA_DIR}..."
-    sudo systemctl stop postgresql || true
-    sudo pg_dropcluster "${PG_VERSION}" main || true
+    sudo pg_dropcluster --stop "${PG_VERSION}" main || true
 
     sudo mkdir -p "${DATA_DIR}"
+    # Allow the postgres OS user to traverse into /root and the parent folder.
+    # o+x = execute only (can enter the directory, cannot list its contents).
+    sudo chmod o+x /root
+    sudo chmod o+x "$(dirname "${DATA_DIR}")"
     sudo chown postgres:postgres "${DATA_DIR}"
     sudo chmod 700 "${DATA_DIR}"
 
