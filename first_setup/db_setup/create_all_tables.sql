@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS watershed_shapes (
     "Admin1"            TEXT,
     "rfr_score"         DOUBLE PRECISION,
     "cfr_score"         DOUBLE PRECISION,
-    geom                GEOMETRY(Polygon, 4326)
+    geom                GEOMETRY(MultiPolygon, 4326)
 );
 
 CREATE INDEX IF NOT EXISTS idx_watershed_shapes_geom

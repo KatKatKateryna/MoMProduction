@@ -128,6 +128,7 @@ else
     fi
     echo "    Loading ${SHP_FILE} into watershed_shapes..."
     shp2pgsql -s 4326 -a "${SHP_FILE}" watershed_shapes \
+        | sed 's/"iso"/"ISO"/g; s/"admin0"/"Admin0"/g; s/"admin1"/"Admin1"/g' \
         | sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}"
     echo "    Shapefile loaded."
 fi
