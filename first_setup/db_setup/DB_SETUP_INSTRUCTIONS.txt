@@ -3,7 +3,7 @@ PostgreSQL + PostGIS Setup — Quick Start
 
 Database      : postgres   (default PostgreSQL database)
 Data dir      : /root/postgres/data/
-Superuser     : postgres   (local only, password: 12345678)
+Superuser     : postgres   (local only)
 App user      : mom_admin  (remote access, SELECT/INSERT/UPDATE only)
 Port          : 5432
 
@@ -15,15 +15,29 @@ REQUIREMENTS
 - Internet access
 
 
-CONFIGURATION
--------------
-All credentials and settings are in database_update/db_config.cfg.
-Edit that file to change passwords or the data directory, then re-run
-the script — no changes to the script itself are needed.
+STEP 1 — Copy and edit the config file
+----------------------------------------
+The script reads credentials from db_config.cfg. You must create this file
+from the provided sample before running the script.
+
+    cd /path/to/first_setup/db_setup
+    cp sample_db_config.cfg db_config.cfg
+
+Then open it and replace the ??? placeholders with your chosen passwords:
+
+    nano db_config.cfg
+
+Set values for:
+  ADMIN_PASSWORD     — password for mom_admin (remote app user)
+  SUPERUSER_PASSWORD — password for postgres (local superuser)
+
+Save and exit: Ctrl+O, Enter, Ctrl+X
+
+The script will refuse to run if either password is still set to ???
 
 
-RUN THE SCRIPT
---------------
+STEP 2 — Run the script
+------------------------
     chmod +x /path/to/database_update/setup_postgres.sh
     /path/to/database_update/setup_postgres.sh
 
@@ -33,6 +47,8 @@ You can run it from any folder. Safe to re-run at any time:
   - Re-applies all user permissions on every run
   - Adds any missing tables from create_all_tables.sql (IF NOT EXISTS)
   - Existing data is never deleted
+
+To update passwords or settings later: edit db_config.cfg and re-run the script.
 
 
 START AND STOP THE DATABASE
@@ -61,9 +77,10 @@ As superuser (local only):
     sudo -u postgres psql
 
 
-CHANGE THE APP USER PASSWORD
------------------------------
-    sudo -u postgres psql -c "ALTER ROLE mom_admin WITH PASSWORD 'yournewpassword';"
+CHANGE A PASSWORD LATER
+------------------------
+    sudo -u postgres psql -c "ALTER ROLE mom_admin WITH PASSWORD 'newpassword';"
+    sudo -u postgres psql -c "ALTER ROLE postgres WITH PASSWORD 'newpassword';"
 
 
 CONNECTING FROM A REMOTE MACHINE
@@ -72,10 +89,10 @@ CONNECTING FROM A REMOTE MACHINE
     Port     : 5432
     Database : postgres
     User     : mom_admin
-    Password : MoM@Flood#2024!   (or your updated password)
+    Password : (whatever you set in db_config.cfg)
 
 Connection string format:
-    postgresql://mom_admin:MoM@Flood#2024!@<server-ip>:5432/postgres
+    postgresql://mom_admin:<password>@<server-ip>:5432/postgres
 
 Note: the postgres superuser is local-only and cannot connect remotely.
 
@@ -110,4 +127,4 @@ Then load the timestamped data tables:
     psql -U mom_admin -d postgres -h <host> -c "\copy summary_final_alert FROM 'summary_final_alert.csv' CSV HEADER"
 
 For Python (psycopg2 / SQLAlchemy):
-    conn_str = "postgresql://mom_admin:MoM@Flood#2024!@<host>:5432/postgres"
+    conn_str = "postgresql://mom_admin:<password>@<host>:5432/postgres"

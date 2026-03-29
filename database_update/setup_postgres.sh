@@ -21,10 +21,17 @@ SQL_FILE="${SCRIPT_DIR}/create_all_tables.sql"
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
     echo "ERROR: Config file not found: $CONFIG_FILE"
+    echo "       Copy sample_db_config.cfg to db_config.cfg and fill in the passwords."
     exit 1
 fi
 # shellcheck source=db_config.cfg
 source "$CONFIG_FILE"
+
+if [[ "$ADMIN_PASSWORD" == "???" || "$SUPERUSER_PASSWORD" == "???" ]]; then
+    echo "ERROR: Passwords are not set in $CONFIG_FILE"
+    echo "       Replace the ??? placeholders with real passwords and re-run."
+    exit 1
+fi
 # -----------------------------------------------------------------------------
 
 if [[ ! -f "$SQL_FILE" ]]; then
