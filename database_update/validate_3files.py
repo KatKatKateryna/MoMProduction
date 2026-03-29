@@ -316,14 +316,13 @@ def _crosscheck_values(conn, src_df, parsed_ts, cfg):
 
     src_work = src_df.copy()
     db_work  = db_df.copy()
-    # pfaf_id is always an integer — coerce via _to_int_safe.
-    # Other join-key columns (e.g. "ID" = "G0001", "name") are text — cast to
-    # stripped string so the merge works correctly without losing information.
     for k in join_key:
         if k == "pfaf_id":
+            # pfaf_id is always integer — coerce so "3.0" matches 3
             src_work[k] = src_work[k].apply(_to_int_safe)
             db_work[k]  = db_work[k].apply(_to_int_safe)
         else:
+            # Text join keys (e.g. "ID"="G0001", "name") — keep as stripped string
             src_work[k] = src_work[k].fillna("").astype(str).str.strip()
             db_work[k]  = db_work[k].fillna("").astype(str).str.strip()
 
