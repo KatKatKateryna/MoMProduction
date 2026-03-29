@@ -1,0 +1,387 @@
+Data Ingestion and Query Guide
+================================
+
+This guide covers how to send data into the database and how to query it back
+out, including the metadata-enriched views and the zero-row semantics for the
+two filtered sources (GFMS and DFO).
+
+
+==============================
+PART 1 — SENDING DATA
+==============================
+
+Always insert into the staging tables, never directly into the _latest or
+history tables. The trigger chain handles everything automatically:
+
+  - If the batch has < 1000 rows  → discarded silently; nothing is written
+  - If the batch has >= 1000 rows → data is pushed to the _latest table
+      → _latest triggers fire: old timestamp rows are cleared, data is
+         copied to history with source-specific filtering
+
+For GloFAS and Final Alert, omit matching_id_station / matching_id_watershed
+from your INSERT. Those IDs are resolved automatically.
+
+-----------------------------------------------------------------------
+GFMS
+-----------------------------------------------------------------------
+INSERT INTO stage_gfms (
+    pfaf_id, "timestamp",
+    "GFMS_TotalArea_km", "GFMS_perc_Area",
+    "GFMS_MeanDepth", "GFMS_MaxDepth", "GFMS_Duration"
+) VALUES (...), (...), ...;
+
+-----------------------------------------------------------------------
+HWRF
+-----------------------------------------------------------------------
+INSERT INTO stage_hwrf (
+    pfaf_id, "timestamp",
+    "Rain_TotalArea_km", "perc_Area", "MeanRain", "MaxRain"
+) VALUES (...), (...), ...;
+
+-----------------------------------------------------------------------
+VIIRS
+-----------------------------------------------------------------------
+INSERT INTO stage_viirs (
+    pfaf_id, "timestamp",
+    "onedayFlood_Area_km", "onedayperc_Area",
+    "fivedayFlood_Area_km", "fivedayperc_Area"
+) VALUES (...), (...), ...;
+
+-----------------------------------------------------------------------
+DFO
+-----------------------------------------------------------------------
+INSERT INTO stage_dfo (
+    pfaf_id, "timestamp",
+    "1-Day_TotalArea_km2", "1-Day_perc_Area",
+    "1-Day_CS_TotalArea_km2", "1-Day_CS_perc_Area",
+    "2-Day_TotalArea_km2", "2-Day_perc_Area",
+    "3-Day_TotalArea_km2", "3-Day_perc_Area"
+) VALUES (...), (...), ...;
+
+-----------------------------------------------------------------------
+GloFAS  (omit matching_id_station — resolved automatically)
+-----------------------------------------------------------------------
+INSERT INTO stage_glofas (
+    "timestamp", pfaf_id,
+    "ID", "Point No",
+    "Alert_level", "Days_until_peak",
+    "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr",
+    "max_EPS", "Forecast Date",
+    "Station", "Basin", "Country", "Country_code",
+    "Continent", "ISO", "Admin0", "Admin1", "Location",
+    "Lat", "Lon", "Upstream area", "area_km2",
+    "rfr_score", "cfr_score"
+) VALUES (...), (...), ...;
+
+-----------------------------------------------------------------------
+Final Alert  (omit matching_id_watershed — resolved automatically)
+-----------------------------------------------------------------------
+INSERT INTO stage_final_alert (
+    "timestamp", pfaf_id,
+    "rfr_score", "cfr_score",
+    "Alert_level", "Days_until_peak",
+    "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr",
+    "Alert_Score", "PeakArrivalScore",
+    "TwoYScore", "FiveYScore", "TwtyYScore", "Sum_Score_x",
+    "GFMS_TotalArea_km", "GFMS_perc_Area", "GFMS_MeanDepth",
+    "GFMS_MaxDepth", "GFMS_Duration",
+    "GFMS_area_score", "GFMS_perc_area_score",
+    "MeanD_Score", "MaxD_Score", "Duration_Score",
+    "Sum_Score_y", "MOM_Score", "Hazard_Score",
+    "Scaled_Riverine_Risk", "Scaled_Coastal_Risk", "Flag",
+    "1-Day_TotalArea_km2", "1-Day_perc_Area",
+    "1-Day_CS_TotalArea_km2", "1-Day_CS_perc_Area",
+    "2-Day_TotalArea_km2", "2-Day_perc_Area",
+    "3-Day_TotalArea_km2", "3-Day_perc_Area",
+    "DFO_area_1day_score", "DFO_percarea_1day_score",
+    "DFO_area_2day_score", "DFO_percarea_2day_score",
+    "DFO_area_3day_score", "DFO_percarea_3day_score",
+    "DFOTotal_Score",
+    "onedayFlood_Area_km", "onedayperc_Area",
+    "fivedayFlood_Area_km", "fivedayperc_Area",
+    "VIIRS_area_1day_score", "VIIRS_percarea_1day_score",
+    "VIIRS_area_5day_score", "VIIRS_percarea_5day_score",
+    "VIIRSTotal_Score",
+    "Severity", "Alert", "Status",
+    "name", "name_1", "CentroidX", "CentroidY",
+    "Admin1_count", "Admin1_names", "area_km2"
+) VALUES (...), (...), ...;
+
+
+==============================
+PART 2 — QUERYING LATEST DATA
+==============================
+
+The _latest tables hold one row per station/watershed representing the most
+recently loaded batch. For GloFAS and Final Alert, join to the reference
+tables to get full metadata.
+
+-----------------------------------------------------------------------
+GFMS latest  (no metadata join)
+-----------------------------------------------------------------------
+SELECT *
+FROM summary_gfms_latest
+ORDER BY pfaf_id;
+
+-----------------------------------------------------------------------
+HWRF latest  (no metadata join)
+-----------------------------------------------------------------------
+SELECT *
+FROM summary_hwrf_latest
+ORDER BY pfaf_id;
+
+-----------------------------------------------------------------------
+VIIRS latest  (no metadata join)
+-----------------------------------------------------------------------
+SELECT *
+FROM summary_viirs_latest
+ORDER BY pfaf_id;
+
+-----------------------------------------------------------------------
+DFO latest  (no metadata join)
+-----------------------------------------------------------------------
+SELECT *
+FROM summary_dfo_latest
+ORDER BY pfaf_id;
+
+-----------------------------------------------------------------------
+GloFAS latest — with station metadata
+-----------------------------------------------------------------------
+SELECT
+    g."timestamp",
+    g.pfaf_id,
+    g.matching_id_station,
+    g."ID", g."Point No",
+    g."Alert_level", g."Days_until_peak",
+    g."GloFAS_2yr", g."GloFAS_5yr", g."GloFAS_20yr",
+    g."max_EPS", g."Forecast Date",
+    s."Station", s."Basin", s."Country", s."Country_code",
+    s."Continent", s."ISO", s."Admin0", s."Admin1", s."Location",
+    s."Lat", s."Lon", s."Upstream area", s."area_km2",
+    s."rfr_score", s."cfr_score"
+FROM summary_glofas_latest g
+LEFT JOIN all_glofas_stations s
+    ON s.matching_id_station = g.matching_id_station
+ORDER BY g.pfaf_id;
+
+-----------------------------------------------------------------------
+Final Alert latest — with watershed metadata
+-----------------------------------------------------------------------
+SELECT
+    f."timestamp",
+    f.pfaf_id,
+    f.matching_id_watershed,
+    f."Severity", f."Alert", f."Status",
+    f."Hazard_Score", f."MOM_Score",
+    f."Alert_level", f."Days_until_peak",
+    f."GloFAS_2yr", f."GloFAS_5yr", f."GloFAS_20yr",
+    f."GFMS_TotalArea_km", f."GFMS_MeanDepth", f."GFMS_MaxDepth",
+    f."1-Day_TotalArea_km2", f."2-Day_TotalArea_km2", f."3-Day_TotalArea_km2",
+    f."onedayFlood_Area_km", f."fivedayFlood_Area_km",
+    f."Scaled_Riverine_Risk", f."Scaled_Coastal_Risk",
+    w."name", w."name_1", w."CentroidX", w."CentroidY",
+    w."Admin1_count", w."Admin1_names", w."area_km2"
+FROM summary_final_alert_latest f
+LEFT JOIN all_watersheds w
+    ON w.matching_id_watershed = f.matching_id_watershed
+ORDER BY f.pfaf_id;
+
+
+==============================
+PART 3 — QUERYING HISTORY DATA
+==============================
+
+History tables accumulate one row per (pfaf_id OR station, timestamp) per
+batch. Filter by timestamp to retrieve a specific batch.
+
+-----------------------------------------------------------------------
+GFMS history — all rows for a specific timestamp
+-----------------------------------------------------------------------
+SELECT *
+FROM summary_gfms
+WHERE "timestamp" = '2024-01-15 06:00:00+00'
+ORDER BY pfaf_id;
+
+-----------------------------------------------------------------------
+HWRF history — all rows for a specific timestamp
+-----------------------------------------------------------------------
+SELECT *
+FROM summary_hwrf
+WHERE "timestamp" = '2024-01-15 06:00:00+00'
+ORDER BY pfaf_id;
+
+-----------------------------------------------------------------------
+VIIRS history — all rows for a specific timestamp
+-----------------------------------------------------------------------
+SELECT *
+FROM summary_viirs
+WHERE "timestamp" = '2024-01-15 06:00:00+00'
+ORDER BY pfaf_id;
+
+-----------------------------------------------------------------------
+DFO history — all rows for a specific timestamp
+-----------------------------------------------------------------------
+SELECT *
+FROM summary_dfo
+WHERE "timestamp" = '2024-01-15 06:00:00+00'
+ORDER BY pfaf_id;
+
+-----------------------------------------------------------------------
+GloFAS history — with station metadata, for a specific timestamp
+-----------------------------------------------------------------------
+SELECT
+    h."timestamp",
+    h.pfaf_id,
+    h.matching_id_station,
+    h."ID", h."Point No",
+    h."Alert_level", h."Days_until_peak",
+    h."GloFAS_2yr", h."GloFAS_5yr", h."GloFAS_20yr",
+    h."max_EPS", h."Forecast Date",
+    s."Station", s."Basin", s."Country", s."Country_code",
+    s."Continent", s."ISO", s."Admin0", s."Admin1", s."Location",
+    s."Lat", s."Lon", s."Upstream area", s."area_km2",
+    s."rfr_score", s."cfr_score"
+FROM summary_glofas h
+LEFT JOIN all_glofas_stations s
+    ON s.matching_id_station = h.matching_id_station
+WHERE h."timestamp" = '2024-01-15 06:00:00+00'
+ORDER BY h.pfaf_id;
+
+-----------------------------------------------------------------------
+Final Alert history — with watershed metadata, for a specific timestamp
+-----------------------------------------------------------------------
+SELECT
+    h."timestamp",
+    h.pfaf_id,
+    h.matching_id_watershed,
+    h."Severity", h."Alert", h."Status",
+    h."Hazard_Score", h."MOM_Score",
+    h."Alert_level", h."Days_until_peak",
+    h."GloFAS_2yr", h."GloFAS_5yr", h."GloFAS_20yr",
+    h."GFMS_TotalArea_km", h."GFMS_MeanDepth", h."GFMS_MaxDepth",
+    h."1-Day_TotalArea_km2", h."2-Day_TotalArea_km2", h."3-Day_TotalArea_km2",
+    h."onedayFlood_Area_km", h."fivedayFlood_Area_km",
+    h."Scaled_Riverine_Risk", h."Scaled_Coastal_Risk",
+    w."name", w."name_1", w."CentroidX", w."CentroidY",
+    w."Admin1_count", w."Admin1_names", w."area_km2"
+FROM summary_final_alert h
+LEFT JOIN all_watersheds w
+    ON w.matching_id_watershed = h.matching_id_watershed
+WHERE h."timestamp" = '2024-01-15 06:00:00+00'
+ORDER BY h.pfaf_id;
+
+
+==============================
+PART 4 — GFMS AND DFO: ZERO-ROW SEMANTICS
+==============================
+
+GFMS and DFO filter out rows where all flood values are zero before writing
+to history. A pfaf_id with no flood activity at a given timestamp is simply
+absent from the history table for that timestamp.
+
+The database provides four helper functions that handle this transparently.
+You do not need to write any special query logic — just call the function.
+
+Three-case semantics (handled automatically by all four functions):
+
+  Case 1 — Timestamp not in the table
+           Batch was never ingested (or was under 1000 rows).
+           Functions return 0 rows.
+
+  Case 2 — Timestamp exists, pfaf_id absent
+           Batch was ingested but this watershed had all-zero flood values.
+           Functions return 1 row with all flood columns = 0.
+
+  Case 3 — Both timestamp and pfaf_id exist
+           Functions return the real stored row.
+
+-----------------------------------------------------------------------
+fn_get_gfms(timestamp, pfaf_id)  — single watershed lookup
+-----------------------------------------------------------------------
+SELECT * FROM fn_get_gfms('2024-01-15 06:00:00+00', 12345);
+
+Returns columns:
+  pfaf_id, timestamp,
+  GFMS_TotalArea_km, GFMS_perc_Area, GFMS_MeanDepth,
+  GFMS_MaxDepth, GFMS_Duration
+
+-----------------------------------------------------------------------
+fn_get_gfms_batch(timestamp)  — all watersheds for a timestamp
+-----------------------------------------------------------------------
+SELECT * FROM fn_get_gfms_batch('2024-01-15 06:00:00+00');
+
+Returns one row per watershed (from all_watersheds union real rows).
+Watersheds absent from history are returned with all flood columns = 0.
+Returns 0 rows if the timestamp is not in the table.
+
+-----------------------------------------------------------------------
+fn_get_dfo(timestamp, pfaf_id)  — single watershed lookup
+-----------------------------------------------------------------------
+SELECT * FROM fn_get_dfo('2024-01-15 06:00:00+00', 12345);
+
+Returns columns:
+  pfaf_id, timestamp,
+  1-Day_TotalArea_km2, 1-Day_perc_Area,
+  1-Day_CS_TotalArea_km2, 1-Day_CS_perc_Area,
+  2-Day_TotalArea_km2, 2-Day_perc_Area,
+  3-Day_TotalArea_km2, 3-Day_perc_Area
+
+-----------------------------------------------------------------------
+fn_get_dfo_batch(timestamp)  — all watersheds for a timestamp
+-----------------------------------------------------------------------
+SELECT * FROM fn_get_dfo_batch('2024-01-15 06:00:00+00');
+
+Returns one row per watershed (from all_watersheds union real rows).
+Watersheds absent from history are returned with all flood columns = 0.
+Returns 0 rows if the timestamp is not in the table.
+
+-----------------------------------------------------------------------
+Python examples (psycopg2)
+-----------------------------------------------------------------------
+import psycopg2
+
+conn = psycopg2.connect("postgresql://mom_admin:<password>@<host>:5432/postgres")
+cur = conn.cursor()
+
+# Single watershed
+cur.execute("SELECT * FROM fn_get_gfms(%s, %s)", ('2024-01-15 06:00:00+00', 12345))
+row = cur.fetchone()
+
+# Full batch — all watersheds for a timestamp
+cur.execute("SELECT * FROM fn_get_gfms_batch(%s)", ('2024-01-15 06:00:00+00',))
+rows = cur.fetchall()
+
+# Same pattern for DFO
+cur.execute("SELECT * FROM fn_get_dfo(%s, %s)", ('2024-01-15 06:00:00+00', 12345))
+cur.execute("SELECT * FROM fn_get_dfo_batch(%s)", ('2024-01-15 06:00:00+00',))
+
+
+==============================
+PART 5 — USEFUL UTILITY QUERIES
+==============================
+
+-- List all distinct timestamps available in a history table
+SELECT DISTINCT "timestamp" FROM summary_gfms ORDER BY "timestamp" DESC;
+SELECT DISTINCT "timestamp" FROM summary_dfo   ORDER BY "timestamp" DESC;
+
+-- Check what timestamps are currently loaded in each _latest table
+SELECT DISTINCT "timestamp", COUNT(*) AS row_count
+FROM summary_gfms_latest GROUP BY "timestamp";
+
+SELECT DISTINCT "timestamp", COUNT(*) AS row_count
+FROM summary_final_alert_latest GROUP BY "timestamp";
+
+-- Count history rows per timestamp (to verify full batches were stored)
+SELECT "timestamp", COUNT(*) AS rows
+FROM summary_gfms
+GROUP BY "timestamp"
+ORDER BY "timestamp" DESC;
+
+-- Find all stations in a specific country (from metadata table)
+SELECT * FROM all_glofas_stations WHERE "Country" = 'Bangladesh';
+
+-- Find all watersheds that span multiple admin1 regions
+SELECT * FROM all_watersheds WHERE "Admin1_count" > 1;
+
+-- Python (psycopg2) connection string
+-- conn_str = "postgresql://mom_admin:<password>@<host>:5432/postgres"

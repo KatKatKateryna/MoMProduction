@@ -18,6 +18,10 @@ set -euo pipefail
 SCRIPT_DIR="$(dirname "$0")"
 CONFIG_FILE="${SCRIPT_DIR}/db_config.cfg"
 SQL_FILE="${SCRIPT_DIR}/create_all_tables.sql"
+SQL_ID_TRIGGERS="${SCRIPT_DIR}/create_id_resolution_triggers.sql"
+SQL_HISTORY_TRIGGERS="${SCRIPT_DIR}/create_history_triggers.sql"
+SQL_STAGING="${SCRIPT_DIR}/create_staging_tables.sql"
+SQL_QUERY_FUNCTIONS="${SCRIPT_DIR}/create_query_functions.sql"
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
     echo "ERROR: Config file not found: $CONFIG_FILE"
@@ -34,10 +38,12 @@ if [[ "$ADMIN_PASSWORD" == "???" || "$SUPERUSER_PASSWORD" == "???" ]]; then
 fi
 # -----------------------------------------------------------------------------
 
-if [[ ! -f "$SQL_FILE" ]]; then
-    echo "ERROR: Schema file not found: $SQL_FILE"
-    exit 1
-fi
+for f in "$SQL_FILE" "$SQL_ID_TRIGGERS" "$SQL_HISTORY_TRIGGERS" "$SQL_STAGING" "$SQL_QUERY_FUNCTIONS"; do
+    if [[ ! -f "$f" ]]; then
+        echo "ERROR: SQL file not found: $f"
+        exit 1
+    fi
+done
 
 echo "=== [1/7] Installing PostgreSQL and PostGIS ==="
 sudo apt-get update -y
@@ -96,8 +102,12 @@ sudo -u postgres psql -v ON_ERROR_STOP=1 <<SQL
 ALTER USER "${SUPERUSER}" WITH PASSWORD '${SUPERUSER_PASSWORD}';
 SQL
 
-echo "=== [6/7] Running schema DDL (PostGIS extension + all tables) ==="
+echo "=== [6/7] Running schema DDL (PostGIS extension + all tables + triggers + functions) ==="
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_FILE}"
+sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_ID_TRIGGERS}"
+sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_HISTORY_TRIGGERS}"
+sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_STAGING}"
+sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_QUERY_FUNCTIONS}"
 
 echo "=== [7/7] Creating/updating restricted admin user '${ADMIN_USER}' ==="
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" <<SQL
