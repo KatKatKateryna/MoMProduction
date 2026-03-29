@@ -129,10 +129,11 @@ GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO "${ADMIN_USER}";
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
     GRANT SELECT, INSERT, UPDATE ON TABLES TO "${ADMIN_USER}";
 
--- DELETE on staging tables (needed to flush stage data after ingestion)
+-- DELETE on staging and latest tables
 GRANT DELETE ON
-    stage_gfms, stage_hwrf, stage_viirs,
-    stage_dfo, stage_glofas, stage_final_alert
+    stage_gfms, stage_hwrf, stage_viirs, stage_dfo, stage_glofas, stage_final_alert,
+    summary_gfms_latest, summary_hwrf_latest, summary_viirs_latest,
+    summary_dfo_latest, summary_glofas_latest, summary_final_alert_latest
     TO "${ADMIN_USER}";
 
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "${ADMIN_USER}";
