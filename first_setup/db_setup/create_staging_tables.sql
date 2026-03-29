@@ -4,8 +4,9 @@
 -- Staging tables are the user-facing entry point for all data ingestion.
 -- Insert data here — the trigger handles everything else:
 --
---   < 1000 rows  → batch is discarded, nothing touches _latest or history
---   >= 1000 rows → data is pushed to the corresponding _latest table,
+--   < 1 row      → batch is discarded, nothing touches _latest or history
+--   timestamp already in history → batch is discarded (idempotent re-run guard)
+--   otherwise    → data is pushed to the corresponding _latest table,
 --                  which fires the history and ID-resolution triggers
 --
 -- Staging tables have no PK/FK constraints so inserts never fail on conflicts.
@@ -41,6 +42,14 @@ BEGIN
     SELECT COUNT(*) INTO rc FROM new_rows;
 
     IF rc < 1 THEN
+        DELETE FROM stage_gfms;
+        RETURN NULL;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM summary_gfms
+        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
+    ) THEN
         DELETE FROM stage_gfms;
         RETURN NULL;
     END IF;
@@ -99,6 +108,14 @@ BEGIN
         RETURN NULL;
     END IF;
 
+    IF EXISTS (
+        SELECT 1 FROM summary_hwrf
+        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
+    ) THEN
+        DELETE FROM stage_hwrf;
+        RETURN NULL;
+    END IF;
+
     INSERT INTO summary_hwrf_latest (
         pfaf_id, "timestamp",
         "Rain_TotalArea_km", "perc_Area", "MeanRain", "MaxRain"
@@ -146,6 +163,14 @@ BEGIN
     SELECT COUNT(*) INTO rc FROM new_rows;
 
     IF rc < 1 THEN
+        DELETE FROM stage_viirs;
+        RETURN NULL;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM summary_viirs
+        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
+    ) THEN
         DELETE FROM stage_viirs;
         RETURN NULL;
     END IF;
@@ -203,6 +228,14 @@ BEGIN
     SELECT COUNT(*) INTO rc FROM new_rows;
 
     IF rc < 1 THEN
+        DELETE FROM stage_dfo;
+        RETURN NULL;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM summary_dfo
+        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
+    ) THEN
         DELETE FROM stage_dfo;
         RETURN NULL;
     END IF;
@@ -280,6 +313,14 @@ BEGIN
     SELECT COUNT(*) INTO rc FROM new_rows;
 
     IF rc < 1 THEN
+        DELETE FROM stage_glofas;
+        RETURN NULL;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM summary_glofas
+        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
+    ) THEN
         DELETE FROM stage_glofas;
         RETURN NULL;
     END IF;
@@ -419,6 +460,14 @@ BEGIN
     SELECT COUNT(*) INTO rc FROM new_rows;
 
     IF rc < 1 THEN
+        DELETE FROM stage_final_alert;
+        RETURN NULL;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM summary_final_alert
+        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
+    ) THEN
         DELETE FROM stage_final_alert;
         RETURN NULL;
     END IF;

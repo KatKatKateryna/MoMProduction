@@ -2,14 +2,14 @@
 -- create_history_triggers.sql
 --
 -- Statement-level AFTER triggers on all _latest tables.
--- Both INSERT and UPDATE paths are covered (ON CONFLICT DO UPDATE produces
--- UPDATE-path rows; a first-ever load produces INSERT-path rows).
+-- Both INSERT and UPDATE paths are covered (ON CONFLICT DO UPDATE in the
+-- staging flush produces UPDATE-path rows; new pfaf_ids produce INSERT-path rows).
+-- Both paths run the same sync function — duplicates in history are
+-- prevented by ON CONFLICT DO NOTHING on the history INSERT.
 --
--- Each trigger function does three things:
---   1. CLEAR-AND-REPLACE: if the incoming batch has >= 1 rows, delete all
---      rows in _latest whose timestamp differs from the batch timestamp.
---      This is effectively "clear first, then keep only the new data".
---      It is atomic — no external reader sees a mixed state.
+-- Each trigger function does two things:
+--   1. CLEAR-AND-REPLACE: delete all rows in _latest whose timestamp
+--      differs from the batch timestamp (atomic swap — no reader sees mixed state).
 --
 --   2. HISTORY COPY with filtering:
 --        GFMS / DFO  — only non-zero flood rows; fallback to last row
@@ -17,10 +17,6 @@
 --        HWRF / VIIRS / GloFAS / Final Alert — all rows, no filtering.
 --        For GloFAS and Final Alert, station/watershed metadata columns are
 --        stripped; those already live in the reference tables.
---
---   3. GUARANTEE: at least one row reaches the history table per batch.
---      For GFMS and DFO this is enforced by the fallback logic.
---      For all other tables it is naturally satisfied since every row passes.
 --
 -- Assumption: matching_id_station and matching_id_watershed are already
 -- resolved by the caller before inserting into the _latest tables.
@@ -45,18 +41,13 @@ BEGIN
     INTO row_count, batch_ts
     FROM new_rows;
 
-    -- If this timestamp already exists in history, skip everything
-    IF row_count >= 1 AND EXISTS (
-        SELECT 1 FROM summary_gfms WHERE "timestamp" = batch_ts
-    ) THEN
+    IF row_count < 1 THEN
         RETURN NULL;
     END IF;
 
     -- Clear stale rows from _latest when a full batch arrives
-    IF row_count >= 1 THEN
-        DELETE FROM summary_gfms_latest
-        WHERE "timestamp" != batch_ts;
-    END IF;
+    DELETE FROM summary_gfms_latest
+    WHERE "timestamp" != batch_ts;
 
     -- Flood-row filter with last-row fallback
     SELECT EXISTS (
@@ -134,17 +125,12 @@ BEGIN
     INTO row_count, batch_ts
     FROM new_rows;
 
-    -- If this timestamp already exists in history, skip everything
-    IF row_count >= 1 AND EXISTS (
-        SELECT 1 FROM summary_hwrf WHERE "timestamp" = batch_ts
-    ) THEN
+    IF row_count < 1 THEN
         RETURN NULL;
     END IF;
 
-    IF row_count >= 1 THEN
-        DELETE FROM summary_hwrf_latest
-        WHERE "timestamp" != batch_ts;
-    END IF;
+    DELETE FROM summary_hwrf_latest
+    WHERE "timestamp" != batch_ts;
 
     INSERT INTO summary_hwrf (
         pfaf_id, "timestamp",
@@ -188,17 +174,12 @@ BEGIN
     INTO row_count, batch_ts
     FROM new_rows;
 
-    -- If this timestamp already exists in history, skip everything
-    IF row_count >= 1 AND EXISTS (
-        SELECT 1 FROM summary_viirs WHERE "timestamp" = batch_ts
-    ) THEN
+    IF row_count < 1 THEN
         RETURN NULL;
     END IF;
 
-    IF row_count >= 1 THEN
-        DELETE FROM summary_viirs_latest
-        WHERE "timestamp" != batch_ts;
-    END IF;
+    DELETE FROM summary_viirs_latest
+    WHERE "timestamp" != batch_ts;
 
     INSERT INTO summary_viirs (
         pfaf_id, "timestamp",
@@ -245,17 +226,12 @@ BEGIN
     INTO row_count, batch_ts
     FROM new_rows;
 
-    -- If this timestamp already exists in history, skip everything
-    IF row_count >= 1 AND EXISTS (
-        SELECT 1 FROM summary_dfo WHERE "timestamp" = batch_ts
-    ) THEN
+    IF row_count < 1 THEN
         RETURN NULL;
     END IF;
 
-    IF row_count >= 1 THEN
-        DELETE FROM summary_dfo_latest
-        WHERE "timestamp" != batch_ts;
-    END IF;
+    DELETE FROM summary_dfo_latest
+    WHERE "timestamp" != batch_ts;
 
     SELECT EXISTS (
         SELECT 1 FROM new_rows
@@ -347,17 +323,12 @@ BEGIN
     INTO row_count, batch_ts
     FROM new_rows;
 
-    -- If this timestamp already exists in history, skip everything
-    IF row_count >= 1 AND EXISTS (
-        SELECT 1 FROM summary_glofas WHERE "timestamp" = batch_ts
-    ) THEN
+    IF row_count < 1 THEN
         RETURN NULL;
     END IF;
 
-    IF row_count >= 1 THEN
-        DELETE FROM summary_glofas_latest
-        WHERE "timestamp" != batch_ts;
-    END IF;
+    DELETE FROM summary_glofas_latest
+    WHERE "timestamp" != batch_ts;
 
     INSERT INTO summary_glofas (
         "timestamp", matching_id_station, pfaf_id,
@@ -409,17 +380,12 @@ BEGIN
     INTO row_count, batch_ts
     FROM new_rows;
 
-    -- If this timestamp already exists in history, skip everything
-    IF row_count >= 1 AND EXISTS (
-        SELECT 1 FROM summary_final_alert WHERE "timestamp" = batch_ts
-    ) THEN
+    IF row_count < 1 THEN
         RETURN NULL;
     END IF;
 
-    IF row_count >= 1 THEN
-        DELETE FROM summary_final_alert_latest
-        WHERE "timestamp" != batch_ts;
-    END IF;
+    DELETE FROM summary_final_alert_latest
+    WHERE "timestamp" != batch_ts;
 
     INSERT INTO summary_final_alert (
         "timestamp", matching_id_watershed, pfaf_id,
