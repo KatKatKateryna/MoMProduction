@@ -31,9 +31,9 @@ fi
 # shellcheck source=db_config.cfg
 source "$CONFIG_FILE"
 
-if [[ "$ADMIN_PASSWORD" == "???" || "$SUPERUSER_PASSWORD" == "???" ]]; then
-    echo "ERROR: Passwords are not set in $CONFIG_FILE"
-    echo "       Replace the ??? placeholders with real passwords and re-run."
+if [[ "$ADMIN_PASSWORD" == "???" ]]; then
+    echo "ERROR: ADMIN_PASSWORD is not set in $CONFIG_FILE"
+    echo "       Replace the ??? placeholder with a real password and re-run."
     exit 1
 fi
 # -----------------------------------------------------------------------------
@@ -45,7 +45,7 @@ for f in "$SQL_FILE" "$SQL_ID_TRIGGERS" "$SQL_HISTORY_TRIGGERS" "$SQL_STAGING" "
     fi
 done
 
-echo "=== [1/7] Installing PostgreSQL and PostGIS ==="
+echo "=== [1/6] Installing PostgreSQL and PostGIS ==="
 sudo apt-get update -y
 sudo apt-get install -y \
     postgresql \
@@ -57,7 +57,7 @@ PG_VERSION=$(ls /usr/lib/postgresql/ | sort -V | tail -1)
 PG_CONF_DIR="/etc/postgresql/${PG_VERSION}/main"
 echo "    PostgreSQL version: ${PG_VERSION}"
 
-echo "=== [2/7] Setting up database cluster at ${DATA_DIR} ==="
+echo "=== [2/6] Setting up database cluster at ${DATA_DIR} ==="
 EXISTING_DATADIR=$(pg_lsclusters -h 2>/dev/null | awk 'NR==1{print $6}')
 
 if [[ "$EXISTING_DATADIR" == "$DATA_DIR" ]]; then
@@ -77,7 +77,7 @@ else
     sudo pg_createcluster --datadir "${DATA_DIR}" "${PG_VERSION}" main
 fi
 
-echo "=== [3/7] Enabling remote connections ==="
+echo "=== [3/6] Enabling remote connections ==="
 sudo sed -i "s/^#*listen_addresses\s*=.*/listen_addresses = '*'/" \
     "${PG_CONF_DIR}/postgresql.conf"
 
@@ -93,23 +93,18 @@ if command -v ufw &>/dev/null; then
     sudo ufw allow 5432/tcp
 fi
 
-echo "=== [4/7] Starting PostgreSQL service ==="
+echo "=== [4/6] Starting PostgreSQL service ==="
 sudo systemctl enable postgresql
 sudo systemctl restart postgresql
 
-echo "=== [5/7] Setting superuser password ==="
-sudo -u postgres psql -v ON_ERROR_STOP=1 <<SQL
-ALTER USER "${SUPERUSER}" WITH PASSWORD '${SUPERUSER_PASSWORD}';
-SQL
-
-echo "=== [6/7] Running schema DDL (PostGIS extension + all tables + triggers + functions) ==="
+echo "=== [5/6] Running schema DDL (PostGIS extension + all tables + triggers + functions) ==="
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_FILE}"
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_ID_TRIGGERS}"
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_HISTORY_TRIGGERS}"
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_STAGING}"
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_QUERY_FUNCTIONS}"
 
-echo "=== [7/7] Creating/updating restricted admin user '${ADMIN_USER}' ==="
+echo "=== [6/6] Creating/updating restricted admin user '${ADMIN_USER}' ==="
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" <<SQL
 DO \$\$
 BEGIN
@@ -148,7 +143,6 @@ echo "============================================================"
 echo "Setup complete."
 echo "  Database     : ${DB_NAME}"
 echo "  Data dir     : ${DATA_DIR}"
-echo "  Superuser    : ${SUPERUSER}  (local only, password set)"
 echo "  App user     : ${ADMIN_USER}  (remote access, restricted)"
 echo "  Host         : <this machine's IP address>"
 echo "  Port         : 5432"

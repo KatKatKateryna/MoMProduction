@@ -3,8 +3,7 @@ PostgreSQL + PostGIS Setup — Quick Start
 
 Database      : postgres   (default PostgreSQL database)
 Data dir      : /root/postgres/data/
-Superuser     : postgres   (local only)
-App user      : mom_admin  (remote access, SELECT/INSERT/UPDATE only)
+App user      : mom_admin  (remote access, restricted)
 Port          : 5432
 
 
@@ -23,17 +22,16 @@ from the provided sample before running the script.
     cd first_setup/db_setup/db_setup
     cp sample_db_config.cfg db_config.cfg
 
-Then open it and replace the ??? placeholders with your chosen passwords:
+Then open it and replace the ??? placeholder with your chosen password:
 
     nano db_config.cfg
 
 Set values for:
   ADMIN_PASSWORD     — password for mom_admin (remote app user)
-  SUPERUSER_PASSWORD — password for postgres (local superuser)
 
 Save and exit: Ctrl+O, Enter, Ctrl+X
 
-The script will refuse to run if either password is still set to ???
+The script will refuse to run if the password is still set to ???
 
 
 STEP 2 — Run the script
@@ -80,7 +78,6 @@ As superuser (local only):
 CHANGE A PASSWORD LATER
 ------------------------
     sudo -u postgres psql -c "ALTER ROLE mom_admin WITH PASSWORD 'newpassword';"
-    sudo -u postgres psql -c "ALTER ROLE postgres WITH PASSWORD 'newpassword';"
 
 
 CONNECTING FROM A REMOTE MACHINE
@@ -94,7 +91,7 @@ CONNECTING FROM A REMOTE MACHINE
 Connection string format:
     postgresql://mom_admin:<password>@<server-ip>:5432/postgres
 
-Note: the postgres superuser is local-only and cannot connect remotely.
+Note: the postgres superuser is accessible locally only via: sudo -u postgres psql
 
 
 DIGITALOCEAN DROPLET — OPENING PORT 5432
