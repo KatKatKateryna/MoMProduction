@@ -1,0 +1,113 @@
+PostgreSQL + PostGIS Setup — Quick Start
+=========================================
+
+Database      : postgres   (default PostgreSQL database)
+Data dir      : /root/postgres/data/
+Superuser     : postgres   (local only, password: 12345678)
+App user      : mom_admin  (remote access, SELECT/INSERT/UPDATE only)
+Port          : 5432
+
+
+REQUIREMENTS
+------------
+- Ubuntu 20.04 or later
+- sudo privileges
+- Internet access
+
+
+CONFIGURATION
+-------------
+All credentials and settings are in database_update/db_config.cfg.
+Edit that file to change passwords or the data directory, then re-run
+the script — no changes to the script itself are needed.
+
+
+RUN THE SCRIPT
+--------------
+    chmod +x /path/to/database_update/setup_postgres.sh
+    /path/to/database_update/setup_postgres.sh
+
+You can run it from any folder. Safe to re-run at any time:
+  - Skips cluster creation if already set up correctly
+  - Re-applies remote access config on every run
+  - Re-applies all user permissions on every run
+  - Adds any missing tables from create_all_tables.sql (IF NOT EXISTS)
+  - Existing data is never deleted
+
+
+START AND STOP THE DATABASE
+----------------------------
+    sudo systemctl start postgresql
+    sudo systemctl stop postgresql
+    sudo systemctl restart postgresql
+    sudo systemctl status postgresql
+
+The database starts automatically on boot.
+
+
+VERIFY THE SETUP
+----------------
+From the same machine:
+    psql -U mom_admin -d postgres -h 127.0.0.1
+
+From a remote machine:
+    psql -U mom_admin -d postgres -h <server-ip>
+
+Inside psql:
+    \dt        -- list all tables
+    \q         -- quit
+
+As superuser (local only):
+    sudo -u postgres psql
+
+
+CHANGE THE APP USER PASSWORD
+-----------------------------
+    sudo -u postgres psql -c "ALTER ROLE mom_admin WITH PASSWORD 'yournewpassword';"
+
+
+CONNECTING FROM A REMOTE MACHINE
+----------------------------------
+    Host     : <this server's IP address>
+    Port     : 5432
+    Database : postgres
+    User     : mom_admin
+    Password : MoM@Flood#2024!   (or your updated password)
+
+Connection string format:
+    postgresql://mom_admin:MoM@Flood#2024!@<server-ip>:5432/postgres
+
+Note: the postgres superuser is local-only and cannot connect remotely.
+
+
+DIGITALOCEAN DROPLET — OPENING PORT 5432
+-----------------------------------------
+The setup script handles ufw (the Ubuntu firewall) automatically.
+
+If you have added a DigitalOcean Cloud Firewall to your droplet:
+  1. Go to Networking -> Firewalls in the DigitalOcean control panel
+  2. Select your firewall -> Inbound Rules
+  3. Add rule: Type=TCP, Port=5432, Sources=<your IP or 0.0.0.0/0>
+  4. Save — changes apply instantly, no restart needed
+
+If you have NOT added a Cloud Firewall, the ufw rule is sufficient.
+
+
+LOADING DATA INTO THE DATABASE
+--------------------------------
+Load the two static reference tables first (other tables depend on them):
+
+    psql -U mom_admin -d postgres -h <host> -c "\copy all_glofas_stations FROM 'all_glofas_stations.csv' CSV HEADER"
+    psql -U mom_admin -d postgres -h <host> -c "\copy all_watersheds FROM 'all_watersheds.csv' CSV HEADER"
+
+Then load the timestamped data tables:
+
+    psql -U mom_admin -d postgres -h <host> -c "\copy summary_gfms FROM 'summary_gfms.csv' CSV HEADER"
+    psql -U mom_admin -d postgres -h <host> -c "\copy summary_hwrf FROM 'summary_hwrf.csv' CSV HEADER"
+    psql -U mom_admin -d postgres -h <host> -c "\copy summary_glofas FROM 'summary_glofas.csv' CSV HEADER"
+    psql -U mom_admin -d postgres -h <host> -c "\copy summary_viirs FROM 'summary_viirs.csv' CSV HEADER"
+    psql -U mom_admin -d postgres -h <host> -c "\copy summary_dfo FROM 'summary_dfo.csv' CSV HEADER"
+    psql -U mom_admin -d postgres -h <host> -c "\copy summary_final_alert FROM 'summary_final_alert.csv' CSV HEADER"
+
+For Python (psycopg2 / SQLAlchemy):
+    conn_str = "postgresql://mom_admin:MoM@Flood#2024!@<host>:5432/postgres"
