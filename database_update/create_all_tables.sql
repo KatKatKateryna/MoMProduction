@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS summary_gfms (
     "GFMS_MeanDepth"     DOUBLE PRECISION,
     "GFMS_MaxDepth"      DOUBLE PRECISION,
     "GFMS_Duration"      INTEGER,
-    PRIMARY KEY (pfaf_id, "timestamp")
+    PRIMARY KEY ("timestamp", pfaf_id)
 );
 
 -- HWRF (1-4 csvs per day, inconsistent)
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS summary_hwrf (
     "perc_Area"          DOUBLE PRECISION,
     "MeanRain"           DOUBLE PRECISION,
     "MaxRain"            DOUBLE PRECISION,
-    PRIMARY KEY (pfaf_id, "timestamp")
+    PRIMARY KEY ("timestamp", pfaf_id)
 );
 
 -- All GloFAS stations: static per-station metadata
@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS summary_viirs (
     "onedayperc_Area"        DOUBLE PRECISION,
     "fivedayFlood_Area_km"   DOUBLE PRECISION,
     "fivedayperc_Area"       DOUBLE PRECISION,
-    PRIMARY KEY (pfaf_id, "timestamp")
+    PRIMARY KEY ("timestamp", pfaf_id)
 );
 
 -- DFO (1 csv per day)
@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS summary_dfo (
     "2-Day_perc_Area"         DOUBLE PRECISION,
     "3-Day_TotalArea_km2"     DOUBLE PRECISION,
     "3-Day_perc_Area"         DOUBLE PRECISION,
-    PRIMARY KEY (pfaf_id, "timestamp")
+    PRIMARY KEY ("timestamp", pfaf_id)
 );
 
 -- All Watersheds: static per-watershed metadata
