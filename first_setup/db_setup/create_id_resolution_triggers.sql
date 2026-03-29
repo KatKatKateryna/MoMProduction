@@ -79,8 +79,8 @@ BEGIN
         );
     END IF;
 
-    -- summary_glofas_latest uses pfaf_id as PK — no matching_id_station column.
-    -- The trigger's sole job is to ensure all_glofas_stations is populated.
+    -- Write the resolved ID back onto the row so it lands in summary_glofas_latest.
+    NEW.matching_id_station := v_id;
     RETURN NEW;
 END;
 $$;
@@ -132,8 +132,8 @@ BEGIN
         );
     END IF;
 
-    -- summary_final_alert_latest uses pfaf_id as PK — no matching_id_watershed column.
-    -- The trigger's sole job is to ensure all_watersheds is populated.
+    -- Write the resolved ID back onto the row so it lands in summary_final_alert_latest.
+    NEW.matching_id_watershed := v_id;
     RETURN NEW;
 END;
 $$;

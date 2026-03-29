@@ -325,9 +325,11 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    -- matching_id_station is omitted; BEFORE trigger on summary_glofas_latest
-    -- resolves it from (Station, Country, Lat, Lon, pfaf_id)
+    -- matching_id_station is passed as NULL; the BEFORE trigger on
+    -- summary_glofas_latest resolves it from (Station, Country, Lat, Lon, pfaf_id)
+    -- and writes the resolved value back onto the row before it is inserted.
     INSERT INTO summary_glofas_latest (
+        matching_id_station,
         "timestamp", pfaf_id,
         "ID", "Point No",
         "Alert_level", "Days_until_peak",
@@ -338,6 +340,7 @@ BEGIN
         "Lat", "Lon", "Upstream area"
     )
     SELECT
+        NULL,
         "timestamp", pfaf_id,
         "ID", "Point No",
         "Alert_level", "Days_until_peak",
@@ -347,8 +350,9 @@ BEGIN
         "Continent", "Location",
         "Lat", "Lon", "Upstream area"
     FROM stage_glofas
-    ON CONFLICT (pfaf_id) DO UPDATE SET
+    ON CONFLICT (matching_id_station) DO UPDATE SET
         "timestamp"      = EXCLUDED."timestamp",
+        pfaf_id          = EXCLUDED.pfaf_id,
         "ID"             = EXCLUDED."ID",
         "Point No"       = EXCLUDED."Point No",
         "Alert_level"    = EXCLUDED."Alert_level",
@@ -472,10 +476,12 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    -- matching_id_watershed is omitted; BEFORE trigger on
+    -- matching_id_watershed is passed as NULL; the BEFORE trigger on
     -- summary_final_alert_latest resolves it from
-    -- (pfaf_id, name, name_1, CentroidX, CentroidY)
+    -- (pfaf_id, name, name_1, CentroidX, CentroidY) and writes the resolved
+    -- value back onto the row before it is inserted.
     INSERT INTO summary_final_alert_latest (
+        matching_id_watershed,
         "timestamp", pfaf_id,
         "rfr_score", "cfr_score",
         "Alert_level", "Days_until_peak",
@@ -506,6 +512,7 @@ BEGIN
         "Admin1_count", "Admin1_names"
     )
     SELECT
+        NULL,
         "timestamp", pfaf_id,
         "rfr_score", "cfr_score",
         "Alert_level", "Days_until_peak",
@@ -535,8 +542,9 @@ BEGIN
         "name", "name_1", "CentroidX", "CentroidY",
         "Admin1_count", "Admin1_names"
     FROM stage_final_alert
-    ON CONFLICT (pfaf_id) DO UPDATE SET
+    ON CONFLICT (matching_id_watershed) DO UPDATE SET
         "timestamp"                 = EXCLUDED."timestamp",
+        pfaf_id                     = EXCLUDED.pfaf_id,
         "rfr_score"                 = EXCLUDED."rfr_score",
         "cfr_score"                 = EXCLUDED."cfr_score",
         "Alert_level"               = EXCLUDED."Alert_level",
