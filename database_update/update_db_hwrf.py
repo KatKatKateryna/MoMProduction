@@ -1,47 +1,25 @@
 """
-Push latest HWRF data to summary_hwrf_latest in the database.
+Push latest HWRF data to stage_hwrf in the database.
 
-1. Query the latest timestamp already in summary_hwrf_latest.
-2. Fetch the file listing from the server and identify newer files.
-3. For each new file (in sorted order):
-   a. Download content into memory.
-   b. Upsert all rows into summary_hwrf_latest (newest timestamp wins per pfaf_id).
+For each new file: download, build a DataFrame with raw values, and insert
+via upsert_dataframe which handles all type conversion against the live DB schema.
 """
 
 import csv
 import io
 import re
 
+import pandas as pd
 import psycopg2
-import psycopg2.extras
 
 from db_utils import (
     DB_PARAMS, download_text, get_processed_timestamps,
-    parse_timestamp_hh, to_float, to_int,
+    list_server_files, parse_timestamp_hh, upsert_dataframe,
 )
 
-BASE_URL = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/HWRF/HWRF_summary/"
-
-UPSERT_SQL = """
-INSERT INTO summary_hwrf_latest (
-    "timestamp", pfaf_id,
-    "Rain_TotalArea_km", "perc_Area", "MeanRain", "MaxRain"
-)
-VALUES %s
-ON CONFLICT (pfaf_id) DO UPDATE SET
-    "timestamp"         = EXCLUDED."timestamp",
-    "Rain_TotalArea_km" = EXCLUDED."Rain_TotalArea_km",
-    "perc_Area"         = EXCLUDED."perc_Area",
-    "MeanRain"          = EXCLUDED."MeanRain",
-    "MaxRain"           = EXCLUDED."MaxRain"
-"""
-
-
-def list_server_filenames():
-    import requests
-    resp = requests.get(BASE_URL, timeout=30)
-    resp.raise_for_status()
-    return sorted(re.findall(r'href="(hwrf\.\d+rainfall\.csv)"', resp.text))
+STAGE_TABLE  = "stage_hwrf"
+LATEST_TABLE = "summary_hwrf_latest"
+BASE_URL     = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/HWRF/HWRF_summary/"
 
 
 def get_timestamp(filename):
@@ -49,36 +27,24 @@ def get_timestamp(filename):
     return match.group(1) if match else ""
 
 
-def extract_rows(content, timestamp):
-    reader = csv.DictReader(io.StringIO(content))
-    return [
-        (
-            parse_timestamp_hh(timestamp),
-            to_int(row["pfaf_id"]),
-            to_float(row["Rain_TotalArea_km"]),
-            to_float(row["perc_Area"]),
-            to_float(row["MeanRain"]),
-            to_float(row["MaxRain"]),
-        )
-        for row in reader
-    ]
-
-
-def upsert_rows(conn, rows):
-    with conn.cursor() as cur:
-        psycopg2.extras.execute_values(cur, UPSERT_SQL, rows, page_size=500)
-    conn.commit()
+def extract_df(content, timestamp):
+    rows = list(csv.DictReader(io.StringIO(content)))
+    if not rows:
+        return pd.DataFrame()
+    df = pd.DataFrame(rows)
+    df.insert(0, "timestamp", timestamp)
+    return df
 
 
 def main():
     conn = psycopg2.connect(**DB_PARAMS)
     try:
         print("Querying processed timestamps from DB...")
-        processed = get_processed_timestamps(conn, "summary_hwrf_latest")
-        print(f"  {len(processed)} timestamps in summary_hwrf_latest")
+        processed = get_processed_timestamps(conn, LATEST_TABLE)
+        print(f"  {len(processed)} timestamps in {LATEST_TABLE}")
 
         print("Fetching file list from server...")
-        all_files = list_server_filenames()
+        all_files = list_server_files(BASE_URL, r'href="(hwrf\.\d+rainfall\.csv)"')
         new_files = [f for f in all_files
                      if parse_timestamp_hh(get_timestamp(f)) not in processed]
         print(f"  {len(all_files)} files on server, {len(processed)} already in DB, "
@@ -93,15 +59,16 @@ def main():
             timestamp = get_timestamp(filename)
             try:
                 content = download_text(BASE_URL + filename)
-                rows    = extract_rows(content, timestamp)
-                upsert_rows(conn, rows)
-                total_rows += len(rows)
-                print(f"  [{i}/{len(new_files)}] {filename} -> {len(rows)} rows upserted")
+                df      = extract_df(content, timestamp)
+                if not df.empty:
+                    upsert_dataframe(STAGE_TABLE, df, conn=conn)
+                total_rows += len(df)
+                print(f"  [{i}/{len(new_files)}] {filename} -> {len(df)} rows inserted")
             except Exception as exc:
                 conn.rollback()
                 print(f"  [{i}/{len(new_files)}] FAILED {filename}: {exc}")
 
-        print(f"\nDone. {total_rows:,} rows upserted into summary_hwrf_latest")
+        print(f"\nDone. {total_rows:,} rows inserted into {STAGE_TABLE}")
     finally:
         conn.close()
 

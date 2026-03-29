@@ -90,6 +90,130 @@ def get_processed_timestamps(conn, table):
         cur.execute(f'SELECT DISTINCT "timestamp" FROM {table}')
         return {row[0] for row in cur.fetchall()}
 
+
+def upsert_rows(conn, sql, rows):
+    """Batch-upsert rows using execute_values and commit."""
+    import psycopg2.extras
+    with conn.cursor() as cur:
+        psycopg2.extras.execute_values(cur, sql, rows, page_size=500)
+    conn.commit()
+
+
+def upsert_dataframe(table, df, conn=None):
+    """Insert a DataFrame into a staging table.
+
+    Queries the actual column types from the database and converts every value
+    to the exact expected type. Columns in the DataFrame that don't exist in the
+    table are silently ignored.
+
+    If conn is supplied the caller's connection is used (and kept open).
+    If omitted a new connection is created and closed automatically.
+
+    Usage:
+        upsert_dataframe("stage_gfms", df)            # own connection
+        upsert_dataframe("stage_gfms", df, conn=conn) # shared connection
+    """
+    import psycopg2
+
+    def _is_null(v):
+        if v is None or v == "":
+            return True
+        try:
+            return v != v       # catches float NaN and pandas NaT
+        except (TypeError, ValueError):
+            return False
+
+    def _to_scalar(v):
+        if hasattr(v, 'item'):          # numpy scalar → Python native
+            return v.item()
+        if hasattr(v, 'to_pydatetime'): # pandas Timestamp → datetime
+            return v.to_pydatetime()
+        return v
+
+    def _coerce(v, data_type):
+        if _is_null(v):
+            return None
+        v = _to_scalar(v)
+        dt = data_type.lower()
+        try:
+            if dt in ('integer', 'smallint', 'bigint'):
+                return int(float(v))    # float first so "3.0" strings work
+            if dt in ('double precision', 'real'):
+                return float(v)
+            if dt == 'numeric':
+                return Decimal(str(float(v)))
+            if dt in ('text', 'character varying', 'character'):
+                return str(v)
+            if dt in ('timestamp with time zone', 'timestamp without time zone'):
+                aware = (dt == 'timestamp with time zone')
+                if isinstance(v, datetime):
+                    if aware:
+                        return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+                    return v.replace(tzinfo=None)
+                s = str(v).strip()
+                for fmt in (
+                    "%Y-%m-%d %H:%M:%S",
+                    "%Y-%m-%dT%H:%M:%S",
+                    "%Y-%m-%d %H:%M:%S.%f",
+                    "%Y-%m-%dT%H:%M:%S.%f",
+                    "%Y%m%d%H",             # filename hourly  e.g. 2024010112
+                    "%Y%m%d",               # filename daily   e.g. 20240101
+                ):
+                    try:
+                        dt_val = datetime.strptime(s, fmt)
+                        return dt_val.replace(tzinfo=timezone.utc) if aware else dt_val.replace(tzinfo=None)
+                    except ValueError:
+                        continue
+                return None
+            if dt == 'boolean':
+                return bool(v)
+        except Exception:
+            return None         # malformed value → NULL rather than a crash
+        return v                # unknown type — pass through
+
+    _own_conn = conn is None
+    if _own_conn:
+        conn = psycopg2.connect(**DB_PARAMS)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT column_name, data_type
+                FROM information_schema.columns
+                WHERE table_name = %s AND table_schema = 'public'
+                ORDER BY ordinal_position
+                """,
+                (table,),
+            )
+            col_types = {row[0]: row[1] for row in cur.fetchall()}
+
+        # Only insert columns present in both the DataFrame and the DB table
+        cols = [c for c in df.columns if c in col_types]
+        if not cols:
+            return
+
+        col_names = ", ".join(f'"{c}"' for c in cols)
+        sql = f'INSERT INTO {table} ({col_names}) VALUES %s'
+        rows = [
+            tuple(_coerce(v, col_types[col]) for col, v in zip(cols, row))
+            for row in df[cols].itertuples(index=False, name=None)
+        ]
+        upsert_rows(conn, sql, rows)
+    finally:
+        if _own_conn:
+            conn.close()
+
+# ---------------------------------------------------------------------------
+# Server listing helper
+# ---------------------------------------------------------------------------
+
+def list_server_files(url, pattern):
+    """Fetch a directory listing and return sorted filenames matching pattern."""
+    import re
+    resp = requests.get(url, timeout=30)
+    resp.raise_for_status()
+    return sorted(re.findall(pattern, resp.text))
+
 # ---------------------------------------------------------------------------
 # Download helpers
 # ---------------------------------------------------------------------------

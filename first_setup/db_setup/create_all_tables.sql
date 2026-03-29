@@ -206,8 +206,7 @@ CREATE TABLE IF NOT EXISTS summary_hwrf_latest (
 -- GloFAS Latest: forecast data + station metadata
 CREATE TABLE IF NOT EXISTS summary_glofas_latest (
     "timestamp"          TIMESTAMPTZ,
-    matching_id_station  INTEGER         PRIMARY KEY,
-    pfaf_id              INTEGER,
+    pfaf_id              INTEGER         PRIMARY KEY,
     "ID"                 TEXT,
     "Point No"           INTEGER,
     "Alert_level"        INTEGER,
@@ -262,8 +261,7 @@ CREATE TABLE IF NOT EXISTS summary_dfo_latest (
 -- Final Alert Latest: alert data + watershed metadata
 CREATE TABLE IF NOT EXISTS summary_final_alert_latest (
     "timestamp"                 TIMESTAMPTZ,
-    matching_id_watershed       INTEGER         PRIMARY KEY,
-    pfaf_id                     INTEGER,
+    pfaf_id                     INTEGER         PRIMARY KEY,
     "rfr_score"                 DOUBLE PRECISION,
     "cfr_score"                 DOUBLE PRECISION,
     "Alert_level"               DOUBLE PRECISION,
