@@ -153,7 +153,9 @@ def upsert_dataframe(table, df, conn=None):
                 aware = (dt == 'timestamp with time zone')
                 if isinstance(v, datetime):
                     if aware:
-                        return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+                        # Ensure timezone-aware and normalised to UTC
+                        v_tz = v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+                        return v_tz.astimezone(timezone.utc)
                     return v.replace(tzinfo=None)
                 s = str(v).strip()
                 for fmt in (
@@ -166,6 +168,7 @@ def upsert_dataframe(table, df, conn=None):
                 ):
                     try:
                         dt_val = datetime.strptime(s, fmt)
+                        # All string timestamps are assumed to be UTC
                         return dt_val.replace(tzinfo=timezone.utc) if aware else dt_val.replace(tzinfo=None)
                     except ValueError:
                         continue
