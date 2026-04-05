@@ -33,8 +33,8 @@ def _extract(content, timestamp):
     if not rows:
         return pd.DataFrame()
     df = pd.DataFrame(rows)
-    # Normalise column names (the source files have ' NormalizedLackofResilience ')
-    df.columns = [c.strip() for c in df.columns]
+    # Normalise column names: strip whitespace and BOM (files open with \ufeff prefix)
+    df.columns = [c.strip().lstrip('\ufeff') for c in df.columns]
     df = df.drop(columns=[c for c in _SKIP_COLS if c in df.columns], errors="ignore")
     df.insert(0, "timestamp", timestamp)
     return df
