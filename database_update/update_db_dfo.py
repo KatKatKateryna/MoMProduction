@@ -1,9 +1,10 @@
 """
 Push latest DFO data to stage_dfo in the database.
 
-For each new file: download, keep flood rows (fall back to last row if none),
-build a DataFrame with raw values, and insert via upsert_dataframe which
-handles all type conversion against the live DB schema.
+For each new file: download, build a DataFrame with all rows (including zeros),
+and insert via upsert_dataframe which handles all type conversion against the
+live DB schema.  Zero-row filtering for the history table is handled entirely
+by the fn_dfo_sync DB trigger — no pre-filtering here.
 """
 
 import csv
@@ -20,32 +21,17 @@ from db_utils import (
 STAGE_TABLE   = "stage_dfo"
 HISTORY_TABLE = "summary_dfo"
 BASE_URL      = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/DFO/DFO_summary/"
-FLOOD_COLS    = [
-    "1-Day_TotalArea_km2", "1-Day_perc_Area",
-    "1-Day_CS_TotalArea_km2", "1-Day_CS_perc_Area",
-    "2-Day_TotalArea_km2", "2-Day_perc_Area",
-    "3-Day_TotalArea_km2", "3-Day_perc_Area",
-]
 
 
 def get_timestamp(filename):
     return filename[4:].replace(".csv", "")
 
 
-def is_nonzero_row(row):
-    return any(float(row[col]) != 0.0 for col in FLOOD_COLS)
-
-
 def extract_df(content, timestamp):
-    flood_rows, last_row = [], None
-    for row in csv.DictReader(io.StringIO(content)):
-        last_row = row
-        if is_nonzero_row(row):
-            flood_rows.append(row)
-    source_rows = flood_rows if flood_rows else ([last_row] if last_row else [])
-    if not source_rows:
+    rows = list(csv.DictReader(io.StringIO(content)))
+    if not rows:
         return pd.DataFrame()
-    df = pd.DataFrame(source_rows)
+    df = pd.DataFrame(rows)
     df.insert(0, "timestamp", timestamp)
     return df
 

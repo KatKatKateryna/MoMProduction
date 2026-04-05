@@ -28,7 +28,7 @@ from update_db_glofas      import parse_geojson, parse_csv as glofas_parse_csv, 
 # Configuration
 # =============================================================================
 
-FILES_PER_SOURCE = 5   # set to None to process all files
+FILES_PER_SOURCE = None   # set to None to process all files
 
 # =============================================================================
 
@@ -100,8 +100,9 @@ conn = psycopg2.connect(**DB_PARAMS)
 try:
     # ── GFMS ──────────────────────────────────────────────────────────────────
     print("GFMS")
+    count = 0
     folder = DOWNLOADS_ROOT / "GFMS" / "GFMS_summary"
-    files  = _limit(_list_local(folder, r'Flood_byStor_\d+\.csv'))
+    files  = _list_local(folder, r'Flood_byStor_\d+\.csv')
     for fname in files:
         parsed_ts = parse_timestamp_hh(gfms_get_ts(fname))
         if _in_history(conn, "summary_gfms", parsed_ts):
@@ -109,11 +110,16 @@ try:
             continue
         content = (folder / fname).read_text(encoding="utf-8")
         _insert(conn, "stage_gfms", gfms_extract(content, gfms_get_ts(fname)), fname)
+        count += 1
+        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
+            print(f"  {fname}: reached file limit, skipping remaining files")
+            break
 
     # ── HWRF ──────────────────────────────────────────────────────────────────
     print("\nHWRF")
+    count = 0
     folder = DOWNLOADS_ROOT / "HWRF" / "HWRF_summary"
-    files  = _limit(_list_local(folder, r'hwrf\.\d+rainfall\.csv'))
+    files  = _list_local(folder, r'hwrf\.\d+rainfall\.csv')
     for fname in files:
         parsed_ts = parse_timestamp_hh(hwrf_get_ts(fname))
         if _in_history(conn, "summary_hwrf", parsed_ts):
@@ -121,11 +127,16 @@ try:
             continue
         content = (folder / fname).read_text(encoding="utf-8")
         _insert(conn, "stage_hwrf", hwrf_extract(content, hwrf_get_ts(fname)), fname)
+        count += 1
+        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
+            print(f"  {fname}: reached file limit, skipping remaining files")
+            break
 
     # ── DFO ───────────────────────────────────────────────────────────────────
     print("\nDFO")
+    count = 0
     folder = DOWNLOADS_ROOT / "DFO" / "DFO_summary"
-    files  = _limit(_list_local(folder, r'DFO_\w+\.csv'))
+    files  = _list_local(folder, r'DFO_\w+\.csv')
     for fname in files:
         parsed_ts = parse_timestamp_day(dfo_get_ts(fname))
         if _in_history(conn, "summary_dfo", parsed_ts):
@@ -133,11 +144,16 @@ try:
             continue
         content = (folder / fname).read_text(encoding="utf-8")
         _insert(conn, "stage_dfo", dfo_extract(content, dfo_get_ts(fname)), fname)
+        count += 1
+        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
+            print(f"  {fname}: reached file limit, skipping remaining files")
+            break
 
     # ── VIIRS ─────────────────────────────────────────────────────────────────
     print("\nVIIRS")
+    count = 0
     folder = DOWNLOADS_ROOT / "VIIRS" / "VIIRS_summary"
-    files  = _limit(_list_local(folder, r'VIIRS_Flood_\d+\.csv'))
+    files  = _list_local(folder, r'VIIRS_Flood_\d+\.csv')
     for fname in files:
         parsed_ts = parse_timestamp_day(viirs_get_ts(fname))
         if _in_history(conn, "summary_viirs", parsed_ts):
@@ -145,11 +161,16 @@ try:
             continue
         content = (folder / fname).read_text(encoding="utf-8")
         _insert(conn, "stage_viirs", viirs_extract(content, viirs_get_ts(fname)), fname)
+        count += 1
+        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
+            print(f"  {fname}: reached file limit, skipping remaining files")
+            break
 
     # ── GloFAS ────────────────────────────────────────────────────────────────
     print("\nGloFAS")
+    count = 0
     folder = DOWNLOADS_ROOT / "GLOFAS"
-    gfiles = _limit(list(sorted(_glofas_local_files(folder).items())))
+    gfiles = list(sorted(_glofas_local_files(folder).items()))
     for ts, fname in gfiles:
         parsed_ts = parse_timestamp_hh(ts)
         if _in_history(conn, "summary_glofas", parsed_ts):
@@ -158,11 +179,16 @@ try:
         local_resp = _LocalFile(folder / fname)
         props = parse_geojson(local_resp) if fname.endswith(".geojson") else glofas_parse_csv(local_resp)
         _insert(conn, "stage_glofas", glofas_build(props, ts), fname)
+        count += 1
+        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
+            print(f"  {fname}: reached file limit, skipping remaining files")
+            break
 
     # ── Final Alert ───────────────────────────────────────────────────────────
     print("\nFinal Alert")
+    count = 0
     folder = DOWNLOADS_ROOT / "Final_Alert"
-    files  = _limit(_list_local(folder, r'Final_Attributes_[^/]+\.csv'))
+    files  = _list_local(folder, r'Final_Attributes_[^/]+\.csv')
     for fname in files:
         parsed_ts = parse_timestamp_hh(fa_get_ts(fname))
         if _in_history(conn, "summary_final_alert", parsed_ts):
@@ -170,6 +196,10 @@ try:
             continue
         content = (folder / fname).read_text(encoding="utf-8", errors="ignore")
         _insert(conn, "stage_final_alert", fa_extract(content, fa_get_ts(fname)), fname)
+        count += 1
+        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
+            print(f"  {fname}: reached file limit, skipping remaining files")
+            break
 
 finally:
     conn.close()

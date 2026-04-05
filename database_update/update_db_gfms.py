@@ -1,9 +1,10 @@
 """
 Push latest GFMS data to stage_gfms in the database.
 
-For each new file: download, keep flood rows (fall back to last row if none),
-build a DataFrame with raw values, and insert via upsert_dataframe which
-handles all type conversion against the live DB schema.
+For each new file: download, build a DataFrame with all rows (including zeros),
+and insert via upsert_dataframe which handles all type conversion against the
+live DB schema.  Zero-row filtering for the history table is handled entirely
+by the fn_gfms_sync DB trigger — no pre-filtering here.
 """
 
 import csv
@@ -20,27 +21,17 @@ from db_utils import (
 STAGE_TABLE   = "stage_gfms"
 HISTORY_TABLE = "summary_gfms"
 BASE_URL      = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/GFMS/GFMS_summary/"
-FLOOD_COLS    = ["GFMS_TotalArea_km", "GFMS_perc_Area", "GFMS_MeanDepth", "GFMS_MaxDepth", "GFMS_Duration"]
 
 
 def get_timestamp(filename):
     return filename.rsplit("_", 1)[-1].split(".")[0]
 
 
-def is_flood_row(row):
-    return any(float(row[col]) != 0.0 for col in FLOOD_COLS)
-
-
 def extract_df(content, timestamp):
-    flood_rows, last_row = [], None
-    for row in csv.DictReader(io.StringIO(content)):
-        last_row = row
-        if is_flood_row(row):
-            flood_rows.append(row)
-    source_rows = flood_rows if flood_rows else ([last_row] if last_row else [])
-    if not source_rows:
+    rows = list(csv.DictReader(io.StringIO(content)))
+    if not rows:
         return pd.DataFrame()
-    df = pd.DataFrame(source_rows)
+    df = pd.DataFrame(rows)
     df.insert(0, "timestamp", timestamp)
     return df
 

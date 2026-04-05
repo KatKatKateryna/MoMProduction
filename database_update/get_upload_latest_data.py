@@ -62,8 +62,9 @@ conn = psycopg2.connect(**DB_PARAMS)
 try:
     # ── GFMS ──────────────────────────────────────────────────────────────────
     print("GFMS")
+    count = 0
     url   = BASE + "GFMS/GFMS_summary/"
-    files = _limit(list_server_files(url, r'href="(Flood_byStor_\d+\.csv)"'))
+    files = list_server_files(url, r'href="(Flood_byStor_\d+\.csv)"')
     for fname in files:
         parsed_ts = parse_timestamp_hh(gfms_get_ts(fname))
         if _in_history(conn, "summary_gfms", parsed_ts):
@@ -72,24 +73,35 @@ try:
         content = download_text(url + fname)
         time.sleep(DOWNLOAD_DELAY)
         _insert(conn, "stage_gfms", gfms_extract(content, gfms_get_ts(fname)), fname)
+        count += 1
+        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
+            print(f"  {fname}: reached file limit, skipping remaining files")
+            break
 
     # ── HWRF ──────────────────────────────────────────────────────────────────
     print("\nHWRF")
+    count = 0
     url   = BASE + "HWRF/HWRF_summary/"
-    files = _limit(list_server_files(url, r'href="(hwrf\.\d+rainfall\.csv)"'))
+    files = list_server_files(url, r'href="(hwrf\.\d+rainfall\.csv)"')
     for fname in files:
         parsed_ts = parse_timestamp_hh(hwrf_get_ts(fname))
         if _in_history(conn, "summary_hwrf", parsed_ts):
             print(f"  {fname}: already in DB, skipping")
             continue
+        
         content = download_text(url + fname)
         time.sleep(DOWNLOAD_DELAY)
         _insert(conn, "stage_hwrf", hwrf_extract(content, hwrf_get_ts(fname)), fname)
+        count += 1
+        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
+            print(f"  {fname}: reached file limit, skipping remaining files")
+            break
 
     # ── DFO ───────────────────────────────────────────────────────────────────
     print("\nDFO")
+    count = 0
     url   = BASE + "DFO/DFO_summary/"
-    files = _limit(list_server_files(url, r'href="(DFO_\w+\.csv)"'))
+    files = list_server_files(url, r'href="(DFO_\w+\.csv)"')
     for fname in files:
         parsed_ts = parse_timestamp_day(dfo_get_ts(fname))
         if _in_history(conn, "summary_dfo", parsed_ts):
@@ -98,11 +110,16 @@ try:
         content = download_text(url + fname)
         time.sleep(DOWNLOAD_DELAY)
         _insert(conn, "stage_dfo", dfo_extract(content, dfo_get_ts(fname)), fname)
+        count += 1
+        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
+            print(f"  {fname}: reached file limit, skipping remaining files")
+            break
 
     # ── VIIRS ─────────────────────────────────────────────────────────────────
     print("\nVIIRS")
+    count = 0
     url   = BASE + "VIIRS/VIIRS_summary/"
-    files = _limit(list_server_files(url, r'href="(VIIRS_Flood_\d+\.csv)"'))
+    files = list_server_files(url, r'href="(VIIRS_Flood_\d+\.csv)"')
     for fname in files:
         parsed_ts = parse_timestamp_day(viirs_get_ts(fname))
         if _in_history(conn, "summary_viirs", parsed_ts):
@@ -111,10 +128,15 @@ try:
         content = download_text(url + fname)
         time.sleep(DOWNLOAD_DELAY)
         _insert(conn, "stage_viirs", viirs_extract(content, viirs_get_ts(fname)), fname)
+        count += 1
+        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
+            print(f"  {fname}: reached file limit, skipping remaining files")
+            break
 
     # ── GloFAS ────────────────────────────────────────────────────────────────
     print("\nGloFAS")
-    gfiles = _limit(list(sorted(glofas_list().items())))
+    count = 0
+    gfiles = list(sorted(glofas_list().items()))
     for ts, fname in gfiles:
         parsed_ts = parse_timestamp_hh(ts)
         if _in_history(conn, "summary_glofas", parsed_ts):
@@ -124,11 +146,16 @@ try:
         time.sleep(DOWNLOAD_DELAY)
         props = parse_geojson(resp) if fname.endswith(".geojson") else glofas_parse_csv(resp)
         _insert(conn, "stage_glofas", glofas_build(props, ts), fname)
+        count += 1
+        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
+            print(f"  {fname}: reached file limit, skipping remaining files")
+            break
 
     # ── Final Alert ───────────────────────────────────────────────────────────
     print("\nFinal Alert")
+    count = 0
     url   = BASE + "Final_Alert/"
-    files = _limit(list_server_files(url, r'href="(Final_Attributes_[^"]+\.csv)"'))
+    files = list_server_files(url, r'href="(Final_Attributes_[^"]+\.csv)"')
     for fname in files:
         parsed_ts = parse_timestamp_hh(fa_get_ts(fname))
         if _in_history(conn, "summary_final_alert", parsed_ts):
@@ -137,6 +164,10 @@ try:
         content = download_text(url + fname, errors="ignore")
         time.sleep(DOWNLOAD_DELAY)
         _insert(conn, "stage_final_alert", fa_extract(content, fa_get_ts(fname)), fname)
+        count += 1
+        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
+            print(f"  {fname}: reached file limit, skipping remaining files")
+            break
 
 finally:
     conn.close()
