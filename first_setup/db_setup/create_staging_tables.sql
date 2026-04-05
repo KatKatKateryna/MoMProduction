@@ -385,6 +385,258 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_glofas_flush();
 
 
 -- =============================================================================
+-- MoM GFMS
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS stage_mom_gfms (
+    pfaf_id                      INTEGER,
+    "timestamp"                  TIMESTAMPTZ,
+    "FID"                        DOUBLE PRECISION,
+    "Resilience_Index"           DOUBLE PRECISION,
+    "NormalizedLackofResilience" DOUBLE PRECISION,
+    "Alert"                      TEXT,
+    "Flag"                       TEXT
+);
+
+CREATE OR REPLACE FUNCTION fn_stage_mom_gfms_flush()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE rc INTEGER;
+BEGIN
+    SELECT COUNT(*) INTO rc FROM new_rows;
+
+    IF rc < 1 THEN
+        DELETE FROM stage_mom_gfms;
+        RETURN NULL;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM summary_mom_gfms
+        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
+    ) THEN
+        DELETE FROM stage_mom_gfms;
+        RETURN NULL;
+    END IF;
+
+    INSERT INTO summary_mom_gfms_latest (
+        pfaf_id, "timestamp",
+        "FID", "Resilience_Index", "NormalizedLackofResilience",
+        "Alert", "Flag"
+    )
+    SELECT
+        pfaf_id, "timestamp",
+        "FID", "Resilience_Index", "NormalizedLackofResilience",
+        "Alert", "Flag"
+    FROM stage_mom_gfms
+    ON CONFLICT (pfaf_id) DO UPDATE SET
+        "timestamp"                  = EXCLUDED."timestamp",
+        "FID"                        = EXCLUDED."FID",
+        "Resilience_Index"           = EXCLUDED."Resilience_Index",
+        "NormalizedLackofResilience" = EXCLUDED."NormalizedLackofResilience",
+        "Alert"                      = EXCLUDED."Alert",
+        "Flag"                       = EXCLUDED."Flag";
+
+    DELETE FROM stage_mom_gfms;
+    RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_stage_mom_gfms_flush ON stage_mom_gfms;
+CREATE TRIGGER trg_stage_mom_gfms_flush
+AFTER INSERT ON stage_mom_gfms
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_mom_gfms_flush();
+
+
+-- =============================================================================
+-- MoM HWRF
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS stage_mom_hwrf (
+    pfaf_id                      INTEGER,
+    "timestamp"                  TIMESTAMPTZ,
+    "FID"                        DOUBLE PRECISION,
+    "Resilience_Index"           DOUBLE PRECISION,
+    "NormalizedLackofResilience" DOUBLE PRECISION,
+    "Alert"                      TEXT,
+    "Flag"                       TEXT
+);
+
+CREATE OR REPLACE FUNCTION fn_stage_mom_hwrf_flush()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE rc INTEGER;
+BEGIN
+    SELECT COUNT(*) INTO rc FROM new_rows;
+
+    IF rc < 1 THEN
+        DELETE FROM stage_mom_hwrf;
+        RETURN NULL;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM summary_mom_hwrf
+        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
+    ) THEN
+        DELETE FROM stage_mom_hwrf;
+        RETURN NULL;
+    END IF;
+
+    INSERT INTO summary_mom_hwrf_latest (
+        pfaf_id, "timestamp",
+        "FID", "Resilience_Index", "NormalizedLackofResilience",
+        "Alert", "Flag"
+    )
+    SELECT
+        pfaf_id, "timestamp",
+        "FID", "Resilience_Index", "NormalizedLackofResilience",
+        "Alert", "Flag"
+    FROM stage_mom_hwrf
+    ON CONFLICT (pfaf_id) DO UPDATE SET
+        "timestamp"                  = EXCLUDED."timestamp",
+        "FID"                        = EXCLUDED."FID",
+        "Resilience_Index"           = EXCLUDED."Resilience_Index",
+        "NormalizedLackofResilience" = EXCLUDED."NormalizedLackofResilience",
+        "Alert"                      = EXCLUDED."Alert",
+        "Flag"                       = EXCLUDED."Flag";
+
+    DELETE FROM stage_mom_hwrf;
+    RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_stage_mom_hwrf_flush ON stage_mom_hwrf;
+CREATE TRIGGER trg_stage_mom_hwrf_flush
+AFTER INSERT ON stage_mom_hwrf
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_mom_hwrf_flush();
+
+
+-- =============================================================================
+-- MoM DFO
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS stage_mom_dfo (
+    pfaf_id                      INTEGER,
+    "timestamp"                  TIMESTAMPTZ,
+    "FID"                        DOUBLE PRECISION,
+    "Resilience_Index"           DOUBLE PRECISION,
+    "NormalizedLackofResilience" DOUBLE PRECISION,
+    "Alert"                      TEXT,
+    "Flag"                       TEXT
+);
+
+CREATE OR REPLACE FUNCTION fn_stage_mom_dfo_flush()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE rc INTEGER;
+BEGIN
+    SELECT COUNT(*) INTO rc FROM new_rows;
+
+    IF rc < 1 THEN
+        DELETE FROM stage_mom_dfo;
+        RETURN NULL;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM summary_mom_dfo
+        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
+    ) THEN
+        DELETE FROM stage_mom_dfo;
+        RETURN NULL;
+    END IF;
+
+    INSERT INTO summary_mom_dfo_latest (
+        pfaf_id, "timestamp",
+        "FID", "Resilience_Index", "NormalizedLackofResilience",
+        "Alert", "Flag"
+    )
+    SELECT
+        pfaf_id, "timestamp",
+        "FID", "Resilience_Index", "NormalizedLackofResilience",
+        "Alert", "Flag"
+    FROM stage_mom_dfo
+    ON CONFLICT (pfaf_id) DO UPDATE SET
+        "timestamp"                  = EXCLUDED."timestamp",
+        "FID"                        = EXCLUDED."FID",
+        "Resilience_Index"           = EXCLUDED."Resilience_Index",
+        "NormalizedLackofResilience" = EXCLUDED."NormalizedLackofResilience",
+        "Alert"                      = EXCLUDED."Alert",
+        "Flag"                       = EXCLUDED."Flag";
+
+    DELETE FROM stage_mom_dfo;
+    RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_stage_mom_dfo_flush ON stage_mom_dfo;
+CREATE TRIGGER trg_stage_mom_dfo_flush
+AFTER INSERT ON stage_mom_dfo
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_mom_dfo_flush();
+
+
+-- =============================================================================
+-- MoM VIIRS
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS stage_mom_viirs (
+    pfaf_id                      INTEGER,
+    "timestamp"                  TIMESTAMPTZ,
+    "FID"                        DOUBLE PRECISION,
+    "Resilience_Index"           DOUBLE PRECISION,
+    "NormalizedLackofResilience" DOUBLE PRECISION,
+    "Alert"                      TEXT,
+    "Flag"                       TEXT
+);
+
+CREATE OR REPLACE FUNCTION fn_stage_mom_viirs_flush()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE rc INTEGER;
+BEGIN
+    SELECT COUNT(*) INTO rc FROM new_rows;
+
+    IF rc < 1 THEN
+        DELETE FROM stage_mom_viirs;
+        RETURN NULL;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM summary_mom_viirs
+        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
+    ) THEN
+        DELETE FROM stage_mom_viirs;
+        RETURN NULL;
+    END IF;
+
+    INSERT INTO summary_mom_viirs_latest (
+        pfaf_id, "timestamp",
+        "FID", "Resilience_Index", "NormalizedLackofResilience",
+        "Alert", "Flag"
+    )
+    SELECT
+        pfaf_id, "timestamp",
+        "FID", "Resilience_Index", "NormalizedLackofResilience",
+        "Alert", "Flag"
+    FROM stage_mom_viirs
+    ON CONFLICT (pfaf_id) DO UPDATE SET
+        "timestamp"                  = EXCLUDED."timestamp",
+        "FID"                        = EXCLUDED."FID",
+        "Resilience_Index"           = EXCLUDED."Resilience_Index",
+        "NormalizedLackofResilience" = EXCLUDED."NormalizedLackofResilience",
+        "Alert"                      = EXCLUDED."Alert",
+        "Flag"                       = EXCLUDED."Flag";
+
+    DELETE FROM stage_mom_viirs;
+    RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_stage_mom_viirs_flush ON stage_mom_viirs;
+CREATE TRIGGER trg_stage_mom_viirs_flush
+AFTER INSERT ON stage_mom_viirs
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_mom_viirs_flush();
+
+
+-- =============================================================================
 -- Final Alert
 -- Omit matching_id_watershed — resolved automatically by the BEFORE trigger
 -- on summary_final_alert_latest when the staging flush pushes data through.

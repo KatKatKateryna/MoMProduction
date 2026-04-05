@@ -204,8 +204,109 @@ CREATE TABLE IF NOT EXISTS summary_final_alert (
 
 
 -- ============================================================
+-- MoM (Attributes_Clean) tables: one row per (pfaf_id, timestamp)
+-- Four stages: GFMS → HWRF → DFO → VIIRS
+-- Columns in watershed_shapes (area, ISO, Admin0, Admin1,
+-- rfr_score, cfr_score) are excluded here.
+-- ============================================================
+
+-- GFMS MoM (Attributes_Clean_YYYYMMDD.csv — daily)
+CREATE TABLE IF NOT EXISTS summary_mom_gfms (
+    pfaf_id                      INTEGER         REFERENCES watershed_shapes(pfaf_id),
+    "timestamp"                  TIMESTAMPTZ,
+    "FID"                        DOUBLE PRECISION,
+    "Resilience_Index"           DOUBLE PRECISION,
+    "NormalizedLackofResilience" DOUBLE PRECISION,
+    "Alert"                      TEXT,
+    "Flag"                       TEXT,
+    PRIMARY KEY ("timestamp", pfaf_id)
+);
+
+-- HWRF MoM (Attributes_Clean_YYYYMMDDHHHWRFUpdated.csv)
+CREATE TABLE IF NOT EXISTS summary_mom_hwrf (
+    pfaf_id                      INTEGER         REFERENCES watershed_shapes(pfaf_id),
+    "timestamp"                  TIMESTAMPTZ,
+    "FID"                        DOUBLE PRECISION,
+    "Resilience_Index"           DOUBLE PRECISION,
+    "NormalizedLackofResilience" DOUBLE PRECISION,
+    "Alert"                      TEXT,
+    "Flag"                       TEXT,
+    PRIMARY KEY ("timestamp", pfaf_id)
+);
+
+-- DFO MoM (Attributes_Clean_YYYYMMDDHHMOM+DFOUpdated.csv)
+CREATE TABLE IF NOT EXISTS summary_mom_dfo (
+    pfaf_id                      INTEGER         REFERENCES watershed_shapes(pfaf_id),
+    "timestamp"                  TIMESTAMPTZ,
+    "FID"                        DOUBLE PRECISION,
+    "Resilience_Index"           DOUBLE PRECISION,
+    "NormalizedLackofResilience" DOUBLE PRECISION,
+    "Alert"                      TEXT,
+    "Flag"                       TEXT,
+    PRIMARY KEY ("timestamp", pfaf_id)
+);
+
+-- VIIRS MoM (Attributes_clean_YYYYMMDDHHWRF+MOM+DFO+VIIRSUpdated.csv)
+CREATE TABLE IF NOT EXISTS summary_mom_viirs (
+    pfaf_id                      INTEGER         REFERENCES watershed_shapes(pfaf_id),
+    "timestamp"                  TIMESTAMPTZ,
+    "FID"                        DOUBLE PRECISION,
+    "Resilience_Index"           DOUBLE PRECISION,
+    "NormalizedLackofResilience" DOUBLE PRECISION,
+    "Alert"                      TEXT,
+    "Flag"                       TEXT,
+    PRIMARY KEY ("timestamp", pfaf_id)
+);
+
+
+-- ============================================================
 -- "Latest" tables: one row per entity, most recent snapshot
 -- ============================================================
+
+-- GFMS MoM Latest
+CREATE TABLE IF NOT EXISTS summary_mom_gfms_latest (
+    "timestamp"                  TIMESTAMPTZ,
+    pfaf_id                      INTEGER         PRIMARY KEY REFERENCES watershed_shapes(pfaf_id),
+    "FID"                        DOUBLE PRECISION,
+    "Resilience_Index"           DOUBLE PRECISION,
+    "NormalizedLackofResilience" DOUBLE PRECISION,
+    "Alert"                      TEXT,
+    "Flag"                       TEXT
+);
+
+-- HWRF MoM Latest
+CREATE TABLE IF NOT EXISTS summary_mom_hwrf_latest (
+    "timestamp"                  TIMESTAMPTZ,
+    pfaf_id                      INTEGER         PRIMARY KEY REFERENCES watershed_shapes(pfaf_id),
+    "FID"                        DOUBLE PRECISION,
+    "Resilience_Index"           DOUBLE PRECISION,
+    "NormalizedLackofResilience" DOUBLE PRECISION,
+    "Alert"                      TEXT,
+    "Flag"                       TEXT
+);
+
+-- DFO MoM Latest
+CREATE TABLE IF NOT EXISTS summary_mom_dfo_latest (
+    "timestamp"                  TIMESTAMPTZ,
+    pfaf_id                      INTEGER         PRIMARY KEY REFERENCES watershed_shapes(pfaf_id),
+    "FID"                        DOUBLE PRECISION,
+    "Resilience_Index"           DOUBLE PRECISION,
+    "NormalizedLackofResilience" DOUBLE PRECISION,
+    "Alert"                      TEXT,
+    "Flag"                       TEXT
+);
+
+-- VIIRS MoM Latest
+CREATE TABLE IF NOT EXISTS summary_mom_viirs_latest (
+    "timestamp"                  TIMESTAMPTZ,
+    pfaf_id                      INTEGER         PRIMARY KEY REFERENCES watershed_shapes(pfaf_id),
+    "FID"                        DOUBLE PRECISION,
+    "Resilience_Index"           DOUBLE PRECISION,
+    "NormalizedLackofResilience" DOUBLE PRECISION,
+    "Alert"                      TEXT,
+    "Flag"                       TEXT
+);
+
 
 -- GFMS Latest
 CREATE TABLE IF NOT EXISTS summary_gfms_latest (

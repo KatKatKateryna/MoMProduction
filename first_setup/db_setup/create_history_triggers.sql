@@ -308,6 +308,210 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_dfo_sync();
 
 
 -- =============================================================================
+-- MoM GFMS
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION fn_mom_gfms_sync()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+    batch_ts  TIMESTAMPTZ;
+    row_count INTEGER;
+BEGIN
+    SELECT COUNT(*), MAX("timestamp")
+    INTO row_count, batch_ts
+    FROM new_rows;
+
+    IF row_count < 1 THEN
+        RETURN NULL;
+    END IF;
+
+    DELETE FROM summary_mom_gfms_latest
+    WHERE "timestamp" != batch_ts;
+
+    INSERT INTO summary_mom_gfms (
+        pfaf_id, "timestamp",
+        "FID", "Resilience_Index", "NormalizedLackofResilience",
+        "Alert", "Flag"
+    )
+    SELECT
+        pfaf_id, "timestamp",
+        "FID", "Resilience_Index", "NormalizedLackofResilience",
+        "Alert", "Flag"
+    FROM new_rows
+    ON CONFLICT ("timestamp", pfaf_id) DO NOTHING;
+
+    RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_mom_gfms_sync_ins ON summary_mom_gfms_latest;
+DROP TRIGGER IF EXISTS trg_mom_gfms_sync_upd ON summary_mom_gfms_latest;
+
+CREATE TRIGGER trg_mom_gfms_sync_ins
+AFTER INSERT ON summary_mom_gfms_latest
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_gfms_sync();
+
+CREATE TRIGGER trg_mom_gfms_sync_upd
+AFTER UPDATE ON summary_mom_gfms_latest
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_gfms_sync();
+
+
+-- =============================================================================
+-- MoM HWRF
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION fn_mom_hwrf_sync()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+    batch_ts  TIMESTAMPTZ;
+    row_count INTEGER;
+BEGIN
+    SELECT COUNT(*), MAX("timestamp")
+    INTO row_count, batch_ts
+    FROM new_rows;
+
+    IF row_count < 1 THEN
+        RETURN NULL;
+    END IF;
+
+    DELETE FROM summary_mom_hwrf_latest
+    WHERE "timestamp" != batch_ts;
+
+    INSERT INTO summary_mom_hwrf (
+        pfaf_id, "timestamp",
+        "FID", "Resilience_Index", "NormalizedLackofResilience",
+        "Alert", "Flag"
+    )
+    SELECT
+        pfaf_id, "timestamp",
+        "FID", "Resilience_Index", "NormalizedLackofResilience",
+        "Alert", "Flag"
+    FROM new_rows
+    ON CONFLICT ("timestamp", pfaf_id) DO NOTHING;
+
+    RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_mom_hwrf_sync_ins ON summary_mom_hwrf_latest;
+DROP TRIGGER IF EXISTS trg_mom_hwrf_sync_upd ON summary_mom_hwrf_latest;
+
+CREATE TRIGGER trg_mom_hwrf_sync_ins
+AFTER INSERT ON summary_mom_hwrf_latest
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_hwrf_sync();
+
+CREATE TRIGGER trg_mom_hwrf_sync_upd
+AFTER UPDATE ON summary_mom_hwrf_latest
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_hwrf_sync();
+
+
+-- =============================================================================
+-- MoM DFO
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION fn_mom_dfo_sync()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+    batch_ts  TIMESTAMPTZ;
+    row_count INTEGER;
+BEGIN
+    SELECT COUNT(*), MAX("timestamp")
+    INTO row_count, batch_ts
+    FROM new_rows;
+
+    IF row_count < 1 THEN
+        RETURN NULL;
+    END IF;
+
+    DELETE FROM summary_mom_dfo_latest
+    WHERE "timestamp" != batch_ts;
+
+    INSERT INTO summary_mom_dfo (
+        pfaf_id, "timestamp",
+        "FID", "Resilience_Index", "NormalizedLackofResilience",
+        "Alert", "Flag"
+    )
+    SELECT
+        pfaf_id, "timestamp",
+        "FID", "Resilience_Index", "NormalizedLackofResilience",
+        "Alert", "Flag"
+    FROM new_rows
+    ON CONFLICT ("timestamp", pfaf_id) DO NOTHING;
+
+    RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_mom_dfo_sync_ins ON summary_mom_dfo_latest;
+DROP TRIGGER IF EXISTS trg_mom_dfo_sync_upd ON summary_mom_dfo_latest;
+
+CREATE TRIGGER trg_mom_dfo_sync_ins
+AFTER INSERT ON summary_mom_dfo_latest
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_dfo_sync();
+
+CREATE TRIGGER trg_mom_dfo_sync_upd
+AFTER UPDATE ON summary_mom_dfo_latest
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_dfo_sync();
+
+
+-- =============================================================================
+-- MoM VIIRS
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION fn_mom_viirs_sync()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+    batch_ts  TIMESTAMPTZ;
+    row_count INTEGER;
+BEGIN
+    SELECT COUNT(*), MAX("timestamp")
+    INTO row_count, batch_ts
+    FROM new_rows;
+
+    IF row_count < 1 THEN
+        RETURN NULL;
+    END IF;
+
+    DELETE FROM summary_mom_viirs_latest
+    WHERE "timestamp" != batch_ts;
+
+    INSERT INTO summary_mom_viirs (
+        pfaf_id, "timestamp",
+        "FID", "Resilience_Index", "NormalizedLackofResilience",
+        "Alert", "Flag"
+    )
+    SELECT
+        pfaf_id, "timestamp",
+        "FID", "Resilience_Index", "NormalizedLackofResilience",
+        "Alert", "Flag"
+    FROM new_rows
+    ON CONFLICT ("timestamp", pfaf_id) DO NOTHING;
+
+    RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_mom_viirs_sync_ins ON summary_mom_viirs_latest;
+DROP TRIGGER IF EXISTS trg_mom_viirs_sync_upd ON summary_mom_viirs_latest;
+
+CREATE TRIGGER trg_mom_viirs_sync_ins
+AFTER INSERT ON summary_mom_viirs_latest
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_viirs_sync();
+
+CREATE TRIGGER trg_mom_viirs_sync_upd
+AFTER UPDATE ON summary_mom_viirs_latest
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_viirs_sync();
+
+
+-- =============================================================================
 -- GloFAS
 -- Strips station metadata columns before writing to summary_glofas.
 -- matching_id_station must be resolved by the caller before inserting.
