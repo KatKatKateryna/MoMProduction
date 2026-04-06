@@ -11,7 +11,7 @@
 --
 -- Staging tables have no PK/FK constraints so inserts never fail on conflicts.
 -- For GloFAS and Final Alert, omit matching_id — it is resolved automatically
--- by the BEFORE trigger on the _latest table.
+-- inside the flush function before data is written to the _latest table.
 --
 -- Run AFTER create_all_tables.sql, create_id_resolution_triggers.sql,
 -- and create_history_triggers.sql.
@@ -370,52 +370,57 @@ BEGIN
         DELETE FROM summary_glofas WHERE "timestamp" = batch_ts;
     END IF;
 
-    -- matching_id_station is passed as NULL; the BEFORE trigger on
-    -- summary_glofas_latest resolves it from (Station, Country, Lat, Lon, pfaf_id)
-    -- and writes the resolved value back onto the row before it is inserted.
+    -- Resolve matching_id_station: insert any new stations into the reference table,
+    -- then JOIN to get the ID. Station metadata stays in all_glofas_stations only.
+    INSERT INTO all_glofas_stations (
+        matching_id_station,
+        "Station", "Basin", "Country", "Country_code",
+        "Continent", "Location",
+        "Lat", "Lon", "Upstream area",
+        pfaf_id
+    )
+    SELECT DISTINCT ON (s."Station", s."Country", s."Lat", s."Lon", s.pfaf_id)
+        nextval('seq_glofas_station_id'),
+        s."Station", s."Basin", s."Country", s."Country_code",
+        s."Continent", s."Location",
+        s."Lat", s."Lon", s."Upstream area",
+        s.pfaf_id
+    FROM stage_glofas s
+    ON CONFLICT ("Station", "Country", "Lat", "Lon", pfaf_id) DO NOTHING;
+
     INSERT INTO summary_glofas_latest (
         matching_id_station,
         "timestamp", pfaf_id,
         "ID", "Point No",
         "Alert_level", "Days_until_peak",
         "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr",
-        "max_EPS", "Forecast Date",
-        "Station", "Basin", "Country", "Country_code",
-        "Continent", "Location",
-        "Lat", "Lon", "Upstream area"
+        "max_EPS", "Forecast Date"
     )
     SELECT
-        NULL,
-        "timestamp", pfaf_id,
-        "ID", "Point No",
-        "Alert_level", "Days_until_peak",
-        "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr",
-        "max_EPS", "Forecast Date",
-        "Station", "Basin", "Country", "Country_code",
-        "Continent", "Location",
-        "Lat", "Lon", "Upstream area"
-    FROM stage_glofas
+        st.matching_id_station,
+        s."timestamp", s.pfaf_id,
+        s."ID", s."Point No",
+        s."Alert_level", s."Days_until_peak",
+        s."GloFAS_2yr", s."GloFAS_5yr", s."GloFAS_20yr",
+        s."max_EPS", s."Forecast Date"
+    FROM stage_glofas s
+    JOIN all_glofas_stations st ON st."Station" = s."Station"
+        AND st."Country"  = s."Country"
+        AND st."Lat"      = s."Lat"
+        AND st."Lon"      = s."Lon"
+        AND st.pfaf_id    = s.pfaf_id
     ON CONFLICT (matching_id_station) DO UPDATE SET
-        "timestamp"      = EXCLUDED."timestamp",
-        pfaf_id          = EXCLUDED.pfaf_id,
-        "ID"             = EXCLUDED."ID",
-        "Point No"       = EXCLUDED."Point No",
-        "Alert_level"    = EXCLUDED."Alert_level",
-        "Days_until_peak"= EXCLUDED."Days_until_peak",
-        "GloFAS_2yr"     = EXCLUDED."GloFAS_2yr",
-        "GloFAS_5yr"     = EXCLUDED."GloFAS_5yr",
-        "GloFAS_20yr"    = EXCLUDED."GloFAS_20yr",
-        "max_EPS"        = EXCLUDED."max_EPS",
-        "Forecast Date"  = EXCLUDED."Forecast Date",
-        "Station"        = EXCLUDED."Station",
-        "Basin"          = EXCLUDED."Basin",
-        "Country"        = EXCLUDED."Country",
-        "Country_code"   = EXCLUDED."Country_code",
-        "Continent"      = EXCLUDED."Continent",
-        "Location"       = EXCLUDED."Location",
-        "Lat"            = EXCLUDED."Lat",
-        "Lon"            = EXCLUDED."Lon",
-        "Upstream area"  = EXCLUDED."Upstream area";
+        "timestamp"       = EXCLUDED."timestamp",
+        pfaf_id           = EXCLUDED.pfaf_id,
+        "ID"              = EXCLUDED."ID",
+        "Point No"        = EXCLUDED."Point No",
+        "Alert_level"     = EXCLUDED."Alert_level",
+        "Days_until_peak" = EXCLUDED."Days_until_peak",
+        "GloFAS_2yr"      = EXCLUDED."GloFAS_2yr",
+        "GloFAS_5yr"      = EXCLUDED."GloFAS_5yr",
+        "GloFAS_20yr"     = EXCLUDED."GloFAS_20yr",
+        "max_EPS"         = EXCLUDED."max_EPS",
+        "Forecast Date"   = EXCLUDED."Forecast Date";
 
     DELETE FROM stage_glofas;
     RETURN NULL;
@@ -818,14 +823,29 @@ BEGIN
         DELETE FROM summary_final_alert WHERE "timestamp" = batch_ts;
     END IF;
 
-    -- matching_id_watershed is passed as NULL; the BEFORE trigger on
-    -- summary_final_alert_latest resolves it from
-    -- (pfaf_id, name, name_1, CentroidX, CentroidY) and writes the resolved
-    -- value back onto the row before it is inserted.
+    -- Resolve matching_id_watershed: insert any new watershed slices into the
+    -- reference table, then JOIN to get the ID. Watershed metadata
+    -- (name, name_1, CentroidX, CentroidY, Admin1_count, Admin1_names) stays
+    -- in all_watersheds only and is no longer stored in the latest/history tables.
+    INSERT INTO all_watersheds (
+        matching_id_watershed,
+        pfaf_id,
+        "name", "name_1",
+        "CentroidX", "CentroidY",
+        "Admin1_count", "Admin1_names"
+    )
+    SELECT DISTINCT ON (s.pfaf_id, s."name", s."name_1", s."CentroidX", s."CentroidY")
+        nextval('seq_watershed_id'),
+        s.pfaf_id,
+        s."name", s."name_1",
+        s."CentroidX"::NUMERIC(10,6), s."CentroidY"::NUMERIC(10,6),
+        s."Admin1_count", s."Admin1_names"
+    FROM stage_final_alert s
+    ON CONFLICT (pfaf_id, "name", "name_1", "CentroidX", "CentroidY") DO NOTHING;
+
     INSERT INTO summary_final_alert_latest (
         matching_id_watershed,
         "timestamp", pfaf_id,
-        "rfr_score", "cfr_score",
         "Alert_level", "Days_until_peak",
         "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr",
         "Alert_Score", "PeakArrivalScore",
@@ -849,46 +869,44 @@ BEGIN
         "VIIRS_area_1day_score", "VIIRS_percarea_1day_score",
         "VIIRS_area_5day_score", "VIIRS_percarea_5day_score",
         "VIIRSTotal_Score",
-        "Severity", "Alert", "Status",
-        "name", "name_1", "CentroidX", "CentroidY",
-        "Admin1_count", "Admin1_names"
+        "Severity", "Alert", "Status"
     )
     SELECT
-        NULL,
-        "timestamp", pfaf_id,
-        "rfr_score", "cfr_score",
-        "Alert_level", "Days_until_peak",
-        "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr",
-        "Alert_Score", "PeakArrivalScore",
-        "TwoYScore", "FiveYScore", "TwtyYScore", "Sum_Score_x",
-        "GFMS_TotalArea_km", "GFMS_perc_Area", "GFMS_MeanDepth",
-        "GFMS_MaxDepth", "GFMS_Duration",
-        "GFMS_area_score", "GFMS_perc_area_score",
-        "MeanD_Score", "MaxD_Score", "Duration_Score",
-        "Sum_Score_y", "MOM_Score", "Hazard_Score",
-        "Scaled_Riverine_Risk", "Scaled_Coastal_Risk", "Flag",
-        "1-Day_TotalArea_km2", "1-Day_perc_Area",
-        "1-Day_CS_TotalArea_km2", "1-Day_CS_perc_Area",
-        "2-Day_TotalArea_km2", "2-Day_perc_Area",
-        "3-Day_TotalArea_km2", "3-Day_perc_Area",
-        "DFO_area_1day_score", "DFO_percarea_1day_score",
-        "DFO_area_2day_score", "DFO_percarea_2day_score",
-        "DFO_area_3day_score", "DFO_percarea_3day_score",
-        "DFOTotal_Score",
-        "onedayFlood_Area_km", "onedayperc_Area",
-        "fivedayFlood_Area_km", "fivedayperc_Area",
-        "VIIRS_area_1day_score", "VIIRS_percarea_1day_score",
-        "VIIRS_area_5day_score", "VIIRS_percarea_5day_score",
-        "VIIRSTotal_Score",
-        "Severity", "Alert", "Status",
-        "name", "name_1", "CentroidX", "CentroidY",
-        "Admin1_count", "Admin1_names"
-    FROM stage_final_alert
+        w.matching_id_watershed,
+        s."timestamp", s.pfaf_id,
+        s."Alert_level", s."Days_until_peak",
+        s."GloFAS_2yr", s."GloFAS_5yr", s."GloFAS_20yr",
+        s."Alert_Score", s."PeakArrivalScore",
+        s."TwoYScore", s."FiveYScore", s."TwtyYScore", s."Sum_Score_x",
+        s."GFMS_TotalArea_km", s."GFMS_perc_Area", s."GFMS_MeanDepth",
+        s."GFMS_MaxDepth", s."GFMS_Duration",
+        s."GFMS_area_score", s."GFMS_perc_area_score",
+        s."MeanD_Score", s."MaxD_Score", s."Duration_Score",
+        s."Sum_Score_y", s."MOM_Score", s."Hazard_Score",
+        s."Scaled_Riverine_Risk", s."Scaled_Coastal_Risk", s."Flag",
+        s."1-Day_TotalArea_km2", s."1-Day_perc_Area",
+        s."1-Day_CS_TotalArea_km2", s."1-Day_CS_perc_Area",
+        s."2-Day_TotalArea_km2", s."2-Day_perc_Area",
+        s."3-Day_TotalArea_km2", s."3-Day_perc_Area",
+        s."DFO_area_1day_score", s."DFO_percarea_1day_score",
+        s."DFO_area_2day_score", s."DFO_percarea_2day_score",
+        s."DFO_area_3day_score", s."DFO_percarea_3day_score",
+        s."DFOTotal_Score",
+        s."onedayFlood_Area_km", s."onedayperc_Area",
+        s."fivedayFlood_Area_km", s."fivedayperc_Area",
+        s."VIIRS_area_1day_score", s."VIIRS_percarea_1day_score",
+        s."VIIRS_area_5day_score", s."VIIRS_percarea_5day_score",
+        s."VIIRSTotal_Score",
+        s."Severity", s."Alert", s."Status"
+    FROM stage_final_alert s
+    JOIN all_watersheds w ON w.pfaf_id    = s.pfaf_id
+                         AND w."name"     = s."name"
+                         AND w."name_1"   = s."name_1"
+                         AND w."CentroidX" = s."CentroidX"::NUMERIC(10,6)
+                         AND w."CentroidY" = s."CentroidY"::NUMERIC(10,6)
     ON CONFLICT (matching_id_watershed) DO UPDATE SET
         "timestamp"                 = EXCLUDED."timestamp",
         pfaf_id                     = EXCLUDED.pfaf_id,
-        "rfr_score"                 = EXCLUDED."rfr_score",
-        "cfr_score"                 = EXCLUDED."cfr_score",
         "Alert_level"               = EXCLUDED."Alert_level",
         "Days_until_peak"           = EXCLUDED."Days_until_peak",
         "GloFAS_2yr"                = EXCLUDED."GloFAS_2yr",
@@ -942,13 +960,7 @@ BEGIN
         "VIIRSTotal_Score"          = EXCLUDED."VIIRSTotal_Score",
         "Severity"                  = EXCLUDED."Severity",
         "Alert"                     = EXCLUDED."Alert",
-        "Status"                    = EXCLUDED."Status",
-        "name"                      = EXCLUDED."name",
-        "name_1"                    = EXCLUDED."name_1",
-        "CentroidX"                 = EXCLUDED."CentroidX",
-        "CentroidY"                 = EXCLUDED."CentroidY",
-        "Admin1_count"              = EXCLUDED."Admin1_count",
-        "Admin1_names"              = EXCLUDED."Admin1_names";
+        "Status"                    = EXCLUDED."Status";
 
     DELETE FROM stage_final_alert;
     RETURN NULL;

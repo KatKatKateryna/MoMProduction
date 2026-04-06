@@ -49,7 +49,7 @@ def list_directory(url, session):
 def download_file(url, local_path, session):
     """Download url to local_path; skip if already present."""
     if local_path.exists():
-        print(f"  [--skip--] {local_path.name}")
+        # print(f"  [--skip--] {local_path.name}")
         return False
 
     local_path.parent.mkdir(parents=True, exist_ok=True)

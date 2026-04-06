@@ -593,7 +593,6 @@ BEGIN
 
     INSERT INTO summary_final_alert (
         "timestamp", matching_id_watershed, pfaf_id,
-        "rfr_score", "cfr_score",
         "Alert_level", "Days_until_peak",
         "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr",
         "Alert_Score", "PeakArrivalScore",
@@ -621,7 +620,6 @@ BEGIN
     )
     SELECT
         "timestamp", matching_id_watershed, pfaf_id,
-        "rfr_score", "cfr_score",
         "Alert_level", "Days_until_peak",
         "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr",
         "Alert_Score", "PeakArrivalScore",

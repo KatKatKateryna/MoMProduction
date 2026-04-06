@@ -143,8 +143,6 @@ CREATE TABLE IF NOT EXISTS summary_final_alert (
     "timestamp"                 TIMESTAMPTZ,
     matching_id_watershed       INTEGER         REFERENCES all_watersheds(matching_id_watershed),
     pfaf_id                     INTEGER         REFERENCES watershed_shapes(pfaf_id),
-    "rfr_score"                 DOUBLE PRECISION,
-    "cfr_score"                 DOUBLE PRECISION,
     "Alert_level"               DOUBLE PRECISION,
     "Days_until_peak"           DOUBLE PRECISION,
     "GloFAS_2yr"                DOUBLE PRECISION,
@@ -329,7 +327,7 @@ CREATE TABLE IF NOT EXISTS summary_hwrf_latest (
     "MaxRain"            DOUBLE PRECISION
 );
 
--- GloFAS Latest: forecast data + station metadata
+-- GloFAS Latest: forecast data only — station metadata lives in all_glofas_stations.
 -- PK is matching_id_station because multiple stations can map to the same
 -- pfaf_id (watershed); pfaf_id alone is not unique within a batch.
 CREATE TABLE IF NOT EXISTS summary_glofas_latest (
@@ -344,17 +342,7 @@ CREATE TABLE IF NOT EXISTS summary_glofas_latest (
     "GloFAS_5yr"         DOUBLE PRECISION,
     "GloFAS_20yr"        DOUBLE PRECISION,
     "max_EPS"            TEXT,
-    "Forecast Date"      TIMESTAMP,
-    -- from all_glofas_stations
-    "Station"            TEXT,
-    "Basin"              TEXT,
-    "Country"            TEXT,
-    "Country_code"       VARCHAR(8),
-    "Continent"          TEXT,
-    "Location"           TEXT,
-    "Lat"                NUMERIC(8,3),
-    "Lon"                NUMERIC(8,3),
-    "Upstream area"      NUMERIC(15,3)
+    "Forecast Date"      TIMESTAMP
 );
 
 -- VIIRS Latest
@@ -381,15 +369,14 @@ CREATE TABLE IF NOT EXISTS summary_dfo_latest (
     "3-Day_perc_Area"         DOUBLE PRECISION
 );
 
--- Final Alert Latest: alert data + watershed metadata
+-- Final Alert Latest: alert data only — watershed metadata lives in all_watersheds,
+-- risk scores live in watershed_shapes.
 -- PK is matching_id_watershed because a single pfaf_id can appear multiple times
 -- (one row per country slice of the watershed); pfaf_id alone is not unique.
 CREATE TABLE IF NOT EXISTS summary_final_alert_latest (
     matching_id_watershed       INTEGER         PRIMARY KEY REFERENCES all_watersheds(matching_id_watershed),
     "timestamp"                 TIMESTAMPTZ,
     pfaf_id                     INTEGER         REFERENCES watershed_shapes(pfaf_id),
-    "rfr_score"                 DOUBLE PRECISION,
-    "cfr_score"                 DOUBLE PRECISION,
     "Alert_level"               DOUBLE PRECISION,
     "Days_until_peak"           DOUBLE PRECISION,
     "GloFAS_2yr"                DOUBLE PRECISION,
@@ -443,12 +430,5 @@ CREATE TABLE IF NOT EXISTS summary_final_alert_latest (
     "VIIRSTotal_Score"          DOUBLE PRECISION,
     "Severity"                  DOUBLE PRECISION,
     "Alert"                     TEXT,
-    "Status"                    TEXT,
-    -- from all_watersheds
-    "name"                      TEXT,
-    "name_1"                    TEXT,
-    "CentroidX"                 NUMERIC(10,6),
-    "CentroidY"                 NUMERIC(10,6),
-    "Admin1_count"              INTEGER,
-    "Admin1_names"              TEXT
+    "Status"                    TEXT
 );
