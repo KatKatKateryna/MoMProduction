@@ -177,7 +177,7 @@ def _process_source(conn, label, log_name, folder, pattern, get_ts, parse_ts,
     """
     print(f"\n{label}")
     count = 0
-    for fname in _list_local(folder, pattern)[198:200]:
+    for fname in _list_local(folder, pattern)[199:210]:
         ts = get_ts(fname)
         if not ts:
             continue
@@ -210,7 +210,7 @@ try:
     print("\nGloFAS")
     count = 0
     folder = DOWNLOADS_ROOT / "GLOFAS"
-    for ts, fname in sorted(_glofas_local_files(folder).items())[:200]:
+    for ts, fname in sorted(_glofas_local_files(folder).items())[:210]:
         parsed_ts = parse_timestamp_hh(ts)
         local_resp = _LocalFile(folder / fname)
         props = parse_geojson(local_resp) if fname.endswith(".geojson") else glofas_parse_csv(local_resp)

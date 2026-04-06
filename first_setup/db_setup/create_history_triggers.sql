@@ -97,8 +97,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_gfms_sync_ins ON summary_gfms_latest;
-DROP TRIGGER IF EXISTS trg_gfms_sync_upd ON summary_gfms_latest;
 
 CREATE TRIGGER trg_gfms_sync_ins
 AFTER INSERT ON summary_gfms_latest
@@ -146,8 +144,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_hwrf_sync_ins ON summary_hwrf_latest;
-DROP TRIGGER IF EXISTS trg_hwrf_sync_upd ON summary_hwrf_latest;
 
 CREATE TRIGGER trg_hwrf_sync_ins
 AFTER INSERT ON summary_hwrf_latest
@@ -197,8 +193,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_viirs_sync_ins ON summary_viirs_latest;
-DROP TRIGGER IF EXISTS trg_viirs_sync_upd ON summary_viirs_latest;
 
 CREATE TRIGGER trg_viirs_sync_ins
 AFTER INSERT ON summary_viirs_latest
@@ -293,8 +287,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_dfo_sync_ins ON summary_dfo_latest;
-DROP TRIGGER IF EXISTS trg_dfo_sync_upd ON summary_dfo_latest;
 
 CREATE TRIGGER trg_dfo_sync_ins
 AFTER INSERT ON summary_dfo_latest
@@ -344,8 +336,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_mom_gfms_sync_ins ON mom_gfms_latest;
-DROP TRIGGER IF EXISTS trg_mom_gfms_sync_upd ON mom_gfms_latest;
 
 CREATE TRIGGER trg_mom_gfms_sync_ins
 AFTER INSERT ON mom_gfms_latest
@@ -395,8 +385,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_mom_hwrf_sync_ins ON mom_hwrf_latest;
-DROP TRIGGER IF EXISTS trg_mom_hwrf_sync_upd ON mom_hwrf_latest;
 
 CREATE TRIGGER trg_mom_hwrf_sync_ins
 AFTER INSERT ON mom_hwrf_latest
@@ -446,8 +434,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_mom_dfo_sync_ins ON mom_dfo_latest;
-DROP TRIGGER IF EXISTS trg_mom_dfo_sync_upd ON mom_dfo_latest;
 
 CREATE TRIGGER trg_mom_dfo_sync_ins
 AFTER INSERT ON mom_dfo_latest
@@ -497,8 +483,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_mom_viirs_sync_ins ON mom_viirs_latest;
-DROP TRIGGER IF EXISTS trg_mom_viirs_sync_upd ON mom_viirs_latest;
 
 CREATE TRIGGER trg_mom_viirs_sync_ins
 AFTER INSERT ON mom_viirs_latest
@@ -554,8 +538,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_glofas_sync_ins ON summary_glofas_latest;
-DROP TRIGGER IF EXISTS trg_glofas_sync_upd ON summary_glofas_latest;
 
 CREATE TRIGGER trg_glofas_sync_ins
 AFTER INSERT ON summary_glofas_latest
@@ -651,8 +633,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_final_alert_sync_ins ON summary_final_alert_latest;
-DROP TRIGGER IF EXISTS trg_final_alert_sync_upd ON summary_final_alert_latest;
 
 CREATE TRIGGER trg_final_alert_sync_ins
 AFTER INSERT ON summary_final_alert_latest

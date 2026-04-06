@@ -20,8 +20,4 @@ CREATE SEQUENCE IF NOT EXISTS seq_watershed_id START 1;
 SELECT setval('seq_watershed_id',
     GREATEST(1, COALESCE((SELECT MAX(matching_id_watershed) FROM all_watersheds), 0)));
 
-DROP TRIGGER IF EXISTS trg_resolve_glofas_station ON summary_glofas_latest;
-DROP TRIGGER IF EXISTS trg_resolve_watershed      ON summary_final_alert_latest;
 
-DROP FUNCTION IF EXISTS fn_resolve_glofas_station();
-DROP FUNCTION IF EXISTS fn_resolve_watershed();

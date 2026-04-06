@@ -86,7 +86,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_stage_gfms_flush ON stage_gfms;
 CREATE TRIGGER trg_stage_gfms_flush
 AFTER INSERT ON stage_gfms
 REFERENCING NEW TABLE AS new_rows
@@ -154,7 +153,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_stage_hwrf_flush ON stage_hwrf;
 CREATE TRIGGER trg_stage_hwrf_flush
 AFTER INSERT ON stage_hwrf
 REFERENCING NEW TABLE AS new_rows
@@ -224,7 +222,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_stage_viirs_flush ON stage_viirs;
 CREATE TRIGGER trg_stage_viirs_flush
 AFTER INSERT ON stage_viirs
 REFERENCING NEW TABLE AS new_rows
@@ -306,7 +303,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_stage_dfo_flush ON stage_dfo;
 CREATE TRIGGER trg_stage_dfo_flush
 AFTER INSERT ON stage_dfo
 REFERENCING NEW TABLE AS new_rows
@@ -428,7 +424,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_stage_glofas_flush ON stage_glofas;
 CREATE TRIGGER trg_stage_glofas_flush
 AFTER INSERT ON stage_glofas
 REFERENCING NEW TABLE AS new_rows
@@ -500,7 +495,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_stage_mom_gfms_flush ON stage_mom_gfms;
 CREATE TRIGGER trg_stage_mom_gfms_flush
 AFTER INSERT ON stage_mom_gfms
 REFERENCING NEW TABLE AS new_rows
@@ -572,7 +566,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_stage_mom_hwrf_flush ON stage_mom_hwrf;
 CREATE TRIGGER trg_stage_mom_hwrf_flush
 AFTER INSERT ON stage_mom_hwrf
 REFERENCING NEW TABLE AS new_rows
@@ -644,7 +637,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_stage_mom_dfo_flush ON stage_mom_dfo;
 CREATE TRIGGER trg_stage_mom_dfo_flush
 AFTER INSERT ON stage_mom_dfo
 REFERENCING NEW TABLE AS new_rows
@@ -716,7 +708,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_stage_mom_viirs_flush ON stage_mom_viirs;
 CREATE TRIGGER trg_stage_mom_viirs_flush
 AFTER INSERT ON stage_mom_viirs
 REFERENCING NEW TABLE AS new_rows
@@ -969,7 +960,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_stage_final_alert_flush ON stage_final_alert;
 CREATE TRIGGER trg_stage_final_alert_flush
 AFTER INSERT ON stage_final_alert
 REFERENCING NEW TABLE AS new_rows
@@ -989,16 +979,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_stage_gfms_clear        ON stage_gfms;
-DROP TRIGGER IF EXISTS trg_stage_hwrf_clear        ON stage_hwrf;
-DROP TRIGGER IF EXISTS trg_stage_viirs_clear       ON stage_viirs;
-DROP TRIGGER IF EXISTS trg_stage_dfo_clear         ON stage_dfo;
-DROP TRIGGER IF EXISTS trg_stage_glofas_clear      ON stage_glofas;
-DROP TRIGGER IF EXISTS trg_stage_mom_gfms_clear    ON stage_mom_gfms;
-DROP TRIGGER IF EXISTS trg_stage_mom_hwrf_clear    ON stage_mom_hwrf;
-DROP TRIGGER IF EXISTS trg_stage_mom_dfo_clear     ON stage_mom_dfo;
-DROP TRIGGER IF EXISTS trg_stage_mom_viirs_clear   ON stage_mom_viirs;
-DROP TRIGGER IF EXISTS trg_stage_final_alert_clear ON stage_final_alert;
 
 CREATE TRIGGER trg_stage_gfms_clear        BEFORE INSERT ON stage_gfms        FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_clear();
 CREATE TRIGGER trg_stage_hwrf_clear        BEFORE INSERT ON stage_hwrf        FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_clear();
