@@ -37,21 +37,30 @@ CREATE TABLE IF NOT EXISTS stage_gfms (
 
 CREATE OR REPLACE FUNCTION fn_stage_gfms_flush()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE rc INTEGER;
+DECLARE
+    rc             INTEGER;
+    batch_ts       TIMESTAMPTZ;
+    hist_count     INTEGER;
+    expected_count INTEGER;
 BEGIN
-    SELECT COUNT(*) INTO rc FROM new_rows;
+    SELECT COUNT(*), MAX("timestamp") INTO rc, batch_ts FROM new_rows;
 
     IF rc < 1 THEN
         DELETE FROM stage_gfms;
         RETURN NULL;
     END IF;
 
-    IF EXISTS (
-        SELECT 1 FROM summary_gfms
-        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
-    ) THEN
+    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+
+    SELECT COUNT(*) INTO hist_count FROM summary_gfms WHERE "timestamp" = batch_ts;
+
+    IF hist_count >= expected_count THEN
         DELETE FROM stage_gfms;
         RETURN NULL;
+    END IF;
+
+    IF hist_count > 0 THEN
+        DELETE FROM summary_gfms WHERE "timestamp" = batch_ts;
     END IF;
 
     INSERT INTO summary_gfms_latest (
@@ -99,21 +108,30 @@ CREATE TABLE IF NOT EXISTS stage_hwrf (
 
 CREATE OR REPLACE FUNCTION fn_stage_hwrf_flush()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE rc INTEGER;
+DECLARE
+    rc             INTEGER;
+    batch_ts       TIMESTAMPTZ;
+    hist_count     INTEGER;
+    expected_count INTEGER;
 BEGIN
-    SELECT COUNT(*) INTO rc FROM new_rows;
+    SELECT COUNT(*), MAX("timestamp") INTO rc, batch_ts FROM new_rows;
 
     IF rc < 1 THEN
         DELETE FROM stage_hwrf;
         RETURN NULL;
     END IF;
 
-    IF EXISTS (
-        SELECT 1 FROM summary_hwrf
-        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
-    ) THEN
+    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+
+    SELECT COUNT(*) INTO hist_count FROM summary_hwrf WHERE "timestamp" = batch_ts;
+
+    IF hist_count >= expected_count THEN
         DELETE FROM stage_hwrf;
         RETURN NULL;
+    END IF;
+
+    IF hist_count > 0 THEN
+        DELETE FROM summary_hwrf WHERE "timestamp" = batch_ts;
     END IF;
 
     INSERT INTO summary_hwrf_latest (
@@ -158,21 +176,30 @@ CREATE TABLE IF NOT EXISTS stage_viirs (
 
 CREATE OR REPLACE FUNCTION fn_stage_viirs_flush()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE rc INTEGER;
+DECLARE
+    rc             INTEGER;
+    batch_ts       TIMESTAMPTZ;
+    hist_count     INTEGER;
+    expected_count INTEGER;
 BEGIN
-    SELECT COUNT(*) INTO rc FROM new_rows;
+    SELECT COUNT(*), MAX("timestamp") INTO rc, batch_ts FROM new_rows;
 
     IF rc < 1 THEN
         DELETE FROM stage_viirs;
         RETURN NULL;
     END IF;
 
-    IF EXISTS (
-        SELECT 1 FROM summary_viirs
-        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
-    ) THEN
+    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+
+    SELECT COUNT(*) INTO hist_count FROM summary_viirs WHERE "timestamp" = batch_ts;
+
+    IF hist_count >= expected_count THEN
         DELETE FROM stage_viirs;
         RETURN NULL;
+    END IF;
+
+    IF hist_count > 0 THEN
+        DELETE FROM summary_viirs WHERE "timestamp" = batch_ts;
     END IF;
 
     INSERT INTO summary_viirs_latest (
@@ -223,21 +250,30 @@ CREATE TABLE IF NOT EXISTS stage_dfo (
 
 CREATE OR REPLACE FUNCTION fn_stage_dfo_flush()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE rc INTEGER;
+DECLARE
+    rc             INTEGER;
+    batch_ts       TIMESTAMPTZ;
+    hist_count     INTEGER;
+    expected_count INTEGER;
 BEGIN
-    SELECT COUNT(*) INTO rc FROM new_rows;
+    SELECT COUNT(*), MAX("timestamp") INTO rc, batch_ts FROM new_rows;
 
     IF rc < 1 THEN
         DELETE FROM stage_dfo;
         RETURN NULL;
     END IF;
 
-    IF EXISTS (
-        SELECT 1 FROM summary_dfo
-        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
-    ) THEN
+    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+
+    SELECT COUNT(*) INTO hist_count FROM summary_dfo WHERE "timestamp" = batch_ts;
+
+    IF hist_count >= expected_count THEN
         DELETE FROM stage_dfo;
         RETURN NULL;
+    END IF;
+
+    IF hist_count > 0 THEN
+        DELETE FROM summary_dfo WHERE "timestamp" = batch_ts;
     END IF;
 
     INSERT INTO summary_dfo_latest (
@@ -308,21 +344,30 @@ CREATE TABLE IF NOT EXISTS stage_glofas (
 
 CREATE OR REPLACE FUNCTION fn_stage_glofas_flush()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE rc INTEGER;
+DECLARE
+    rc             INTEGER;
+    batch_ts       TIMESTAMPTZ;
+    hist_count     INTEGER;
+    expected_count INTEGER;
 BEGIN
-    SELECT COUNT(*) INTO rc FROM new_rows;
+    SELECT COUNT(*), MAX("timestamp") INTO rc, batch_ts FROM new_rows;
 
     IF rc < 1 THEN
         DELETE FROM stage_glofas;
         RETURN NULL;
     END IF;
 
-    IF EXISTS (
-        SELECT 1 FROM summary_glofas
-        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
-    ) THEN
+    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+
+    SELECT COUNT(*) INTO hist_count FROM summary_glofas WHERE "timestamp" = batch_ts;
+
+    IF hist_count >= expected_count THEN
         DELETE FROM stage_glofas;
         RETURN NULL;
+    END IF;
+
+    IF hist_count > 0 THEN
+        DELETE FROM summary_glofas WHERE "timestamp" = batch_ts;
     END IF;
 
     -- matching_id_station is passed as NULL; the BEFORE trigger on
@@ -400,21 +445,30 @@ CREATE TABLE IF NOT EXISTS stage_mom_gfms (
 
 CREATE OR REPLACE FUNCTION fn_stage_mom_gfms_flush()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE rc INTEGER;
+DECLARE
+    rc             INTEGER;
+    batch_ts       TIMESTAMPTZ;
+    hist_count     INTEGER;
+    expected_count INTEGER;
 BEGIN
-    SELECT COUNT(*) INTO rc FROM new_rows;
+    SELECT COUNT(*), MAX("timestamp") INTO rc, batch_ts FROM new_rows;
 
     IF rc < 1 THEN
         DELETE FROM stage_mom_gfms;
         RETURN NULL;
     END IF;
 
-    IF EXISTS (
-        SELECT 1 FROM mom_gfms
-        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
-    ) THEN
+    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+
+    SELECT COUNT(*) INTO hist_count FROM mom_gfms WHERE "timestamp" = batch_ts;
+
+    IF hist_count >= expected_count THEN
         DELETE FROM stage_mom_gfms;
         RETURN NULL;
+    END IF;
+
+    IF hist_count > 0 THEN
+        DELETE FROM mom_gfms WHERE "timestamp" = batch_ts;
     END IF;
 
     INSERT INTO mom_gfms_latest (
@@ -463,21 +517,30 @@ CREATE TABLE IF NOT EXISTS stage_mom_hwrf (
 
 CREATE OR REPLACE FUNCTION fn_stage_mom_hwrf_flush()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE rc INTEGER;
+DECLARE
+    rc             INTEGER;
+    batch_ts       TIMESTAMPTZ;
+    hist_count     INTEGER;
+    expected_count INTEGER;
 BEGIN
-    SELECT COUNT(*) INTO rc FROM new_rows;
+    SELECT COUNT(*), MAX("timestamp") INTO rc, batch_ts FROM new_rows;
 
     IF rc < 1 THEN
         DELETE FROM stage_mom_hwrf;
         RETURN NULL;
     END IF;
 
-    IF EXISTS (
-        SELECT 1 FROM mom_hwrf
-        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
-    ) THEN
+    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+
+    SELECT COUNT(*) INTO hist_count FROM mom_hwrf WHERE "timestamp" = batch_ts;
+
+    IF hist_count >= expected_count THEN
         DELETE FROM stage_mom_hwrf;
         RETURN NULL;
+    END IF;
+
+    IF hist_count > 0 THEN
+        DELETE FROM mom_hwrf WHERE "timestamp" = batch_ts;
     END IF;
 
     INSERT INTO mom_hwrf_latest (
@@ -526,21 +589,30 @@ CREATE TABLE IF NOT EXISTS stage_mom_dfo (
 
 CREATE OR REPLACE FUNCTION fn_stage_mom_dfo_flush()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE rc INTEGER;
+DECLARE
+    rc             INTEGER;
+    batch_ts       TIMESTAMPTZ;
+    hist_count     INTEGER;
+    expected_count INTEGER;
 BEGIN
-    SELECT COUNT(*) INTO rc FROM new_rows;
+    SELECT COUNT(*), MAX("timestamp") INTO rc, batch_ts FROM new_rows;
 
     IF rc < 1 THEN
         DELETE FROM stage_mom_dfo;
         RETURN NULL;
     END IF;
 
-    IF EXISTS (
-        SELECT 1 FROM mom_dfo
-        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
-    ) THEN
+    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+
+    SELECT COUNT(*) INTO hist_count FROM mom_dfo WHERE "timestamp" = batch_ts;
+
+    IF hist_count >= expected_count THEN
         DELETE FROM stage_mom_dfo;
         RETURN NULL;
+    END IF;
+
+    IF hist_count > 0 THEN
+        DELETE FROM mom_dfo WHERE "timestamp" = batch_ts;
     END IF;
 
     INSERT INTO mom_dfo_latest (
@@ -589,21 +661,30 @@ CREATE TABLE IF NOT EXISTS stage_mom_viirs (
 
 CREATE OR REPLACE FUNCTION fn_stage_mom_viirs_flush()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE rc INTEGER;
+DECLARE
+    rc             INTEGER;
+    batch_ts       TIMESTAMPTZ;
+    hist_count     INTEGER;
+    expected_count INTEGER;
 BEGIN
-    SELECT COUNT(*) INTO rc FROM new_rows;
+    SELECT COUNT(*), MAX("timestamp") INTO rc, batch_ts FROM new_rows;
 
     IF rc < 1 THEN
         DELETE FROM stage_mom_viirs;
         RETURN NULL;
     END IF;
 
-    IF EXISTS (
-        SELECT 1 FROM mom_viirs
-        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
-    ) THEN
+    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+
+    SELECT COUNT(*) INTO hist_count FROM mom_viirs WHERE "timestamp" = batch_ts;
+
+    IF hist_count >= expected_count THEN
         DELETE FROM stage_mom_viirs;
         RETURN NULL;
+    END IF;
+
+    IF hist_count > 0 THEN
+        DELETE FROM mom_viirs WHERE "timestamp" = batch_ts;
     END IF;
 
     INSERT INTO mom_viirs_latest (
@@ -711,21 +792,30 @@ CREATE TABLE IF NOT EXISTS stage_final_alert (
 
 CREATE OR REPLACE FUNCTION fn_stage_final_alert_flush()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE rc INTEGER;
+DECLARE
+    rc             INTEGER;
+    batch_ts       TIMESTAMPTZ;
+    hist_count     INTEGER;
+    expected_count INTEGER;
 BEGIN
-    SELECT COUNT(*) INTO rc FROM new_rows;
+    SELECT COUNT(*), MAX("timestamp") INTO rc, batch_ts FROM new_rows;
 
     IF rc < 1 THEN
         DELETE FROM stage_final_alert;
         RETURN NULL;
     END IF;
 
-    IF EXISTS (
-        SELECT 1 FROM summary_final_alert
-        WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
-    ) THEN
+    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+
+    SELECT COUNT(*) INTO hist_count FROM summary_final_alert WHERE "timestamp" = batch_ts;
+
+    IF hist_count >= expected_count THEN
         DELETE FROM stage_final_alert;
         RETURN NULL;
+    END IF;
+
+    IF hist_count > 0 THEN
+        DELETE FROM summary_final_alert WHERE "timestamp" = batch_ts;
     END IF;
 
     -- matching_id_watershed is passed as NULL; the BEFORE trigger on

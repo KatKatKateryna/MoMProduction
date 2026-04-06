@@ -17,9 +17,9 @@ from db_utils import (
     DB_PARAMS, download_text, download_resp,
     list_server_files, parse_timestamp_hh, parse_timestamp_day, upsert_dataframe,
 )
-from update_db_gfms        import get_timestamp as gfms_get_ts,  extract_df as gfms_extract
+from update_db_gfms        import get_timestamp as gfms_get_ts,  extract_df as gfms_extract, _count_nonzero_gfms
 from update_db_hwrf        import get_timestamp as hwrf_get_ts,  extract_df as hwrf_extract
-from update_db_dfo         import get_timestamp as dfo_get_ts,   extract_df as dfo_extract
+from update_db_dfo         import get_timestamp as dfo_get_ts,   extract_df as dfo_extract, _count_nonzero_dfo
 from update_db_viirs       import get_timestamp as viirs_get_ts, extract_df as viirs_extract
 from update_db_final_alert import get_timestamp as fa_get_ts,    extract_df as fa_extract
 from update_db_glofas      import (
@@ -55,9 +55,9 @@ def _in_history(conn, table, parsed_ts):
         return cur.fetchone() is not None
 
 
-def _insert(conn, stage_table, df, fname):
+def _insert(conn, stage_table, df, fname, expected_rows=None):
     try:
-        upsert_dataframe(stage_table, df, conn=conn)
+        upsert_dataframe(stage_table, df, conn=conn, expected_rows=expected_rows)
         print(f"  {fname}: inserted {len(df)} rows")
     except Exception as exc:
         conn.rollback()
@@ -78,7 +78,8 @@ try:
             continue
         content = download_text(url + fname)
         time.sleep(DOWNLOAD_DELAY)
-        _insert(conn, "stage_gfms", gfms_extract(content, gfms_get_ts(fname)), fname)
+        df = gfms_extract(content, gfms_get_ts(fname))
+        _insert(conn, "stage_gfms", df, fname, expected_rows=_count_nonzero_gfms(df))
         count += 1
         if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
             print(f"  {fname}: reached file limit, skipping remaining files")
@@ -115,7 +116,8 @@ try:
             continue
         content = download_text(url + fname)
         time.sleep(DOWNLOAD_DELAY)
-        _insert(conn, "stage_dfo", dfo_extract(content, dfo_get_ts(fname)), fname)
+        df = dfo_extract(content, dfo_get_ts(fname))
+        _insert(conn, "stage_dfo", df, fname, expected_rows=_count_nonzero_dfo(df))
         count += 1
         if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
             print(f"  {fname}: reached file limit, skipping remaining files")

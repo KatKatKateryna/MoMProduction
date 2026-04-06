@@ -30,9 +30,12 @@ FAILED_LOG = Path(__file__).parent / "failed.txt"
 
 
 def _failed_log_add(key: str) -> None:
-    existing = set()
     if FAILED_LOG.exists():
         existing = {l for l in FAILED_LOG.read_text().splitlines() if l.strip()}
+        if key in existing:
+            return
+    else:
+        existing = set()
     existing.add(key)
     FAILED_LOG.write_text("\n".join(sorted(existing)) + "\n")
 
@@ -131,6 +134,14 @@ def to_dec(v, places):
 # DB helpers
 # ---------------------------------------------------------------------------
 
+def _in_history(conn, table, parsed_ts, expected_count):
+    """Return (True, actual_count) if history has exactly expected_count rows for this timestamp."""
+    with conn.cursor() as cur:
+        cur.execute(f'SELECT COUNT(*) FROM {table} WHERE "timestamp" = %s', (parsed_ts,))
+        actual_count = cur.fetchone()[0]
+    return actual_count == expected_count, actual_count
+
+
 def get_processed_timestamps(conn, table):
     """Return a set of all timestamps already present in the given table."""
     with conn.cursor() as cur:
@@ -146,7 +157,7 @@ def upsert_rows(conn, sql, rows):
     conn.commit()
 
 
-def upsert_dataframe(table, df, conn=None, failed_key: str = None):
+def upsert_dataframe(table, df, conn=None, failed_key: str = None, expected_rows: int = None):
     """Insert a DataFrame into a staging table.
 
     Queries the actual column types from the database and converts every value
@@ -255,11 +266,12 @@ def upsert_dataframe(table, df, conn=None, failed_key: str = None):
             for row in df[cols].itertuples(index=False, name=None)
         ]
 
-        # Confirm the batch landed in the corresponding _latest table:
-        # row count and timestamp must match the pushed DataFrame exactly.
-        latest_table    = table.replace("stage_", "summary_") + "_latest"
+        if table.startswith("stage_mom_"):
+            history_table = table[len("stage_"):]               # mom_gfms
+        else:
+            history_table = table.replace("stage_", "summary_") # summary_gfms
         batch_timestamp = _coerce(df["timestamp"].iloc[0], col_types.get("timestamp", "text"))
-        expected_rows   = len(df)
+        expected_hist   = expected_rows if expected_rows is not None else len(df)
 
         # Write-ahead: mark this upload as in-flight before committing.
         # Removed below only after the row-count check passes.  If the process
@@ -267,19 +279,17 @@ def upsert_dataframe(table, df, conn=None, failed_key: str = None):
         log_key = failed_key if failed_key else f"{table}|{batch_timestamp.isoformat()}"
         _failed_log_add(log_key)
 
+        if expected_rows is not None:
+            with conn.cursor() as cur:
+                cur.execute("SET LOCAL mom.expected_rows = %s", (expected_rows,))
+
         upsert_rows(conn, sql, rows)
 
-        with conn.cursor() as cur:
-            cur.execute(
-                f'SELECT COUNT(*) FROM {latest_table} WHERE "timestamp" = %s',
-                (batch_timestamp,),
-            )
-            confirmed = cur.fetchone()[0]
-        if confirmed != expected_rows:
+        success, confirmed = _in_history(conn, history_table, batch_timestamp, expected_hist)
+        if not success:
             raise RuntimeError(
-                f"Insert into {table} verification failed: pushed {expected_rows} rows "
-                f"with timestamp {batch_timestamp} but {latest_table} has {confirmed} "
-                f"matching rows — trigger may have discarded the batch or failed silently."
+                f"Insert into {table} verification failed: expected {expected_hist} rows "
+                f"in {history_table} with timestamp {batch_timestamp} but found {confirmed}."
             )
 
         _failed_log_remove(log_key)

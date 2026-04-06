@@ -132,6 +132,7 @@ production.cfg
 *.lock
 .vscode/*
 *claude*
+*CLAUDE*
 database_update/downloads_mom/
 database_update/*/*
 database_update/*.csv

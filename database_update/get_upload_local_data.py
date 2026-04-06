@@ -16,7 +16,7 @@ import psycopg2
 
 from db_utils import (
     DB_PARAMS, parse_timestamp_hh, parse_timestamp_day, upsert_dataframe,
-    load_failed_log,
+    load_failed_log, _in_history,
 )
 from update_db_gfms        import get_timestamp as gfms_get_ts,  extract_df as gfms_extract, _count_nonzero_gfms
 from update_db_hwrf        import get_timestamp as hwrf_get_ts,  extract_df as hwrf_extract
@@ -150,20 +150,10 @@ def _glofas_local_files(folder: Path):
     return files
 
 
-def _in_history(conn, table, parsed_ts, expected_count):
-    """Return (True, actual_count) if the history table has exactly expected_count rows for this timestamp, else (False, actual_count)."""
-    with conn.cursor() as cur:
-        cur.execute(
-            f'SELECT COUNT(*) FROM {table} WHERE "timestamp" = %s',
-            (parsed_ts,)
-        )
-        actual_count = cur.fetchone()[0]
-        return actual_count == expected_count, actual_count
 
-
-def _insert(conn, stage_table, df, fname, failed_key=None):
+def _insert(conn, stage_table, df, fname, failed_key=None, expected_rows=None):
     try:
-        upsert_dataframe(stage_table, df, conn=conn, failed_key=failed_key)
+        upsert_dataframe(stage_table, df, conn=conn, failed_key=failed_key, expected_rows=expected_rows)
         print(f"  {fname}: inserted {len(df)} rows")
     except Exception as exc:
         conn.rollback()
@@ -202,7 +192,7 @@ def _process_source(conn, label, log_name, folder, pattern, get_ts, parse_ts,
             if success:
                 print(f"{history_table}: {actual_count}/{count_fn(df)}")
                 continue
-        _insert(conn, stage_table, df, fname, failed_key=failed_key)
+        _insert(conn, stage_table, df, fname, failed_key=failed_key, expected_rows=count_fn(df))
         count += 1
         if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
             print(f"  {fname}: reached file limit, skipping remaining files")
