@@ -22,7 +22,7 @@ import requests
 BASE_URL = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/"
 FOLDERS = ["DFO", "Final_Alert", "GFMS", "GLOFAS", "HWRF", "VIIRS"]
 LOCAL_ROOT = Path(__file__).parent / "downloads_mom"
-LIMIT = 10
+LIMIT = 100
 ONLY_CSV = True
 ONLY_IMG = False
 REQUEST_DELAY = 0.5   # seconds between each HTTP request (listing or download)

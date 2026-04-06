@@ -279,17 +279,50 @@ def upsert_dataframe(table, df, conn=None, failed_key: str = None, expected_rows
         log_key = failed_key if failed_key else f"{table}|{batch_timestamp.isoformat()}"
         _failed_log_add(log_key)
 
-        if expected_rows is not None:
-            with conn.cursor() as cur:
-                cur.execute("SET LOCAL mom.expected_rows = %s", (expected_rows,))
+        for attempt in range(RETRY_ATTEMPTS):
+            try:
+                # Tell the staging flush trigger how many rows to expect in history.
+                # The trigger uses this to decide whether to skip (already complete),
+                # or delete partial rows and re-insert.
+                if expected_rows is not None:
+                    with conn.cursor() as cur:
+                        cur.execute("SET LOCAL mom.expected_rows = %s", (expected_rows,))
 
-        upsert_rows(conn, sql, rows)
+                # Insert into staging. The BEFORE INSERT trigger clears the table first
+                # so leftover rows from a previous failed attempt never accumulate.
+                # The AFTER INSERT trigger flushes staging → _latest → history atomically.
+                upsert_rows(conn, sql, rows)
 
-        success, confirmed = _in_history(conn, history_table, batch_timestamp, expected_hist)
-        if not success:
+                # Verify the expected number of rows landed in the history table.
+                # All trigger writes are committed by this point, so the count is final.
+                success, confirmed = _in_history(conn, history_table, batch_timestamp, expected_hist)
+                if success:
+                    break
+
+            except (psycopg2.OperationalError, psycopg2.InterfaceError):
+                if attempt < RETRY_ATTEMPTS - 1:
+                    # Connection is dead — close it and open a fresh one before retrying.
+                    # _own_conn is set to True so the finally block closes the new connection.
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+                    conn = psycopg2.connect(**DB_PARAMS)
+                    _own_conn = True
+                    time.sleep(RETRY_DELAY)
+                    continue
+                raise  # all retries exhausted — re-raise the connection error
+
+            # History count did not match — sleep and retry. The staging flush trigger
+            # will delete any partial history rows on the next attempt before re-inserting.
+            if attempt < RETRY_ATTEMPTS - 1:
+                time.sleep(RETRY_DELAY)
+        else:
+            # Loop completed without break — all attempts failed the history count check.
             raise RuntimeError(
-                f"Insert into {table} verification failed: expected {expected_hist} rows "
-                f"in {history_table} with timestamp {batch_timestamp} but found {confirmed}."
+                f"Insert into {table} failed after {RETRY_ATTEMPTS} attempts: expected "
+                f"{expected_hist} rows in {history_table} with timestamp {batch_timestamp} "
+                f"but found {confirmed}."
             )
 
         _failed_log_remove(log_key)

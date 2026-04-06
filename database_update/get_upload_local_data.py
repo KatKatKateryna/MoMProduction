@@ -177,7 +177,7 @@ def _process_source(conn, label, log_name, folder, pattern, get_ts, parse_ts,
     """
     print(f"\n{label}")
     count = 0
-    for fname in _list_local(folder, pattern):
+    for fname in _list_local(folder, pattern)[110:]:
         ts = get_ts(fname)
         if not ts:
             continue

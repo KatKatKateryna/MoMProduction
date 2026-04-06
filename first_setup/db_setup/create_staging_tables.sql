@@ -50,7 +50,7 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+    expected_count := COALESCE(NULLIF(current_setting('mom.expected_rows', true), '')::INTEGER, rc);
 
     SELECT COUNT(*) INTO hist_count FROM summary_gfms WHERE "timestamp" = batch_ts;
 
@@ -121,7 +121,7 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+    expected_count := COALESCE(NULLIF(current_setting('mom.expected_rows', true), '')::INTEGER, rc);
 
     SELECT COUNT(*) INTO hist_count FROM summary_hwrf WHERE "timestamp" = batch_ts;
 
@@ -189,7 +189,7 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+    expected_count := COALESCE(NULLIF(current_setting('mom.expected_rows', true), '')::INTEGER, rc);
 
     SELECT COUNT(*) INTO hist_count FROM summary_viirs WHERE "timestamp" = batch_ts;
 
@@ -263,7 +263,7 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+    expected_count := COALESCE(NULLIF(current_setting('mom.expected_rows', true), '')::INTEGER, rc);
 
     SELECT COUNT(*) INTO hist_count FROM summary_dfo WHERE "timestamp" = batch_ts;
 
@@ -357,7 +357,7 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+    expected_count := COALESCE(NULLIF(current_setting('mom.expected_rows', true), '')::INTEGER, rc);
 
     SELECT COUNT(*) INTO hist_count FROM summary_glofas WHERE "timestamp" = batch_ts;
 
@@ -458,7 +458,7 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+    expected_count := COALESCE(NULLIF(current_setting('mom.expected_rows', true), '')::INTEGER, rc);
 
     SELECT COUNT(*) INTO hist_count FROM mom_gfms WHERE "timestamp" = batch_ts;
 
@@ -530,7 +530,7 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+    expected_count := COALESCE(NULLIF(current_setting('mom.expected_rows', true), '')::INTEGER, rc);
 
     SELECT COUNT(*) INTO hist_count FROM mom_hwrf WHERE "timestamp" = batch_ts;
 
@@ -602,7 +602,7 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+    expected_count := COALESCE(NULLIF(current_setting('mom.expected_rows', true), '')::INTEGER, rc);
 
     SELECT COUNT(*) INTO hist_count FROM mom_dfo WHERE "timestamp" = batch_ts;
 
@@ -674,7 +674,7 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+    expected_count := COALESCE(NULLIF(current_setting('mom.expected_rows', true), '')::INTEGER, rc);
 
     SELECT COUNT(*) INTO hist_count FROM mom_viirs WHERE "timestamp" = batch_ts;
 
@@ -805,7 +805,7 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    expected_count := COALESCE(current_setting('mom.expected_rows', true)::INTEGER, rc);
+    expected_count := COALESCE(NULLIF(current_setting('mom.expected_rows', true), '')::INTEGER, rc);
 
     SELECT COUNT(*) INTO hist_count FROM summary_final_alert WHERE "timestamp" = batch_ts;
 
@@ -960,3 +960,39 @@ CREATE TRIGGER trg_stage_final_alert_flush
 AFTER INSERT ON stage_final_alert
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_final_alert_flush();
+
+
+-- =============================================================================
+-- Shared pre-insert clear: truncates the staging table before each batch so
+-- that retries never accumulate duplicate rows.
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION fn_stage_clear()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    EXECUTE 'DELETE FROM ' || TG_TABLE_NAME;
+    RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_stage_gfms_clear        ON stage_gfms;
+DROP TRIGGER IF EXISTS trg_stage_hwrf_clear        ON stage_hwrf;
+DROP TRIGGER IF EXISTS trg_stage_viirs_clear       ON stage_viirs;
+DROP TRIGGER IF EXISTS trg_stage_dfo_clear         ON stage_dfo;
+DROP TRIGGER IF EXISTS trg_stage_glofas_clear      ON stage_glofas;
+DROP TRIGGER IF EXISTS trg_stage_mom_gfms_clear    ON stage_mom_gfms;
+DROP TRIGGER IF EXISTS trg_stage_mom_hwrf_clear    ON stage_mom_hwrf;
+DROP TRIGGER IF EXISTS trg_stage_mom_dfo_clear     ON stage_mom_dfo;
+DROP TRIGGER IF EXISTS trg_stage_mom_viirs_clear   ON stage_mom_viirs;
+DROP TRIGGER IF EXISTS trg_stage_final_alert_clear ON stage_final_alert;
+
+CREATE TRIGGER trg_stage_gfms_clear        BEFORE INSERT ON stage_gfms        FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_clear();
+CREATE TRIGGER trg_stage_hwrf_clear        BEFORE INSERT ON stage_hwrf        FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_clear();
+CREATE TRIGGER trg_stage_viirs_clear       BEFORE INSERT ON stage_viirs       FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_clear();
+CREATE TRIGGER trg_stage_dfo_clear         BEFORE INSERT ON stage_dfo         FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_clear();
+CREATE TRIGGER trg_stage_glofas_clear      BEFORE INSERT ON stage_glofas      FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_clear();
+CREATE TRIGGER trg_stage_mom_gfms_clear    BEFORE INSERT ON stage_mom_gfms    FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_clear();
+CREATE TRIGGER trg_stage_mom_hwrf_clear    BEFORE INSERT ON stage_mom_hwrf    FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_clear();
+CREATE TRIGGER trg_stage_mom_dfo_clear     BEFORE INSERT ON stage_mom_dfo     FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_clear();
+CREATE TRIGGER trg_stage_mom_viirs_clear   BEFORE INSERT ON stage_mom_viirs   FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_clear();
+CREATE TRIGGER trg_stage_final_alert_clear BEFORE INSERT ON stage_final_alert FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_clear();
