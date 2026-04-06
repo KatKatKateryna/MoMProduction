@@ -397,18 +397,19 @@ BEGIN
         "max_EPS", "Forecast Date"
     )
     SELECT
-        st.matching_id_station,
+        (SELECT MIN(st."matching_id_station")
+         FROM all_glofas_stations st
+         WHERE st."Station" = s."Station"
+           AND st."Country" IS NOT DISTINCT FROM s."Country"
+           AND st."Lat"     = s."Lat"
+           AND st."Lon"     = s."Lon"
+           AND st.pfaf_id   = s.pfaf_id),
         s."timestamp", s.pfaf_id,
         s."ID", s."Point No",
         s."Alert_level", s."Days_until_peak",
         s."GloFAS_2yr", s."GloFAS_5yr", s."GloFAS_20yr",
         s."max_EPS", s."Forecast Date"
     FROM stage_glofas s
-    JOIN all_glofas_stations st ON st."Station" = s."Station"
-        AND st."Country"  = s."Country"
-        AND st."Lat"      = s."Lat"
-        AND st."Lon"      = s."Lon"
-        AND st.pfaf_id    = s.pfaf_id
     ON CONFLICT (matching_id_station) DO UPDATE SET
         "timestamp"       = EXCLUDED."timestamp",
         pfaf_id           = EXCLUDED.pfaf_id,
@@ -872,7 +873,13 @@ BEGIN
         "Severity", "Alert", "Status"
     )
     SELECT
-        w.matching_id_watershed,
+        (SELECT MIN(w."matching_id_watershed")
+         FROM all_watersheds w
+         WHERE w.pfaf_id      = s.pfaf_id
+           AND w."name"       = s."name"
+           AND w."name_1"     = s."name_1"
+           AND w."CentroidX"  = s."CentroidX"::NUMERIC(10,6)
+           AND w."CentroidY"  = s."CentroidY"::NUMERIC(10,6)),
         s."timestamp", s.pfaf_id,
         s."Alert_level", s."Days_until_peak",
         s."GloFAS_2yr", s."GloFAS_5yr", s."GloFAS_20yr",
@@ -899,11 +906,6 @@ BEGIN
         s."VIIRSTotal_Score",
         s."Severity", s."Alert", s."Status"
     FROM stage_final_alert s
-    JOIN all_watersheds w ON w.pfaf_id    = s.pfaf_id
-                         AND w."name"     = s."name"
-                         AND w."name_1"   = s."name_1"
-                         AND w."CentroidX" = s."CentroidX"::NUMERIC(10,6)
-                         AND w."CentroidY" = s."CentroidY"::NUMERIC(10,6)
     ON CONFLICT (matching_id_watershed) DO UPDATE SET
         "timestamp"                 = EXCLUDED."timestamp",
         pfaf_id                     = EXCLUDED.pfaf_id,

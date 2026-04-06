@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS all_glofas_stations (
     "Lon"               NUMERIC(8,3),
     "Upstream area"     NUMERIC(15,3),
     pfaf_id             INTEGER         REFERENCES watershed_shapes(pfaf_id),
-    CONSTRAINT uq_station UNIQUE ("Station", "Country", "Lat", "Lon", pfaf_id)
+    CONSTRAINT uq_station UNIQUE NULLS NOT DISTINCT ("Station", "Country", "Lat", "Lon", pfaf_id)
 );
 
 -- All Watersheds: static per-watershed metadata
