@@ -15,7 +15,7 @@ import re
 import pandas as pd
 import psycopg2
 
-from db_utils import (
+from .db_utils import (
     DB_PARAMS, download_resp, get_processed_timestamps,
     parse_timestamp_hh, upsert_dataframe,
 )

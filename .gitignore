@@ -134,7 +134,6 @@ production.cfg
 *claude*
 *CLAUDE*
 database_update/downloads_mom/
-database_update/*/*
 database_update/*.csv
 *.tiff
 */*/db_config.cfg

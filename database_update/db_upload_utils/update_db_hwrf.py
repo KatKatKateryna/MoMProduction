@@ -1,30 +1,30 @@
 """
-Push latest GFMS data to stage_gfms in the database.
+Push latest HWRF data to stage_hwrf in the database.
 
-For each new file: download, build a DataFrame with all rows (including zeros),
-and insert via upsert_dataframe which handles all type conversion against the
-live DB schema.  Zero-row filtering for the history table is handled entirely
-by the fn_gfms_sync DB trigger — no pre-filtering here.
+For each new file: download, build a DataFrame with raw values, and insert
+via upsert_dataframe which handles all type conversion against the live DB schema.
 """
 
 import csv
 import io
+import re
 
 import pandas as pd
 import psycopg2
 
-from db_utils import (
+from .db_utils import (
     DB_PARAMS, download_text, get_processed_timestamps,
     list_server_files, parse_timestamp_hh, upsert_dataframe,
 )
 
-STAGE_TABLE   = "stage_gfms"
-HISTORY_TABLE = "summary_gfms"
-BASE_URL      = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/GFMS/GFMS_summary/"
+STAGE_TABLE   = "stage_hwrf"
+HISTORY_TABLE = "summary_hwrf"
+BASE_URL      = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/HWRF/HWRF_summary/"
 
 
 def get_timestamp(filename):
-    return filename.rsplit("_", 1)[-1].split(".")[0]
+    match = re.search(r'\.(\d+)rainfall', filename)
+    return match.group(1) if match else ""
 
 
 def extract_df(content, timestamp):
@@ -36,18 +36,6 @@ def extract_df(content, timestamp):
     return df
 
 
-def _count_nonzero_gfms(df):
-    """Mirror the zero-row filter in fn_gfms_sync: keep rows where any flood metric is non-zero."""
-    import pandas as pd
-    cols = ["GFMS_TotalArea_km", "GFMS_perc_Area", "GFMS_MeanDepth", "GFMS_MaxDepth", "GFMS_Duration"]
-    present = [c for c in cols if c in df.columns]
-    if not present:
-        return len(df)
-    numeric = df[present].apply(pd.to_numeric, errors="coerce").fillna(0)
-    nonzero_count = int(numeric.ne(0).any(axis=1).sum())
-    return nonzero_count if nonzero_count > 0 else 1  # fallback: trigger writes 1 row
-
-
 def main():
     conn = psycopg2.connect(**DB_PARAMS)
     try:
@@ -56,7 +44,7 @@ def main():
         print(f"  {len(processed)} timestamps in {HISTORY_TABLE}")
 
         print("Fetching file list from server...")
-        all_files = list_server_files(BASE_URL, r'href="(Flood_byStor_\d+\.csv)"')
+        all_files = list_server_files(BASE_URL, r'href="(hwrf\.\d+rainfall\.csv)"')
         new_files = [f for f in all_files
                      if parse_timestamp_hh(get_timestamp(f)) not in processed]
         print(f"  {len(all_files)} files on server, {len(processed)} already in DB, "
