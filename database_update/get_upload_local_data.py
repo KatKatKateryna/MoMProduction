@@ -83,10 +83,6 @@ def _glofas_local_files(folder: Path):
     return files
 
 
-def _limit(files):
-    return files if FILES_PER_SOURCE is None else files[:FILES_PER_SOURCE]
-
-
 def _in_history(conn, table, parsed_ts):
     with conn.cursor() as cur:
         cur.execute(f'SELECT 1 FROM {table} WHERE "timestamp" = %s LIMIT 1', (parsed_ts,))
@@ -102,82 +98,98 @@ def _insert(conn, stage_table, df, fname):
         print(f"  {fname}: FAILED — {exc}")
 
 
+def _process_source(conn, label, folder, pattern, get_ts, parse_ts,
+                    history_table, stage_table, extract,
+                    encoding="utf-8", errors="strict"):
+    """Process all local CSV files for one source, skipping already-loaded timestamps."""
+    print(f"\n{label}")
+    count = 0
+    for fname in _list_local(folder, pattern):
+        ts = get_ts(fname)
+        if not ts:
+            continue
+        parsed_ts = parse_ts(ts)
+        if _in_history(conn, history_table, parsed_ts):
+            print(f"  {fname}: already in DB, skipping")
+            continue
+        content = (folder / fname).read_text(encoding=encoding, errors=errors)
+        _insert(conn, stage_table, extract(content, ts), fname)
+        count += 1
+        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
+            print(f"  {fname}: reached file limit, skipping remaining files")
+            break
+
+
+# Each entry: (label, subfolder, file_pattern, get_ts, parse_ts, history_table, stage_table, extract, encoding, errors)
+SOURCES = [
+    ("GFMS",
+     DOWNLOADS_ROOT / "GFMS" / "GFMS_summary",
+     r'Flood_byStor_\d+\.csv',
+     gfms_get_ts, parse_timestamp_hh,
+     "summary_gfms", "stage_gfms", gfms_extract, "utf-8", "strict"),
+
+    ("HWRF",
+     DOWNLOADS_ROOT / "HWRF" / "HWRF_summary",
+     r'hwrf\.\d+rainfall\.csv',
+     hwrf_get_ts, parse_timestamp_hh,
+     "summary_hwrf", "stage_hwrf", hwrf_extract, "utf-8", "strict"),
+
+    ("DFO",
+     DOWNLOADS_ROOT / "DFO" / "DFO_summary",
+     r'DFO_\w+\.csv',
+     dfo_get_ts, parse_timestamp_day,
+     "summary_dfo", "stage_dfo", dfo_extract, "utf-8", "strict"),
+
+    ("VIIRS",
+     DOWNLOADS_ROOT / "VIIRS" / "VIIRS_summary",
+     r'VIIRS_Flood_\d+\.csv',
+     viirs_get_ts, parse_timestamp_day,
+     "summary_viirs", "stage_viirs", viirs_extract, "utf-8", "strict"),
+
+    ("Final Alert",
+     DOWNLOADS_ROOT / "Final_Alert",
+     r'Final_Attributes_[^/]+\.csv',
+     fa_get_ts, parse_timestamp_hh,
+     "summary_final_alert", "stage_final_alert", fa_extract, "utf-8", "ignore"),
+
+    ("MoM GFMS",
+     DOWNLOADS_ROOT / "GFMS" / "GFMS_MoM",
+     r'Attributes_Clean_\d{8}\.csv',
+     mom_gfms_get_ts, parse_timestamp_day,
+     "summary_mom_gfms", "stage_mom_gfms", mom_gfms_extract, "utf-8", "ignore"),
+
+    ("MoM HWRF",
+     DOWNLOADS_ROOT / "HWRF" / "HWRF_MoM",
+     r'Attributes_Clean_\d{10}HWRFUpdated\.csv',
+     mom_hwrf_get_ts, parse_timestamp_hh,
+     "summary_mom_hwrf", "stage_mom_hwrf", mom_hwrf_extract, "utf-8", "ignore"),
+
+    ("MoM DFO",
+     DOWNLOADS_ROOT / "DFO" / "DFO_MoM",
+     r'Attributes_Clean_\d{10}MOM\+DFOUpdated\.csv',
+     mom_dfo_get_ts, parse_timestamp_hh,
+     "summary_mom_dfo", "stage_mom_dfo", mom_dfo_extract, "utf-8", "ignore"),
+
+    ("MoM VIIRS",
+     DOWNLOADS_ROOT / "VIIRS" / "VIIRS_MoM",
+     r'Attributes_[Cc]lean_\d{10}MOM\+DFO\+VIIRSUpdated\.csv',
+     mom_viirs_get_ts, parse_timestamp_hh,
+     "summary_mom_viirs", "stage_mom_viirs", mom_viirs_extract, "utf-8", "ignore"),
+]
+
+
 conn = psycopg2.connect(**DB_PARAMS)
 try:
-    # ── GFMS ──────────────────────────────────────────────────────────────────
-    print("GFMS")
-    count = 0
-    folder = DOWNLOADS_ROOT / "GFMS" / "GFMS_summary"
-    files  = _list_local(folder, r'Flood_byStor_\d+\.csv')
-    for fname in files:
-        parsed_ts = parse_timestamp_hh(gfms_get_ts(fname))
-        if _in_history(conn, "summary_gfms", parsed_ts):
-            print(f"  {fname}: already in DB, skipping")
-            continue
-        content = (folder / fname).read_text(encoding="utf-8")
-        _insert(conn, "stage_gfms", gfms_extract(content, gfms_get_ts(fname)), fname)
-        count += 1
-        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
-            print(f"  {fname}: reached file limit, skipping remaining files")
-            break
-
-    # ── HWRF ──────────────────────────────────────────────────────────────────
-    print("\nHWRF")
-    count = 0
-    folder = DOWNLOADS_ROOT / "HWRF" / "HWRF_summary"
-    files  = _list_local(folder, r'hwrf\.\d+rainfall\.csv')
-    for fname in files:
-        parsed_ts = parse_timestamp_hh(hwrf_get_ts(fname))
-        if _in_history(conn, "summary_hwrf", parsed_ts):
-            print(f"  {fname}: already in DB, skipping")
-            continue
-        content = (folder / fname).read_text(encoding="utf-8")
-        _insert(conn, "stage_hwrf", hwrf_extract(content, hwrf_get_ts(fname)), fname)
-        count += 1
-        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
-            print(f"  {fname}: reached file limit, skipping remaining files")
-            break
-
-    # ── DFO ───────────────────────────────────────────────────────────────────
-    print("\nDFO")
-    count = 0
-    folder = DOWNLOADS_ROOT / "DFO" / "DFO_summary"
-    files  = _list_local(folder, r'DFO_\w+\.csv')
-    for fname in files:
-        parsed_ts = parse_timestamp_day(dfo_get_ts(fname))
-        if _in_history(conn, "summary_dfo", parsed_ts):
-            print(f"  {fname}: already in DB, skipping")
-            continue
-        content = (folder / fname).read_text(encoding="utf-8")
-        _insert(conn, "stage_dfo", dfo_extract(content, dfo_get_ts(fname)), fname)
-        count += 1
-        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
-            print(f"  {fname}: reached file limit, skipping remaining files")
-            break
-
-    # ── VIIRS ─────────────────────────────────────────────────────────────────
-    print("\nVIIRS")
-    count = 0
-    folder = DOWNLOADS_ROOT / "VIIRS" / "VIIRS_summary"
-    files  = _list_local(folder, r'VIIRS_Flood_\d+\.csv')
-    for fname in files:
-        parsed_ts = parse_timestamp_day(viirs_get_ts(fname))
-        if _in_history(conn, "summary_viirs", parsed_ts):
-            print(f"  {fname}: already in DB, skipping")
-            continue
-        content = (folder / fname).read_text(encoding="utf-8")
-        _insert(conn, "stage_viirs", viirs_extract(content, viirs_get_ts(fname)), fname)
-        count += 1
-        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
-            print(f"  {fname}: reached file limit, skipping remaining files")
-            break
+    for label, folder, pattern, get_ts, parse_ts, hist, stage, extract, enc, err in SOURCES:
+        _process_source(conn, label, folder, pattern, get_ts, parse_ts,
+                        hist, stage, extract, encoding=enc, errors=err)
 
     # ── GloFAS ────────────────────────────────────────────────────────────────
+    # Handled separately: file listing and parsing differ from the CSV sources.
     print("\nGloFAS")
     count = 0
     folder = DOWNLOADS_ROOT / "GLOFAS"
-    gfiles = list(sorted(_glofas_local_files(folder).items()))
-    for ts, fname in gfiles:
+    for ts, fname in sorted(_glofas_local_files(folder).items()):
         parsed_ts = parse_timestamp_hh(ts)
         if _in_history(conn, "summary_glofas", parsed_ts):
             print(f"  {fname}: already in DB, skipping")
@@ -185,103 +197,6 @@ try:
         local_resp = _LocalFile(folder / fname)
         props = parse_geojson(local_resp) if fname.endswith(".geojson") else glofas_parse_csv(local_resp)
         _insert(conn, "stage_glofas", glofas_build(props, ts), fname)
-        count += 1
-        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
-            print(f"  {fname}: reached file limit, skipping remaining files")
-            break
-
-    # ── Final Alert ───────────────────────────────────────────────────────────
-    print("\nFinal Alert")
-    count = 0
-    folder = DOWNLOADS_ROOT / "Final_Alert"
-    files  = _list_local(folder, r'Final_Attributes_[^/]+\.csv')
-    for fname in files:
-        parsed_ts = parse_timestamp_hh(fa_get_ts(fname))
-        if _in_history(conn, "summary_final_alert", parsed_ts):
-            print(f"  {fname}: already in DB, skipping")
-            continue
-        content = (folder / fname).read_text(encoding="utf-8", errors="ignore")
-        _insert(conn, "stage_final_alert", fa_extract(content, fa_get_ts(fname)), fname)
-        count += 1
-        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
-            print(f"  {fname}: reached file limit, skipping remaining files")
-            break
-
-    # ── MoM GFMS ─────────────────────────────────────────────────────────────
-    print("\nMoM GFMS")
-    count = 0
-    folder = DOWNLOADS_ROOT / "GFMS" / "GFMS_MoM"
-    files  = _list_local(folder, r'Attributes_Clean_\d{8}\.csv')
-    for fname in files:
-        ts = mom_gfms_get_ts(fname)
-        if not ts:
-            continue
-        parsed_ts = parse_timestamp_day(ts)
-        if _in_history(conn, "summary_mom_gfms", parsed_ts):
-            print(f"  {fname}: already in DB, skipping")
-            continue
-        content = (folder / fname).read_text(encoding="utf-8", errors="ignore")
-        _insert(conn, "stage_mom_gfms", mom_gfms_extract(content, ts), fname)
-        count += 1
-        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
-            print(f"  {fname}: reached file limit, skipping remaining files")
-            break
-
-    # ── MoM HWRF ─────────────────────────────────────────────────────────────
-    print("\nMoM HWRF")
-    count = 0
-    folder = DOWNLOADS_ROOT / "HWRF" / "HWRF_MoM"
-    files  = _list_local(folder, r'Attributes_Clean_\d{10}HWRFUpdated\.csv')
-    for fname in files:
-        ts = mom_hwrf_get_ts(fname)
-        if not ts:
-            continue
-        parsed_ts = parse_timestamp_hh(ts)
-        if _in_history(conn, "summary_mom_hwrf", parsed_ts):
-            print(f"  {fname}: already in DB, skipping")
-            continue
-        content = (folder / fname).read_text(encoding="utf-8", errors="ignore")
-        _insert(conn, "stage_mom_hwrf", mom_hwrf_extract(content, ts), fname)
-        count += 1
-        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
-            print(f"  {fname}: reached file limit, skipping remaining files")
-            break
-
-    # ── MoM DFO ──────────────────────────────────────────────────────────────
-    print("\nMoM DFO")
-    count = 0
-    folder = DOWNLOADS_ROOT / "DFO" / "DFO_MoM"
-    files  = _list_local(folder, r'Attributes_Clean_\d{10}MOM\+DFOUpdated\.csv')
-    for fname in files:
-        ts = mom_dfo_get_ts(fname)
-        if not ts:
-            continue
-        parsed_ts = parse_timestamp_hh(ts)
-        if _in_history(conn, "summary_mom_dfo", parsed_ts):
-            print(f"  {fname}: already in DB, skipping")
-            continue
-        content = (folder / fname).read_text(encoding="utf-8", errors="ignore")
-        _insert(conn, "stage_mom_dfo", mom_dfo_extract(content, ts), fname)
-        count += 1
-        if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
-            print(f"  {fname}: reached file limit, skipping remaining files")
-            break
-
-    # ── MoM VIIRS ────────────────────────────────────────────────────────────
-    print("\nMoM VIIRS")
-    count = 0
-    folder = DOWNLOADS_ROOT / "VIIRS" / "VIIRS_MoM"
-    files  = _list_local(folder, r'Attributes_[Cc]lean_\d{10}MOM\+DFO\+VIIRSUpdated\.csv')
-    for fname in files:
-        ts = mom_viirs_get_ts(fname)
-        if not ts:
-            continue
-        parsed_ts = parse_timestamp_hh(ts)
-        if _in_history(conn, "summary_mom_viirs", parsed_ts):
-            print(f"  {fname}: already in DB, skipping")
-            continue
-        content = (folder / fname).read_text(encoding="utf-8", errors="ignore")
-        _insert(conn, "stage_mom_viirs", mom_viirs_extract(content, ts), fname)
         count += 1
         if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
             print(f"  {fname}: reached file limit, skipping remaining files")
