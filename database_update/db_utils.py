@@ -6,11 +6,53 @@ import os
 import time
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# ---------------------------------------------------------------------------
+# Failed-upload log
+# ---------------------------------------------------------------------------
+# failed.txt lives next to this file and tracks uploads that were started but
+# not confirmed complete.  Each line is a human-readable key supplied by the
+# caller, e.g. "20211215_dfo_summary" or "2021121500_gfms_summary".
+#
+# Written BEFORE upsert_rows (the commit), removed AFTER the row-count check
+# passes.  If the process crashes, or the row-count check fails, the entry
+# stays — giving subsequent runs (and operators) visibility into what may be
+# incomplete.
+# ---------------------------------------------------------------------------
+
+FAILED_LOG = Path(__file__).parent / "failed.txt"
+
+
+def _failed_log_add(key: str) -> None:
+    existing = set()
+    if FAILED_LOG.exists():
+        existing = {l for l in FAILED_LOG.read_text().splitlines() if l.strip()}
+    existing.add(key)
+    FAILED_LOG.write_text("\n".join(sorted(existing)) + "\n")
+
+
+def _failed_log_remove(key: str) -> None:
+    if not FAILED_LOG.exists():
+        return
+    lines = [l for l in FAILED_LOG.read_text().splitlines()
+             if l.strip() and l.strip() != key]
+    if lines:
+        FAILED_LOG.write_text("\n".join(lines) + "\n")
+    else:
+        FAILED_LOG.unlink(missing_ok=True)
+
+
+def load_failed_log() -> set:
+    """Return the set of keys from failed.txt (one plain string per line)."""
+    if not FAILED_LOG.exists():
+        return set()
+    return {l.strip() for l in FAILED_LOG.read_text().splitlines() if l.strip()}
 
 # ---------------------------------------------------------------------------
 # DB connection parameters
@@ -104,7 +146,7 @@ def upsert_rows(conn, sql, rows):
     conn.commit()
 
 
-def upsert_dataframe(table, df, conn=None):
+def upsert_dataframe(table, df, conn=None, failed_key: str = None):
     """Insert a DataFrame into a staging table.
 
     Queries the actual column types from the database and converts every value
@@ -114,9 +156,15 @@ def upsert_dataframe(table, df, conn=None):
     If conn is supplied the caller's connection is used (and kept open).
     If omitted a new connection is created and closed automatically.
 
+    failed_key: human-readable string written to failed.txt before the commit
+    and removed only after the row-count verification passes.  If omitted, a
+    fallback key of "{table}|{timestamp}" is used.
+
     Usage:
-        upsert_dataframe("stage_gfms", df)            # own connection
-        upsert_dataframe("stage_gfms", df, conn=conn) # shared connection
+        upsert_dataframe("stage_gfms", df)                          # own connection
+        upsert_dataframe("stage_gfms", df, conn=conn)               # shared connection
+        upsert_dataframe("stage_gfms", df, conn=conn,
+                         failed_key="2021121400_gfms_summary")      # named key
     """
     import psycopg2
 
@@ -206,13 +254,21 @@ def upsert_dataframe(table, df, conn=None):
             tuple(_coerce(v, col_types[col]) for col, v in zip(cols, row))
             for row in df[cols].itertuples(index=False, name=None)
         ]
-        upsert_rows(conn, sql, rows)
 
         # Confirm the batch landed in the corresponding _latest table:
         # row count and timestamp must match the pushed DataFrame exactly.
         latest_table    = table.replace("stage_", "summary_") + "_latest"
         batch_timestamp = _coerce(df["timestamp"].iloc[0], col_types.get("timestamp", "text"))
         expected_rows   = len(df)
+
+        # Write-ahead: mark this upload as in-flight before committing.
+        # Removed below only after the row-count check passes.  If the process
+        # crashes or verification fails the entry stays in failed.txt.
+        log_key = failed_key if failed_key else f"{table}|{batch_timestamp.isoformat()}"
+        _failed_log_add(log_key)
+
+        upsert_rows(conn, sql, rows)
+
         with conn.cursor() as cur:
             cur.execute(
                 f'SELECT COUNT(*) FROM {latest_table} WHERE "timestamp" = %s',
@@ -225,6 +281,8 @@ def upsert_dataframe(table, df, conn=None):
                 f"with timestamp {batch_timestamp} but {latest_table} has {confirmed} "
                 f"matching rows — trigger may have discarded the batch or failed silently."
             )
+
+        _failed_log_remove(log_key)
     finally:
         if _own_conn:
             conn.close()

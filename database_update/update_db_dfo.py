@@ -36,6 +36,23 @@ def extract_df(content, timestamp):
     return df
 
 
+def _count_nonzero_dfo(df):
+    """Mirror the zero-row filter in fn_dfo_sync: keep rows where any flood area is non-zero."""
+    import pandas as pd
+    cols = [
+        "1-Day_TotalArea_km2", "1-Day_perc_Area",
+        "1-Day_CS_TotalArea_km2", "1-Day_CS_perc_Area",
+        "2-Day_TotalArea_km2", "2-Day_perc_Area",
+        "3-Day_TotalArea_km2", "3-Day_perc_Area",
+    ]
+    present = [c for c in cols if c in df.columns]
+    if not present:
+        return len(df)
+    numeric = df[present].apply(pd.to_numeric, errors="coerce").fillna(0)
+    nonzero_count = int(numeric.ne(0).any(axis=1).sum())
+    return nonzero_count if nonzero_count > 0 else 1  # fallback: trigger writes 1 row
+
+
 def main():
     conn = psycopg2.connect(**DB_PARAMS)
     try:
