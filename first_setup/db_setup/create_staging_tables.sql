@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS stage_gfms (
 );
 
 CREATE OR REPLACE FUNCTION fn_stage_gfms_flush()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     rc             INTEGER;
     batch_ts       TIMESTAMPTZ;
@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS stage_hwrf (
 );
 
 CREATE OR REPLACE FUNCTION fn_stage_hwrf_flush()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     rc             INTEGER;
     batch_ts       TIMESTAMPTZ;
@@ -175,7 +175,7 @@ CREATE TABLE IF NOT EXISTS stage_viirs (
 );
 
 CREATE OR REPLACE FUNCTION fn_stage_viirs_flush()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     rc             INTEGER;
     batch_ts       TIMESTAMPTZ;
@@ -249,7 +249,7 @@ CREATE TABLE IF NOT EXISTS stage_dfo (
 );
 
 CREATE OR REPLACE FUNCTION fn_stage_dfo_flush()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     rc             INTEGER;
     batch_ts       TIMESTAMPTZ;
@@ -343,7 +343,7 @@ CREATE TABLE IF NOT EXISTS stage_glofas (
 );
 
 CREATE OR REPLACE FUNCTION fn_stage_glofas_flush()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     rc             INTEGER;
     batch_ts       TIMESTAMPTZ;
@@ -449,7 +449,7 @@ CREATE TABLE IF NOT EXISTS stage_mom_gfms (
 );
 
 CREATE OR REPLACE FUNCTION fn_stage_mom_gfms_flush()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     rc             INTEGER;
     batch_ts       TIMESTAMPTZ;
@@ -521,7 +521,7 @@ CREATE TABLE IF NOT EXISTS stage_mom_hwrf (
 );
 
 CREATE OR REPLACE FUNCTION fn_stage_mom_hwrf_flush()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     rc             INTEGER;
     batch_ts       TIMESTAMPTZ;
@@ -593,7 +593,7 @@ CREATE TABLE IF NOT EXISTS stage_mom_dfo (
 );
 
 CREATE OR REPLACE FUNCTION fn_stage_mom_dfo_flush()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     rc             INTEGER;
     batch_ts       TIMESTAMPTZ;
@@ -665,7 +665,7 @@ CREATE TABLE IF NOT EXISTS stage_mom_viirs (
 );
 
 CREATE OR REPLACE FUNCTION fn_stage_mom_viirs_flush()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     rc             INTEGER;
     batch_ts       TIMESTAMPTZ;
@@ -796,7 +796,7 @@ CREATE TABLE IF NOT EXISTS stage_final_alert (
 );
 
 CREATE OR REPLACE FUNCTION fn_stage_final_alert_flush()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     rc             INTEGER;
     batch_ts       TIMESTAMPTZ;
@@ -980,7 +980,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_final_alert_flush();
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION fn_stage_clear()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
     EXECUTE 'DELETE FROM ' || TG_TABLE_NAME;
     RETURN NULL;

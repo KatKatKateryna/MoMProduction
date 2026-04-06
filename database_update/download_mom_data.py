@@ -21,7 +21,7 @@ import requests
 
 BASE_URL = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/"
 FOLDERS = ["DFO", "Final_Alert", "GFMS", "GLOFAS", "HWRF", "VIIRS"]
-LOCAL_ROOT = Path(__file__).parent / "downloads_mom"
+LOCAL_ROOT = Path(__file__).parent / "downloads_mom" if not Path("/mnt").exists() else Path("/mnt/volume_ams3_02/downloads_mom") 
 LIMIT = 100
 ONLY_CSV = True
 ONLY_IMG = False
@@ -53,7 +53,7 @@ def download_file(url, local_path, session):
         return False
 
     local_path.parent.mkdir(parents=True, exist_ok=True)
-    print(f"  [download] {local_path.name}")
+    print(f"  [download] {local_path.parent.name}: {local_path.name}")
     with session.get(url, stream=True, timeout=120) as r:
         r.raise_for_status()
         with open(local_path, "wb") as f:

@@ -39,7 +39,7 @@ FILES_PER_SOURCE = None   # set to None to process all files
 
 # =============================================================================
 
-DOWNLOADS_ROOT = Path(__file__).parent / "downloads_mom"
+DOWNLOADS_ROOT = Path(__file__).parent / "downloads_mom" if not Path("/mnt").exists() else Path("/mnt/volume_ams3_02/downloads_mom") 
 
 # Load failed.txt once; _process_source checks it per file.
 _failed = load_failed_log()
@@ -177,7 +177,7 @@ def _process_source(conn, label, log_name, folder, pattern, get_ts, parse_ts,
     """
     print(f"\n{label}")
     count = 0
-    for fname in _list_local(folder, pattern)[110:200]:
+    for fname in _list_local(folder, pattern)[190:200]:
         ts = get_ts(fname)
         if not ts:
             continue
@@ -210,7 +210,7 @@ try:
     print("\nGloFAS")
     count = 0
     folder = DOWNLOADS_ROOT / "GLOFAS"
-    for ts, fname in sorted(_glofas_local_files(folder).items()):
+    for ts, fname in sorted(_glofas_local_files(folder).items())[120:200]:
         parsed_ts = parse_timestamp_hh(ts)
         local_resp = _LocalFile(folder / fname)
         props = parse_geojson(local_resp) if fname.endswith(".geojson") else glofas_parse_csv(local_resp)

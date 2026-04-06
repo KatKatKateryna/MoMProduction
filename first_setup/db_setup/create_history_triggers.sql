@@ -31,7 +31,7 @@
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION fn_gfms_sync()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     batch_ts       TIMESTAMPTZ;
     row_count      INTEGER;
@@ -116,7 +116,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_gfms_sync();
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION fn_hwrf_sync()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     batch_ts  TIMESTAMPTZ;
     row_count INTEGER;
@@ -165,7 +165,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_hwrf_sync();
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION fn_viirs_sync()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     batch_ts  TIMESTAMPTZ;
     row_count INTEGER;
@@ -216,7 +216,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_viirs_sync();
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION fn_dfo_sync()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     batch_ts       TIMESTAMPTZ;
     row_count      INTEGER;
@@ -312,7 +312,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_dfo_sync();
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION fn_mom_gfms_sync()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     batch_ts  TIMESTAMPTZ;
     row_count INTEGER;
@@ -363,7 +363,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_gfms_sync();
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION fn_mom_hwrf_sync()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     batch_ts  TIMESTAMPTZ;
     row_count INTEGER;
@@ -414,7 +414,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_hwrf_sync();
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION fn_mom_dfo_sync()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     batch_ts  TIMESTAMPTZ;
     row_count INTEGER;
@@ -465,7 +465,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_dfo_sync();
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION fn_mom_viirs_sync()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     batch_ts  TIMESTAMPTZ;
     row_count INTEGER;
@@ -518,7 +518,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_viirs_sync();
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION fn_glofas_sync()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     batch_ts  TIMESTAMPTZ;
     row_count INTEGER;
@@ -575,7 +575,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_glofas_sync();
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION fn_final_alert_sync()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
     batch_ts  TIMESTAMPTZ;
     row_count INTEGER;
