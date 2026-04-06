@@ -204,14 +204,14 @@ CREATE TABLE IF NOT EXISTS summary_final_alert (
 
 
 -- ============================================================
--- MoM (Attributes_Clean) tables: one row per (pfaf_id, timestamp)
+-- MoM tables (Attributes_Clean): one row per (pfaf_id, timestamp)
 -- Four stages: GFMS → HWRF → DFO → VIIRS
 -- Columns in watershed_shapes (area, ISO, Admin0, Admin1,
 -- rfr_score, cfr_score) are excluded here.
 -- ============================================================
 
 -- GFMS MoM (Attributes_Clean_YYYYMMDD.csv — daily)
-CREATE TABLE IF NOT EXISTS summary_mom_gfms (
+CREATE TABLE IF NOT EXISTS mom_gfms (
     pfaf_id                      INTEGER         REFERENCES watershed_shapes(pfaf_id),
     "timestamp"                  TIMESTAMPTZ,
     "FID"                        DOUBLE PRECISION,
@@ -223,7 +223,7 @@ CREATE TABLE IF NOT EXISTS summary_mom_gfms (
 );
 
 -- HWRF MoM (Attributes_Clean_YYYYMMDDHHHWRFUpdated.csv)
-CREATE TABLE IF NOT EXISTS summary_mom_hwrf (
+CREATE TABLE IF NOT EXISTS mom_hwrf (
     pfaf_id                      INTEGER         REFERENCES watershed_shapes(pfaf_id),
     "timestamp"                  TIMESTAMPTZ,
     "FID"                        DOUBLE PRECISION,
@@ -235,7 +235,7 @@ CREATE TABLE IF NOT EXISTS summary_mom_hwrf (
 );
 
 -- DFO MoM (Attributes_Clean_YYYYMMDDHHMOM+DFOUpdated.csv)
-CREATE TABLE IF NOT EXISTS summary_mom_dfo (
+CREATE TABLE IF NOT EXISTS mom_dfo (
     pfaf_id                      INTEGER         REFERENCES watershed_shapes(pfaf_id),
     "timestamp"                  TIMESTAMPTZ,
     "FID"                        DOUBLE PRECISION,
@@ -247,7 +247,7 @@ CREATE TABLE IF NOT EXISTS summary_mom_dfo (
 );
 
 -- VIIRS MoM (Attributes_clean_YYYYMMDDHHWRF+MOM+DFO+VIIRSUpdated.csv)
-CREATE TABLE IF NOT EXISTS summary_mom_viirs (
+CREATE TABLE IF NOT EXISTS mom_viirs (
     pfaf_id                      INTEGER         REFERENCES watershed_shapes(pfaf_id),
     "timestamp"                  TIMESTAMPTZ,
     "FID"                        DOUBLE PRECISION,
@@ -264,7 +264,7 @@ CREATE TABLE IF NOT EXISTS summary_mom_viirs (
 -- ============================================================
 
 -- GFMS MoM Latest
-CREATE TABLE IF NOT EXISTS summary_mom_gfms_latest (
+CREATE TABLE IF NOT EXISTS mom_gfms_latest (
     "timestamp"                  TIMESTAMPTZ,
     pfaf_id                      INTEGER         PRIMARY KEY REFERENCES watershed_shapes(pfaf_id),
     "FID"                        DOUBLE PRECISION,
@@ -275,7 +275,7 @@ CREATE TABLE IF NOT EXISTS summary_mom_gfms_latest (
 );
 
 -- HWRF MoM Latest
-CREATE TABLE IF NOT EXISTS summary_mom_hwrf_latest (
+CREATE TABLE IF NOT EXISTS mom_hwrf_latest (
     "timestamp"                  TIMESTAMPTZ,
     pfaf_id                      INTEGER         PRIMARY KEY REFERENCES watershed_shapes(pfaf_id),
     "FID"                        DOUBLE PRECISION,
@@ -286,7 +286,7 @@ CREATE TABLE IF NOT EXISTS summary_mom_hwrf_latest (
 );
 
 -- DFO MoM Latest
-CREATE TABLE IF NOT EXISTS summary_mom_dfo_latest (
+CREATE TABLE IF NOT EXISTS mom_dfo_latest (
     "timestamp"                  TIMESTAMPTZ,
     pfaf_id                      INTEGER         PRIMARY KEY REFERENCES watershed_shapes(pfaf_id),
     "FID"                        DOUBLE PRECISION,
@@ -297,7 +297,7 @@ CREATE TABLE IF NOT EXISTS summary_mom_dfo_latest (
 );
 
 -- VIIRS MoM Latest
-CREATE TABLE IF NOT EXISTS summary_mom_viirs_latest (
+CREATE TABLE IF NOT EXISTS mom_viirs_latest (
     "timestamp"                  TIMESTAMPTZ,
     pfaf_id                      INTEGER         PRIMARY KEY REFERENCES watershed_shapes(pfaf_id),
     "FID"                        DOUBLE PRECISION,

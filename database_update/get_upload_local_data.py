@@ -86,25 +86,25 @@ SOURCES = [
      DOWNLOADS_ROOT / "GFMS" / "GFMS_MoM",
      r'Attributes_Clean_\d{8}\.csv',
      mom_gfms_get_ts, parse_timestamp_day,
-     "summary_mom_gfms", "stage_mom_gfms", mom_gfms_extract, "utf-8", "ignore", len),
+     "mom_gfms", "stage_mom_gfms", mom_gfms_extract, "utf-8", "ignore", len),
 
     ("MoM HWRF",   "mom_hwrf",
      DOWNLOADS_ROOT / "HWRF" / "HWRF_MoM",
      r'Attributes_Clean_\d{10}HWRFUpdated\.csv',
      mom_hwrf_get_ts, parse_timestamp_hh,
-     "summary_mom_hwrf", "stage_mom_hwrf", mom_hwrf_extract, "utf-8", "ignore", len),
+     "mom_hwrf", "stage_mom_hwrf", mom_hwrf_extract, "utf-8", "ignore", len),
 
     ("MoM DFO",    "mom_dfo",
      DOWNLOADS_ROOT / "DFO" / "DFO_MoM",
      r'Attributes_Clean_\d{10}MOM\+DFOUpdated\.csv',
      mom_dfo_get_ts, parse_timestamp_hh,
-     "summary_mom_dfo", "stage_mom_dfo", mom_dfo_extract, "utf-8", "ignore", len),
+     "mom_dfo", "stage_mom_dfo", mom_dfo_extract, "utf-8", "ignore", len),
 
     ("MoM VIIRS",  "mom_viirs",
      DOWNLOADS_ROOT / "VIIRS" / "VIIRS_MoM",
      r'Attributes_[Cc]lean_\d{10}MOM\+DFO\+VIIRSUpdated\.csv',
      mom_viirs_get_ts, parse_timestamp_hh,
-     "summary_mom_viirs", "stage_mom_viirs", mom_viirs_extract, "utf-8", "ignore", len),
+     "mom_viirs", "stage_mom_viirs", mom_viirs_extract, "utf-8", "ignore", len),
 ]
 
 

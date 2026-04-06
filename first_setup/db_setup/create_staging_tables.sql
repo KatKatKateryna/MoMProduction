@@ -410,14 +410,14 @@ BEGIN
     END IF;
 
     IF EXISTS (
-        SELECT 1 FROM summary_mom_gfms
+        SELECT 1 FROM mom_gfms
         WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
     ) THEN
         DELETE FROM stage_mom_gfms;
         RETURN NULL;
     END IF;
 
-    INSERT INTO summary_mom_gfms_latest (
+    INSERT INTO mom_gfms_latest (
         pfaf_id, "timestamp",
         "FID", "Resilience_Index", "NormalizedLackofResilience",
         "Alert", "Flag"
@@ -473,14 +473,14 @@ BEGIN
     END IF;
 
     IF EXISTS (
-        SELECT 1 FROM summary_mom_hwrf
+        SELECT 1 FROM mom_hwrf
         WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
     ) THEN
         DELETE FROM stage_mom_hwrf;
         RETURN NULL;
     END IF;
 
-    INSERT INTO summary_mom_hwrf_latest (
+    INSERT INTO mom_hwrf_latest (
         pfaf_id, "timestamp",
         "FID", "Resilience_Index", "NormalizedLackofResilience",
         "Alert", "Flag"
@@ -536,14 +536,14 @@ BEGIN
     END IF;
 
     IF EXISTS (
-        SELECT 1 FROM summary_mom_dfo
+        SELECT 1 FROM mom_dfo
         WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
     ) THEN
         DELETE FROM stage_mom_dfo;
         RETURN NULL;
     END IF;
 
-    INSERT INTO summary_mom_dfo_latest (
+    INSERT INTO mom_dfo_latest (
         pfaf_id, "timestamp",
         "FID", "Resilience_Index", "NormalizedLackofResilience",
         "Alert", "Flag"
@@ -599,14 +599,14 @@ BEGIN
     END IF;
 
     IF EXISTS (
-        SELECT 1 FROM summary_mom_viirs
+        SELECT 1 FROM mom_viirs
         WHERE "timestamp" = (SELECT "timestamp" FROM new_rows LIMIT 1)
     ) THEN
         DELETE FROM stage_mom_viirs;
         RETURN NULL;
     END IF;
 
-    INSERT INTO summary_mom_viirs_latest (
+    INSERT INTO mom_viirs_latest (
         pfaf_id, "timestamp",
         "FID", "Resilience_Index", "NormalizedLackofResilience",
         "Alert", "Flag"

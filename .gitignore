@@ -137,3 +137,4 @@ database_update/*/*
 database_update/*.csv
 *.tiff
 */*/db_config.cfg
+database_update/failed.txt

@@ -62,8 +62,8 @@ GRANT DELETE ON
     stage_mom_gfms, stage_mom_hwrf, stage_mom_dfo, stage_mom_viirs,
     summary_gfms_latest, summary_hwrf_latest, summary_viirs_latest,
     summary_dfo_latest, summary_glofas_latest, summary_final_alert_latest,
-    summary_mom_gfms_latest, summary_mom_hwrf_latest,
-    summary_mom_dfo_latest, summary_mom_viirs_latest
+    mom_gfms_latest, mom_hwrf_latest,
+    mom_dfo_latest, mom_viirs_latest
     TO "${ADMIN_USER}";
 SQL
 

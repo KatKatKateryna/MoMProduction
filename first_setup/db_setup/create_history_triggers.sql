@@ -325,10 +325,10 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    DELETE FROM summary_mom_gfms_latest
+    DELETE FROM mom_gfms_latest
     WHERE "timestamp" != batch_ts;
 
-    INSERT INTO summary_mom_gfms (
+    INSERT INTO mom_gfms (
         pfaf_id, "timestamp",
         "FID", "Resilience_Index", "NormalizedLackofResilience",
         "Alert", "Flag"
@@ -344,16 +344,16 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_mom_gfms_sync_ins ON summary_mom_gfms_latest;
-DROP TRIGGER IF EXISTS trg_mom_gfms_sync_upd ON summary_mom_gfms_latest;
+DROP TRIGGER IF EXISTS trg_mom_gfms_sync_ins ON mom_gfms_latest;
+DROP TRIGGER IF EXISTS trg_mom_gfms_sync_upd ON mom_gfms_latest;
 
 CREATE TRIGGER trg_mom_gfms_sync_ins
-AFTER INSERT ON summary_mom_gfms_latest
+AFTER INSERT ON mom_gfms_latest
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_gfms_sync();
 
 CREATE TRIGGER trg_mom_gfms_sync_upd
-AFTER UPDATE ON summary_mom_gfms_latest
+AFTER UPDATE ON mom_gfms_latest
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_gfms_sync();
 
@@ -376,10 +376,10 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    DELETE FROM summary_mom_hwrf_latest
+    DELETE FROM mom_hwrf_latest
     WHERE "timestamp" != batch_ts;
 
-    INSERT INTO summary_mom_hwrf (
+    INSERT INTO mom_hwrf (
         pfaf_id, "timestamp",
         "FID", "Resilience_Index", "NormalizedLackofResilience",
         "Alert", "Flag"
@@ -395,16 +395,16 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_mom_hwrf_sync_ins ON summary_mom_hwrf_latest;
-DROP TRIGGER IF EXISTS trg_mom_hwrf_sync_upd ON summary_mom_hwrf_latest;
+DROP TRIGGER IF EXISTS trg_mom_hwrf_sync_ins ON mom_hwrf_latest;
+DROP TRIGGER IF EXISTS trg_mom_hwrf_sync_upd ON mom_hwrf_latest;
 
 CREATE TRIGGER trg_mom_hwrf_sync_ins
-AFTER INSERT ON summary_mom_hwrf_latest
+AFTER INSERT ON mom_hwrf_latest
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_hwrf_sync();
 
 CREATE TRIGGER trg_mom_hwrf_sync_upd
-AFTER UPDATE ON summary_mom_hwrf_latest
+AFTER UPDATE ON mom_hwrf_latest
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_hwrf_sync();
 
@@ -427,10 +427,10 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    DELETE FROM summary_mom_dfo_latest
+    DELETE FROM mom_dfo_latest
     WHERE "timestamp" != batch_ts;
 
-    INSERT INTO summary_mom_dfo (
+    INSERT INTO mom_dfo (
         pfaf_id, "timestamp",
         "FID", "Resilience_Index", "NormalizedLackofResilience",
         "Alert", "Flag"
@@ -446,16 +446,16 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_mom_dfo_sync_ins ON summary_mom_dfo_latest;
-DROP TRIGGER IF EXISTS trg_mom_dfo_sync_upd ON summary_mom_dfo_latest;
+DROP TRIGGER IF EXISTS trg_mom_dfo_sync_ins ON mom_dfo_latest;
+DROP TRIGGER IF EXISTS trg_mom_dfo_sync_upd ON mom_dfo_latest;
 
 CREATE TRIGGER trg_mom_dfo_sync_ins
-AFTER INSERT ON summary_mom_dfo_latest
+AFTER INSERT ON mom_dfo_latest
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_dfo_sync();
 
 CREATE TRIGGER trg_mom_dfo_sync_upd
-AFTER UPDATE ON summary_mom_dfo_latest
+AFTER UPDATE ON mom_dfo_latest
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_dfo_sync();
 
@@ -478,10 +478,10 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    DELETE FROM summary_mom_viirs_latest
+    DELETE FROM mom_viirs_latest
     WHERE "timestamp" != batch_ts;
 
-    INSERT INTO summary_mom_viirs (
+    INSERT INTO mom_viirs (
         pfaf_id, "timestamp",
         "FID", "Resilience_Index", "NormalizedLackofResilience",
         "Alert", "Flag"
@@ -497,16 +497,16 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_mom_viirs_sync_ins ON summary_mom_viirs_latest;
-DROP TRIGGER IF EXISTS trg_mom_viirs_sync_upd ON summary_mom_viirs_latest;
+DROP TRIGGER IF EXISTS trg_mom_viirs_sync_ins ON mom_viirs_latest;
+DROP TRIGGER IF EXISTS trg_mom_viirs_sync_upd ON mom_viirs_latest;
 
 CREATE TRIGGER trg_mom_viirs_sync_ins
-AFTER INSERT ON summary_mom_viirs_latest
+AFTER INSERT ON mom_viirs_latest
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_viirs_sync();
 
 CREATE TRIGGER trg_mom_viirs_sync_upd
-AFTER UPDATE ON summary_mom_viirs_latest
+AFTER UPDATE ON mom_viirs_latest
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_viirs_sync();
 

@@ -185,7 +185,7 @@ try:
         if not ts:
             continue
         parsed_ts = parse_timestamp_day(ts)
-        if _in_history(conn, "summary_mom_gfms", parsed_ts):
+        if _in_history(conn, "mom_gfms", parsed_ts):
             print(f"  {fname}: already in DB, skipping")
             continue
         content = download_text(url + fname, errors="ignore")
@@ -206,7 +206,7 @@ try:
         if not ts:
             continue
         parsed_ts = parse_timestamp_hh(ts)
-        if _in_history(conn, "summary_mom_hwrf", parsed_ts):
+        if _in_history(conn, "mom_hwrf", parsed_ts):
             print(f"  {fname}: already in DB, skipping")
             continue
         content = download_text(url + fname, errors="ignore")
@@ -227,7 +227,7 @@ try:
         if not ts:
             continue
         parsed_ts = parse_timestamp_hh(ts)
-        if _in_history(conn, "summary_mom_dfo", parsed_ts):
+        if _in_history(conn, "mom_dfo", parsed_ts):
             print(f"  {fname}: already in DB, skipping")
             continue
         content = download_text(url + fname, errors="ignore")
@@ -248,7 +248,7 @@ try:
         if not ts:
             continue
         parsed_ts = parse_timestamp_hh(ts)
-        if _in_history(conn, "summary_mom_viirs", parsed_ts):
+        if _in_history(conn, "mom_viirs", parsed_ts):
             print(f"  {fname}: already in DB, skipping")
             continue
         content = download_text(url + fname, errors="ignore")
