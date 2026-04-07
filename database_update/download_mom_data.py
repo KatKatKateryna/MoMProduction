@@ -22,7 +22,7 @@ import requests
 BASE_URL = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/"
 FOLDERS = ["DFO", "Final_Alert", "GFMS", "GLOFAS", "HWRF", "VIIRS"]
 LOCAL_ROOT = Path(__file__).parent / "downloads_mom" if not Path("/mnt").exists() else Path("/mnt/volume_ams3_02/downloads_mom") 
-LIMIT = 100
+LIMIT = 1000
 ONLY_CSV = True
 ONLY_IMG = False
 REQUEST_DELAY = 0.5   # seconds between each HTTP request (listing or download)
@@ -73,7 +73,7 @@ def crawl(url, local_dir, session):
         return
 
     if ONLY_CSV and not ONLY_IMG:
-        files = [f for f in files if f.lower().endswith(".csv")]
+        files = [f for f in files if f.lower().endswith(".csv") or f.lower().endswith("json")]
     if ONLY_IMG and not ONLY_CSV:
         files = [f for f in files if f.lower().endswith(".tiff")]
 

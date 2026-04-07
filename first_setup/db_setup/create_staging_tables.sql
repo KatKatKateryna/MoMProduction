@@ -434,23 +434,53 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_glofas_flush();
 -- MoM GFMS
 -- =============================================================================
 
+-- stage_mom_gfms: captures both Attributes_Clean (base) and Final_Attributes (scores).
+-- Resilience columns are pass-through only — backfilled to watershed_shapes, not forwarded.
+-- No Flag column at the GFMS stage.
 CREATE TABLE IF NOT EXISTS stage_mom_gfms (
     pfaf_id                      INTEGER,
     "timestamp"                  TIMESTAMPTZ,
     "FID"                        DOUBLE PRECISION,
+    -- Pass-through only: backfilled to watershed_shapes, never forwarded to mom_gfms_latest
     "Resilience_Index"           DOUBLE PRECISION,
     "NormalizedLackofResilience" DOUBLE PRECISION,
     "Alert"                      TEXT,
-    "Flag"                       TEXT
+    "Alert_level"                DOUBLE PRECISION,
+    "Days_until_peak"            DOUBLE PRECISION,
+    "GloFAS_2yr"                 DOUBLE PRECISION,
+    "GloFAS_5yr"                 DOUBLE PRECISION,
+    "GloFAS_20yr"                DOUBLE PRECISION,
+    "Alert_Score"                DOUBLE PRECISION,
+    "PeakArrivalScore"           DOUBLE PRECISION,
+    "TwoYScore"                  DOUBLE PRECISION,
+    "FiveYScore"                 DOUBLE PRECISION,
+    "TwtyYScore"                 DOUBLE PRECISION,
+    "Sum_Score_x"                DOUBLE PRECISION,
+    "GFMS_TotalArea_km"          DOUBLE PRECISION,
+    "GFMS_perc_Area"             DOUBLE PRECISION,
+    "GFMS_MeanDepth"             DOUBLE PRECISION,
+    "GFMS_MaxDepth"              DOUBLE PRECISION,
+    "GFMS_Duration"              DOUBLE PRECISION,
+    "GFMS_area_score"            DOUBLE PRECISION,
+    "GFMS_perc_area_score"       DOUBLE PRECISION,
+    "MeanD_Score"                DOUBLE PRECISION,
+    "MaxD_Score"                 DOUBLE PRECISION,
+    "Duration_Score"             DOUBLE PRECISION,
+    "Sum_Score_y"                DOUBLE PRECISION,
+    "Hazard_Score"               DOUBLE PRECISION,
+    "Scaled_Riverine_Risk"       DOUBLE PRECISION,
+    "Scaled_Coastal_Risk"        DOUBLE PRECISION,
+    "Severity"                   DOUBLE PRECISION
 );
 
+-- Supports two-phase upsert: Attributes_Clean inserts base rows (score cols NULL),
+-- Final_Attributes enriches matching rows. COALESCE preserves non-null values from
+-- whichever phase ran first, so phases are order-independent and re-runnable.
 CREATE OR REPLACE FUNCTION fn_stage_mom_gfms_flush()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
-    rc             INTEGER;
-    batch_ts       TIMESTAMPTZ;
-    hist_count     INTEGER;
-    expected_count INTEGER;
+    rc       INTEGER;
+    batch_ts TIMESTAMPTZ;
 BEGIN
     SELECT COUNT(*), MAX("timestamp") INTO rc, batch_ts FROM new_rows;
 
@@ -459,36 +489,72 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    expected_count := COALESCE(NULLIF(current_setting('mom.expected_rows', true), '')::INTEGER, rc);
-
-    SELECT COUNT(*) INTO hist_count FROM mom_gfms WHERE "timestamp" = batch_ts;
-
-    IF hist_count >= expected_count THEN
-        DELETE FROM stage_mom_gfms;
-        RETURN NULL;
-    END IF;
-
-    IF hist_count > 0 THEN
-        DELETE FROM mom_gfms WHERE "timestamp" = batch_ts;
-    END IF;
+    -- Backfill watershed_shapes with resilience data for any pfaf_id not yet set.
+    UPDATE watershed_shapes ws
+    SET
+        "Resilience_Index"           = s."Resilience_Index",
+        "NormalizedLackofResilience" = s."NormalizedLackofResilience"
+    FROM stage_mom_gfms s
+    WHERE ws.pfaf_id = s.pfaf_id
+      AND s."Resilience_Index" IS NOT NULL
+      AND ws."Resilience_Index" IS NULL;
 
     INSERT INTO mom_gfms_latest (
         pfaf_id, "timestamp",
-        "FID", "Resilience_Index", "NormalizedLackofResilience",
-        "Alert", "Flag"
+        "FID", "Alert",
+        "Alert_level", "Days_until_peak",
+        "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr",
+        "Alert_Score", "PeakArrivalScore",
+        "TwoYScore", "FiveYScore", "TwtyYScore", "Sum_Score_x",
+        "GFMS_TotalArea_km", "GFMS_perc_Area",
+        "GFMS_MeanDepth", "GFMS_MaxDepth", "GFMS_Duration",
+        "GFMS_area_score", "GFMS_perc_area_score",
+        "MeanD_Score", "MaxD_Score", "Duration_Score", "Sum_Score_y",
+        "Hazard_Score", "Scaled_Riverine_Risk", "Scaled_Coastal_Risk", "Severity"
     )
     SELECT
         pfaf_id, "timestamp",
-        "FID", "Resilience_Index", "NormalizedLackofResilience",
-        "Alert", "Flag"
+        "FID", "Alert",
+        "Alert_level", "Days_until_peak",
+        "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr",
+        "Alert_Score", "PeakArrivalScore",
+        "TwoYScore", "FiveYScore", "TwtyYScore", "Sum_Score_x",
+        "GFMS_TotalArea_km", "GFMS_perc_Area",
+        "GFMS_MeanDepth", "GFMS_MaxDepth", "GFMS_Duration",
+        "GFMS_area_score", "GFMS_perc_area_score",
+        "MeanD_Score", "MaxD_Score", "Duration_Score", "Sum_Score_y",
+        "Hazard_Score", "Scaled_Riverine_Risk", "Scaled_Coastal_Risk", "Severity"
     FROM stage_mom_gfms
     ON CONFLICT (pfaf_id) DO UPDATE SET
-        "timestamp"                  = EXCLUDED."timestamp",
-        "FID"                        = EXCLUDED."FID",
-        "Resilience_Index"           = EXCLUDED."Resilience_Index",
-        "NormalizedLackofResilience" = EXCLUDED."NormalizedLackofResilience",
-        "Alert"                      = EXCLUDED."Alert",
-        "Flag"                       = EXCLUDED."Flag";
+        "timestamp"             = EXCLUDED."timestamp",
+        "FID"                   = COALESCE(EXCLUDED."FID",                   mom_gfms_latest."FID"),
+        "Alert"                 = COALESCE(EXCLUDED."Alert",                 mom_gfms_latest."Alert"),
+        "Alert_level"           = COALESCE(EXCLUDED."Alert_level",           mom_gfms_latest."Alert_level"),
+        "Days_until_peak"       = COALESCE(EXCLUDED."Days_until_peak",       mom_gfms_latest."Days_until_peak"),
+        "GloFAS_2yr"            = COALESCE(EXCLUDED."GloFAS_2yr",            mom_gfms_latest."GloFAS_2yr"),
+        "GloFAS_5yr"            = COALESCE(EXCLUDED."GloFAS_5yr",            mom_gfms_latest."GloFAS_5yr"),
+        "GloFAS_20yr"           = COALESCE(EXCLUDED."GloFAS_20yr",           mom_gfms_latest."GloFAS_20yr"),
+        "Alert_Score"           = COALESCE(EXCLUDED."Alert_Score",           mom_gfms_latest."Alert_Score"),
+        "PeakArrivalScore"      = COALESCE(EXCLUDED."PeakArrivalScore",      mom_gfms_latest."PeakArrivalScore"),
+        "TwoYScore"             = COALESCE(EXCLUDED."TwoYScore",             mom_gfms_latest."TwoYScore"),
+        "FiveYScore"            = COALESCE(EXCLUDED."FiveYScore",            mom_gfms_latest."FiveYScore"),
+        "TwtyYScore"            = COALESCE(EXCLUDED."TwtyYScore",            mom_gfms_latest."TwtyYScore"),
+        "Sum_Score_x"           = COALESCE(EXCLUDED."Sum_Score_x",           mom_gfms_latest."Sum_Score_x"),
+        "GFMS_TotalArea_km"     = COALESCE(EXCLUDED."GFMS_TotalArea_km",     mom_gfms_latest."GFMS_TotalArea_km"),
+        "GFMS_perc_Area"        = COALESCE(EXCLUDED."GFMS_perc_Area",        mom_gfms_latest."GFMS_perc_Area"),
+        "GFMS_MeanDepth"        = COALESCE(EXCLUDED."GFMS_MeanDepth",        mom_gfms_latest."GFMS_MeanDepth"),
+        "GFMS_MaxDepth"         = COALESCE(EXCLUDED."GFMS_MaxDepth",         mom_gfms_latest."GFMS_MaxDepth"),
+        "GFMS_Duration"         = COALESCE(EXCLUDED."GFMS_Duration",         mom_gfms_latest."GFMS_Duration"),
+        "GFMS_area_score"       = COALESCE(EXCLUDED."GFMS_area_score",       mom_gfms_latest."GFMS_area_score"),
+        "GFMS_perc_area_score"  = COALESCE(EXCLUDED."GFMS_perc_area_score",  mom_gfms_latest."GFMS_perc_area_score"),
+        "MeanD_Score"           = COALESCE(EXCLUDED."MeanD_Score",           mom_gfms_latest."MeanD_Score"),
+        "MaxD_Score"            = COALESCE(EXCLUDED."MaxD_Score",            mom_gfms_latest."MaxD_Score"),
+        "Duration_Score"        = COALESCE(EXCLUDED."Duration_Score",        mom_gfms_latest."Duration_Score"),
+        "Sum_Score_y"           = COALESCE(EXCLUDED."Sum_Score_y",           mom_gfms_latest."Sum_Score_y"),
+        "Hazard_Score"          = COALESCE(EXCLUDED."Hazard_Score",          mom_gfms_latest."Hazard_Score"),
+        "Scaled_Riverine_Risk"  = COALESCE(EXCLUDED."Scaled_Riverine_Risk",  mom_gfms_latest."Scaled_Riverine_Risk"),
+        "Scaled_Coastal_Risk"   = COALESCE(EXCLUDED."Scaled_Coastal_Risk",   mom_gfms_latest."Scaled_Coastal_Risk"),
+        "Severity"              = COALESCE(EXCLUDED."Severity",              mom_gfms_latest."Severity");
 
     DELETE FROM stage_mom_gfms;
     RETURN NULL;
@@ -505,23 +571,40 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_mom_gfms_flush();
 -- MoM HWRF
 -- =============================================================================
 
+-- stage_mom_hwrf: captures Attributes_Clean (base) and Final_Attributes (HWRF scores).
+-- Resilience columns are pass-through only — backfilled to watershed_shapes, not forwarded.
+-- GloFAS/GFMS columns are ignored (upsert_dataframe silently drops unknown cols).
 CREATE TABLE IF NOT EXISTS stage_mom_hwrf (
     pfaf_id                      INTEGER,
     "timestamp"                  TIMESTAMPTZ,
     "FID"                        DOUBLE PRECISION,
+    -- Pass-through only: backfilled to watershed_shapes, never forwarded to mom_hwrf_latest
     "Resilience_Index"           DOUBLE PRECISION,
     "NormalizedLackofResilience" DOUBLE PRECISION,
     "Alert"                      TEXT,
-    "Flag"                       TEXT
+    "Flag"                       TEXT,
+    "Rain_TotalArea_km"          DOUBLE PRECISION,
+    "perc_Area"                  DOUBLE PRECISION,
+    "MeanRain"                   DOUBLE PRECISION,
+    "MaxRain"                    DOUBLE PRECISION,
+    "HWRF_area_score"            DOUBLE PRECISION,
+    "HWRF_percarea_score"        DOUBLE PRECISION,
+    "MeanRain_Score"             DOUBLE PRECISION,
+    "MaxRain_Score"              DOUBLE PRECISION,
+    "HWRFTot_Score"              DOUBLE PRECISION,
+    "MOM_Score"                  DOUBLE PRECISION,
+    "Hazard_Score"               DOUBLE PRECISION,
+    "Severity"                   DOUBLE PRECISION
 );
 
+-- Supports two-phase upsert: Attributes_Clean inserts base rows (score cols NULL),
+-- Final_Attributes enriches matching rows. COALESCE preserves non-null values from
+-- whichever phase ran first, so phases are order-independent and re-runnable.
 CREATE OR REPLACE FUNCTION fn_stage_mom_hwrf_flush()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
-    rc             INTEGER;
-    batch_ts       TIMESTAMPTZ;
-    hist_count     INTEGER;
-    expected_count INTEGER;
+    rc       INTEGER;
+    batch_ts TIMESTAMPTZ;
 BEGIN
     SELECT COUNT(*), MAX("timestamp") INTO rc, batch_ts FROM new_rows;
 
@@ -530,36 +613,49 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    expected_count := COALESCE(NULLIF(current_setting('mom.expected_rows', true), '')::INTEGER, rc);
-
-    SELECT COUNT(*) INTO hist_count FROM mom_hwrf WHERE "timestamp" = batch_ts;
-
-    IF hist_count >= expected_count THEN
-        DELETE FROM stage_mom_hwrf;
-        RETURN NULL;
-    END IF;
-
-    IF hist_count > 0 THEN
-        DELETE FROM mom_hwrf WHERE "timestamp" = batch_ts;
-    END IF;
+    -- Backfill watershed_shapes with resilience data for any pfaf_id not yet set.
+    UPDATE watershed_shapes ws
+    SET
+        "Resilience_Index"           = s."Resilience_Index",
+        "NormalizedLackofResilience" = s."NormalizedLackofResilience"
+    FROM stage_mom_hwrf s
+    WHERE ws.pfaf_id = s.pfaf_id
+      AND s."Resilience_Index" IS NOT NULL
+      AND ws."Resilience_Index" IS NULL;
 
     INSERT INTO mom_hwrf_latest (
         pfaf_id, "timestamp",
-        "FID", "Resilience_Index", "NormalizedLackofResilience",
-        "Alert", "Flag"
+        "FID", "Alert", "Flag",
+        "Rain_TotalArea_km", "perc_Area", "MeanRain", "MaxRain",
+        "HWRF_area_score", "HWRF_percarea_score",
+        "MeanRain_Score", "MaxRain_Score", "HWRFTot_Score",
+        "MOM_Score", "Hazard_Score", "Severity"
     )
     SELECT
         pfaf_id, "timestamp",
-        "FID", "Resilience_Index", "NormalizedLackofResilience",
-        "Alert", "Flag"
+        "FID", "Alert", "Flag",
+        "Rain_TotalArea_km", "perc_Area", "MeanRain", "MaxRain",
+        "HWRF_area_score", "HWRF_percarea_score",
+        "MeanRain_Score", "MaxRain_Score", "HWRFTot_Score",
+        "MOM_Score", "Hazard_Score", "Severity"
     FROM stage_mom_hwrf
     ON CONFLICT (pfaf_id) DO UPDATE SET
-        "timestamp"                  = EXCLUDED."timestamp",
-        "FID"                        = EXCLUDED."FID",
-        "Resilience_Index"           = EXCLUDED."Resilience_Index",
-        "NormalizedLackofResilience" = EXCLUDED."NormalizedLackofResilience",
-        "Alert"                      = EXCLUDED."Alert",
-        "Flag"                       = EXCLUDED."Flag";
+        "timestamp"           = EXCLUDED."timestamp",
+        "FID"                 = COALESCE(EXCLUDED."FID",                 mom_hwrf_latest."FID"),
+        "Alert"               = COALESCE(EXCLUDED."Alert",               mom_hwrf_latest."Alert"),
+        "Flag"                = COALESCE(EXCLUDED."Flag",                mom_hwrf_latest."Flag"),
+        "Rain_TotalArea_km"   = COALESCE(EXCLUDED."Rain_TotalArea_km",   mom_hwrf_latest."Rain_TotalArea_km"),
+        "perc_Area"           = COALESCE(EXCLUDED."perc_Area",           mom_hwrf_latest."perc_Area"),
+        "MeanRain"            = COALESCE(EXCLUDED."MeanRain",            mom_hwrf_latest."MeanRain"),
+        "MaxRain"             = COALESCE(EXCLUDED."MaxRain",             mom_hwrf_latest."MaxRain"),
+        "HWRF_area_score"     = COALESCE(EXCLUDED."HWRF_area_score",     mom_hwrf_latest."HWRF_area_score"),
+        "HWRF_percarea_score" = COALESCE(EXCLUDED."HWRF_percarea_score", mom_hwrf_latest."HWRF_percarea_score"),
+        "MeanRain_Score"      = COALESCE(EXCLUDED."MeanRain_Score",      mom_hwrf_latest."MeanRain_Score"),
+        "MaxRain_Score"       = COALESCE(EXCLUDED."MaxRain_Score",       mom_hwrf_latest."MaxRain_Score"),
+        "HWRFTot_Score"       = COALESCE(EXCLUDED."HWRFTot_Score",       mom_hwrf_latest."HWRFTot_Score"),
+        "MOM_Score"           = COALESCE(EXCLUDED."MOM_Score",           mom_hwrf_latest."MOM_Score"),
+        "Hazard_Score"        = COALESCE(EXCLUDED."Hazard_Score",        mom_hwrf_latest."Hazard_Score"),
+        "Severity"            = COALESCE(EXCLUDED."Severity",            mom_hwrf_latest."Severity");
 
     DELETE FROM stage_mom_hwrf;
     RETURN NULL;
@@ -576,23 +672,45 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_mom_hwrf_flush();
 -- MoM DFO
 -- =============================================================================
 
+-- stage_mom_dfo: captures Attributes_Clean (base) and Final_Attributes (DFO scores).
+-- Resilience columns are pass-through only — backfilled to watershed_shapes, not forwarded.
+-- GloFAS/GFMS/HWRF columns are ignored (upsert_dataframe silently drops unknown cols).
 CREATE TABLE IF NOT EXISTS stage_mom_dfo (
     pfaf_id                      INTEGER,
     "timestamp"                  TIMESTAMPTZ,
     "FID"                        DOUBLE PRECISION,
+    "Alert"                      TEXT,
+    "Flag"                       TEXT,
+    -- Pass-through only: backfilled to watershed_shapes, never forwarded to mom_dfo_latest
     "Resilience_Index"           DOUBLE PRECISION,
     "NormalizedLackofResilience" DOUBLE PRECISION,
-    "Alert"                      TEXT,
-    "Flag"                       TEXT
+    "1-Day_TotalArea_km2"        DOUBLE PRECISION,
+    "1-Day_perc_Area"            DOUBLE PRECISION,
+    "1-Day_CS_TotalArea_km2"     DOUBLE PRECISION,
+    "1-Day_CS_perc_Area"         DOUBLE PRECISION,
+    "2-Day_TotalArea_km2"        DOUBLE PRECISION,
+    "2-Day_perc_Area"            DOUBLE PRECISION,
+    "3-Day_TotalArea_km2"        DOUBLE PRECISION,
+    "3-Day_perc_Area"            DOUBLE PRECISION,
+    "DFO_area_1day_score"        DOUBLE PRECISION,
+    "DFO_percarea_1day_score"    DOUBLE PRECISION,
+    "DFO_area_2day_score"        DOUBLE PRECISION,
+    "DFO_percarea_2day_score"    DOUBLE PRECISION,
+    "DFO_area_3day_score"        DOUBLE PRECISION,
+    "DFO_percarea_3day_score"    DOUBLE PRECISION,
+    "DFOTotal_Score"             DOUBLE PRECISION,
+    "Hazard_Score"               DOUBLE PRECISION,
+    "Severity"                   DOUBLE PRECISION
 );
 
+-- Supports two-phase upsert: Attributes_Clean inserts base rows (score cols NULL),
+-- Final_Attributes enriches matching rows. COALESCE preserves non-null values from
+-- whichever phase ran first, so phases are order-independent and re-runnable.
 CREATE OR REPLACE FUNCTION fn_stage_mom_dfo_flush()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
-    rc             INTEGER;
-    batch_ts       TIMESTAMPTZ;
-    hist_count     INTEGER;
-    expected_count INTEGER;
+    rc       INTEGER;
+    batch_ts TIMESTAMPTZ;
 BEGIN
     SELECT COUNT(*), MAX("timestamp") INTO rc, batch_ts FROM new_rows;
 
@@ -601,36 +719,62 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    expected_count := COALESCE(NULLIF(current_setting('mom.expected_rows', true), '')::INTEGER, rc);
-
-    SELECT COUNT(*) INTO hist_count FROM mom_dfo WHERE "timestamp" = batch_ts;
-
-    IF hist_count >= expected_count THEN
-        DELETE FROM stage_mom_dfo;
-        RETURN NULL;
-    END IF;
-
-    IF hist_count > 0 THEN
-        DELETE FROM mom_dfo WHERE "timestamp" = batch_ts;
-    END IF;
+    -- Backfill watershed_shapes with resilience data for any pfaf_id not yet set.
+    UPDATE watershed_shapes ws
+    SET
+        "Resilience_Index"           = s."Resilience_Index",
+        "NormalizedLackofResilience" = s."NormalizedLackofResilience"
+    FROM stage_mom_dfo s
+    WHERE ws.pfaf_id = s.pfaf_id
+      AND s."Resilience_Index" IS NOT NULL
+      AND ws."Resilience_Index" IS NULL;
 
     INSERT INTO mom_dfo_latest (
         pfaf_id, "timestamp",
-        "FID", "Resilience_Index", "NormalizedLackofResilience",
-        "Alert", "Flag"
+        "FID", "Alert", "Flag",
+        "1-Day_TotalArea_km2", "1-Day_perc_Area",
+        "1-Day_CS_TotalArea_km2", "1-Day_CS_perc_Area",
+        "2-Day_TotalArea_km2", "2-Day_perc_Area",
+        "3-Day_TotalArea_km2", "3-Day_perc_Area",
+        "DFO_area_1day_score", "DFO_percarea_1day_score",
+        "DFO_area_2day_score", "DFO_percarea_2day_score",
+        "DFO_area_3day_score", "DFO_percarea_3day_score",
+        "DFOTotal_Score", "Hazard_Score", "Severity"
     )
     SELECT
         pfaf_id, "timestamp",
-        "FID", "Resilience_Index", "NormalizedLackofResilience",
-        "Alert", "Flag"
+        "FID", "Alert", "Flag",
+        "1-Day_TotalArea_km2", "1-Day_perc_Area",
+        "1-Day_CS_TotalArea_km2", "1-Day_CS_perc_Area",
+        "2-Day_TotalArea_km2", "2-Day_perc_Area",
+        "3-Day_TotalArea_km2", "3-Day_perc_Area",
+        "DFO_area_1day_score", "DFO_percarea_1day_score",
+        "DFO_area_2day_score", "DFO_percarea_2day_score",
+        "DFO_area_3day_score", "DFO_percarea_3day_score",
+        "DFOTotal_Score", "Hazard_Score", "Severity"
     FROM stage_mom_dfo
     ON CONFLICT (pfaf_id) DO UPDATE SET
-        "timestamp"                  = EXCLUDED."timestamp",
-        "FID"                        = EXCLUDED."FID",
-        "Resilience_Index"           = EXCLUDED."Resilience_Index",
-        "NormalizedLackofResilience" = EXCLUDED."NormalizedLackofResilience",
-        "Alert"                      = EXCLUDED."Alert",
-        "Flag"                       = EXCLUDED."Flag";
+        "timestamp"               = EXCLUDED."timestamp",
+        "FID"                     = COALESCE(EXCLUDED."FID",                     mom_dfo_latest."FID"),
+        "Alert"                   = COALESCE(EXCLUDED."Alert",                   mom_dfo_latest."Alert"),
+        "Flag"                    = COALESCE(EXCLUDED."Flag",                    mom_dfo_latest."Flag"),
+        "1-Day_TotalArea_km2"     = COALESCE(EXCLUDED."1-Day_TotalArea_km2",     mom_dfo_latest."1-Day_TotalArea_km2"),
+        "1-Day_perc_Area"         = COALESCE(EXCLUDED."1-Day_perc_Area",         mom_dfo_latest."1-Day_perc_Area"),
+        "1-Day_CS_TotalArea_km2"  = COALESCE(EXCLUDED."1-Day_CS_TotalArea_km2",  mom_dfo_latest."1-Day_CS_TotalArea_km2"),
+        "1-Day_CS_perc_Area"      = COALESCE(EXCLUDED."1-Day_CS_perc_Area",      mom_dfo_latest."1-Day_CS_perc_Area"),
+        "2-Day_TotalArea_km2"     = COALESCE(EXCLUDED."2-Day_TotalArea_km2",     mom_dfo_latest."2-Day_TotalArea_km2"),
+        "2-Day_perc_Area"         = COALESCE(EXCLUDED."2-Day_perc_Area",         mom_dfo_latest."2-Day_perc_Area"),
+        "3-Day_TotalArea_km2"     = COALESCE(EXCLUDED."3-Day_TotalArea_km2",     mom_dfo_latest."3-Day_TotalArea_km2"),
+        "3-Day_perc_Area"         = COALESCE(EXCLUDED."3-Day_perc_Area",         mom_dfo_latest."3-Day_perc_Area"),
+        "DFO_area_1day_score"     = COALESCE(EXCLUDED."DFO_area_1day_score",     mom_dfo_latest."DFO_area_1day_score"),
+        "DFO_percarea_1day_score" = COALESCE(EXCLUDED."DFO_percarea_1day_score", mom_dfo_latest."DFO_percarea_1day_score"),
+        "DFO_area_2day_score"     = COALESCE(EXCLUDED."DFO_area_2day_score",     mom_dfo_latest."DFO_area_2day_score"),
+        "DFO_percarea_2day_score" = COALESCE(EXCLUDED."DFO_percarea_2day_score", mom_dfo_latest."DFO_percarea_2day_score"),
+        "DFO_area_3day_score"     = COALESCE(EXCLUDED."DFO_area_3day_score",     mom_dfo_latest."DFO_area_3day_score"),
+        "DFO_percarea_3day_score" = COALESCE(EXCLUDED."DFO_percarea_3day_score", mom_dfo_latest."DFO_percarea_3day_score"),
+        "DFOTotal_Score"          = COALESCE(EXCLUDED."DFOTotal_Score",          mom_dfo_latest."DFOTotal_Score"),
+        "Hazard_Score"            = COALESCE(EXCLUDED."Hazard_Score",            mom_dfo_latest."Hazard_Score"),
+        "Severity"                = COALESCE(EXCLUDED."Severity",                mom_dfo_latest."Severity");
 
     DELETE FROM stage_mom_dfo;
     RETURN NULL;
@@ -647,23 +791,39 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_stage_mom_dfo_flush();
 -- MoM VIIRS
 -- =============================================================================
 
+-- stage_mom_viirs: captures Attributes_Clean (base) and Final_Attributes (VIIRS scores).
+-- Resilience columns are pass-through only — backfilled to watershed_shapes, not forwarded.
+-- GloFAS/GFMS/HWRF/DFO columns are ignored (upsert_dataframe silently drops unknown cols).
 CREATE TABLE IF NOT EXISTS stage_mom_viirs (
     pfaf_id                      INTEGER,
     "timestamp"                  TIMESTAMPTZ,
     "FID"                        DOUBLE PRECISION,
+    -- Pass-through only: backfilled to watershed_shapes, never forwarded to mom_viirs_latest
     "Resilience_Index"           DOUBLE PRECISION,
     "NormalizedLackofResilience" DOUBLE PRECISION,
     "Alert"                      TEXT,
-    "Flag"                       TEXT
+    "Flag"                       TEXT,
+    "onedayFlood_Area_km"        DOUBLE PRECISION,
+    "onedayperc_Area"            DOUBLE PRECISION,
+    "fivedayFlood_Area_km"       DOUBLE PRECISION,
+    "fivedayperc_Area"           DOUBLE PRECISION,
+    "VIIRS_area_1day_score"      DOUBLE PRECISION,
+    "VIIRS_percarea_1day_score"  DOUBLE PRECISION,
+    "VIIRS_area_5day_score"      DOUBLE PRECISION,
+    "VIIRS_percarea_5day_score"  DOUBLE PRECISION,
+    "VIIRSTotal_Score"           DOUBLE PRECISION,
+    "Hazard_Score"               DOUBLE PRECISION,
+    "Severity"                   DOUBLE PRECISION
 );
 
+-- Supports two-phase upsert: Attributes_Clean inserts base rows (score cols NULL),
+-- Final_Attributes enriches matching rows. COALESCE preserves non-null values from
+-- whichever phase ran first, so phases are order-independent and re-runnable.
 CREATE OR REPLACE FUNCTION fn_stage_mom_viirs_flush()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
-    rc             INTEGER;
-    batch_ts       TIMESTAMPTZ;
-    hist_count     INTEGER;
-    expected_count INTEGER;
+    rc       INTEGER;
+    batch_ts TIMESTAMPTZ;
 BEGIN
     SELECT COUNT(*), MAX("timestamp") INTO rc, batch_ts FROM new_rows;
 
@@ -672,36 +832,50 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    expected_count := COALESCE(NULLIF(current_setting('mom.expected_rows', true), '')::INTEGER, rc);
-
-    SELECT COUNT(*) INTO hist_count FROM mom_viirs WHERE "timestamp" = batch_ts;
-
-    IF hist_count >= expected_count THEN
-        DELETE FROM stage_mom_viirs;
-        RETURN NULL;
-    END IF;
-
-    IF hist_count > 0 THEN
-        DELETE FROM mom_viirs WHERE "timestamp" = batch_ts;
-    END IF;
+    -- Backfill watershed_shapes with resilience data for any pfaf_id not yet set.
+    UPDATE watershed_shapes ws
+    SET
+        "Resilience_Index"           = s."Resilience_Index",
+        "NormalizedLackofResilience" = s."NormalizedLackofResilience"
+    FROM stage_mom_viirs s
+    WHERE ws.pfaf_id = s.pfaf_id
+      AND s."Resilience_Index" IS NOT NULL
+      AND ws."Resilience_Index" IS NULL;
 
     INSERT INTO mom_viirs_latest (
         pfaf_id, "timestamp",
-        "FID", "Resilience_Index", "NormalizedLackofResilience",
-        "Alert", "Flag"
+        "FID", "Alert", "Flag",
+        "onedayFlood_Area_km", "onedayperc_Area",
+        "fivedayFlood_Area_km", "fivedayperc_Area",
+        "VIIRS_area_1day_score", "VIIRS_percarea_1day_score",
+        "VIIRS_area_5day_score", "VIIRS_percarea_5day_score",
+        "VIIRSTotal_Score", "Hazard_Score", "Severity"
     )
     SELECT
         pfaf_id, "timestamp",
-        "FID", "Resilience_Index", "NormalizedLackofResilience",
-        "Alert", "Flag"
+        "FID", "Alert", "Flag",
+        "onedayFlood_Area_km", "onedayperc_Area",
+        "fivedayFlood_Area_km", "fivedayperc_Area",
+        "VIIRS_area_1day_score", "VIIRS_percarea_1day_score",
+        "VIIRS_area_5day_score", "VIIRS_percarea_5day_score",
+        "VIIRSTotal_Score", "Hazard_Score", "Severity"
     FROM stage_mom_viirs
     ON CONFLICT (pfaf_id) DO UPDATE SET
         "timestamp"                  = EXCLUDED."timestamp",
-        "FID"                        = EXCLUDED."FID",
-        "Resilience_Index"           = EXCLUDED."Resilience_Index",
-        "NormalizedLackofResilience" = EXCLUDED."NormalizedLackofResilience",
-        "Alert"                      = EXCLUDED."Alert",
-        "Flag"                       = EXCLUDED."Flag";
+        "FID"                        = COALESCE(EXCLUDED."FID",                        mom_viirs_latest."FID"),
+        "Alert"                      = COALESCE(EXCLUDED."Alert",                      mom_viirs_latest."Alert"),
+        "Flag"                       = COALESCE(EXCLUDED."Flag",                       mom_viirs_latest."Flag"),
+        "onedayFlood_Area_km"        = COALESCE(EXCLUDED."onedayFlood_Area_km",        mom_viirs_latest."onedayFlood_Area_km"),
+        "onedayperc_Area"            = COALESCE(EXCLUDED."onedayperc_Area",            mom_viirs_latest."onedayperc_Area"),
+        "fivedayFlood_Area_km"       = COALESCE(EXCLUDED."fivedayFlood_Area_km",       mom_viirs_latest."fivedayFlood_Area_km"),
+        "fivedayperc_Area"           = COALESCE(EXCLUDED."fivedayperc_Area",           mom_viirs_latest."fivedayperc_Area"),
+        "VIIRS_area_1day_score"      = COALESCE(EXCLUDED."VIIRS_area_1day_score",      mom_viirs_latest."VIIRS_area_1day_score"),
+        "VIIRS_percarea_1day_score"  = COALESCE(EXCLUDED."VIIRS_percarea_1day_score",  mom_viirs_latest."VIIRS_percarea_1day_score"),
+        "VIIRS_area_5day_score"      = COALESCE(EXCLUDED."VIIRS_area_5day_score",      mom_viirs_latest."VIIRS_area_5day_score"),
+        "VIIRS_percarea_5day_score"  = COALESCE(EXCLUDED."VIIRS_percarea_5day_score",  mom_viirs_latest."VIIRS_percarea_5day_score"),
+        "VIIRSTotal_Score"           = COALESCE(EXCLUDED."VIIRSTotal_Score",           mom_viirs_latest."VIIRSTotal_Score"),
+        "Hazard_Score"               = COALESCE(EXCLUDED."Hazard_Score",               mom_viirs_latest."Hazard_Score"),
+        "Severity"                   = COALESCE(EXCLUDED."Severity",                   mom_viirs_latest."Severity");
 
     DELETE FROM stage_mom_viirs;
     RETURN NULL;

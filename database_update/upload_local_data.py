@@ -25,10 +25,14 @@ from db_upload_utils.update_db_viirs       import get_timestamp as viirs_get_ts,
 from db_upload_utils.update_db_final_alert import get_timestamp as fa_get_ts,    extract_df as fa_extract
 from db_upload_utils.update_db_glofas      import parse_geojson, parse_csv as glofas_parse_csv, build_df as glofas_build
 from db_upload_utils.update_db_mom import (
-    get_timestamp_gfms  as mom_gfms_get_ts,  extract_df_gfms  as mom_gfms_extract,
-    get_timestamp_hwrf  as mom_hwrf_get_ts,  extract_df_hwrf  as mom_hwrf_extract,
-    get_timestamp_dfo   as mom_dfo_get_ts,   extract_df_dfo   as mom_dfo_extract,
-    get_timestamp_viirs as mom_viirs_get_ts, extract_df_viirs as mom_viirs_extract,
+    get_timestamp_gfms        as mom_gfms_get_ts,        extract_df_gfms  as mom_gfms_extract,
+    get_timestamp_hwrf        as mom_hwrf_get_ts,        extract_df_hwrf  as mom_hwrf_extract,
+    get_timestamp_dfo         as mom_dfo_get_ts,         extract_df_dfo   as mom_dfo_extract,
+    get_timestamp_viirs       as mom_viirs_get_ts,       extract_df_viirs as mom_viirs_extract,
+    get_timestamp_final_gfms  as mom_final_gfms_get_ts,
+    get_timestamp_final_hwrf  as mom_final_hwrf_get_ts,
+    get_timestamp_final_dfo   as mom_final_dfo_get_ts,
+    get_timestamp_final_viirs as mom_final_viirs_get_ts,
 )
 
 # =============================================================================
@@ -114,82 +118,121 @@ def _glofas_ext(path, ts):
 
 
 # Each entry: (label, log_name, folder, file_lister, parse_ts,
-#              history_table, stage_table, extract_fn, count_fn)
-# file_lister: callable(folder) -> [(ts_str, fname)]
-# extract_fn:  callable(path, ts) -> DataFrame
-# count_fn:    callable(df) -> int; defaults to len.
-#              Pass a custom function for sources where the history trigger
-#              filters rows (GFMS, DFO).
+#              history_table, stage_table, extract_fn, count_fn, always_upload)
+# file_lister:   callable(folder) -> [(ts_str, fname)]
+# extract_fn:    callable(path, ts) -> DataFrame
+# count_fn:      callable(df) -> int; defaults to len.
+#                Pass a custom function for sources where the history trigger
+#                filters rows (GFMS, DFO).
+# always_upload: if True, skip the history row-count check and always upload.
+#                Used for Final_Attributes files (Phase 2 COALESCE enrichment)
+#                where the row count is unchanged but score columns are filled in.
 SOURCES = [
     ("GFMS",        "gfms_summary",
      DOWNLOADS_ROOT / "GFMS" / "GFMS_summary",
      _csv_files(r'Flood_byStor_\d+\.csv', gfms_get_ts),
      parse_timestamp_hh,
      "summary_gfms", "stage_gfms",
-     _text_ext(gfms_extract), _count_nonzero_gfms),
+     _text_ext(gfms_extract), _count_nonzero_gfms, False),
 
     ("HWRF",        "hwrf_summary",
      DOWNLOADS_ROOT / "HWRF" / "HWRF_summary",
      _csv_files(r'hwrf\.\d+rainfall\.csv', hwrf_get_ts),
      parse_timestamp_hh,
      "summary_hwrf", "stage_hwrf",
-     _text_ext(hwrf_extract), len),
+     _text_ext(hwrf_extract), len, False),
 
     ("DFO",         "dfo_summary",
      DOWNLOADS_ROOT / "DFO" / "DFO_summary",
      _csv_files(r'DFO_\w+\.csv', dfo_get_ts),
      parse_timestamp_day,
      "summary_dfo", "stage_dfo",
-     _text_ext(dfo_extract), _count_nonzero_dfo),
+     _text_ext(dfo_extract), _count_nonzero_dfo, False),
 
     ("VIIRS",       "viirs_summary",
      DOWNLOADS_ROOT / "VIIRS" / "VIIRS_summary",
      _csv_files(r'VIIRS_Flood_\d+\.csv', viirs_get_ts),
      parse_timestamp_day,
      "summary_viirs", "stage_viirs",
-     _text_ext(viirs_extract), len),
+     _text_ext(viirs_extract), len, False),
 
     ("Final Alert", "final_alert",
      DOWNLOADS_ROOT / "Final_Alert",
      _csv_files(r'Final_Attributes_[^/]+\.csv', fa_get_ts),
      parse_timestamp_hh,
      "summary_final_alert", "stage_final_alert",
-     _text_ext(fa_extract, errors="ignore"), len),
+     _text_ext(fa_extract, errors="ignore"), len, False),
 
-    ("MoM GFMS",   "mom_gfms",
+    # Phase 1: Attributes_Clean — base watershed data (score columns may be absent)
+    ("MoM GFMS",        "mom_gfms",
      DOWNLOADS_ROOT / "GFMS" / "GFMS_MoM",
      _csv_files(r'Attributes_Clean_\d{8}\.csv', mom_gfms_get_ts),
      parse_timestamp_day,
      "mom_gfms", "stage_mom_gfms",
-     _text_ext(mom_gfms_extract, errors="ignore"), len),
+     _text_ext(mom_gfms_extract, errors="ignore"), len, False),
 
-    ("MoM HWRF",   "mom_hwrf",
+    # Phase 2: Final_Attributes — enriched output with computed scores (COALESCE update)
+    ("MoM GFMS Final",  "mom_gfms_final",
+     DOWNLOADS_ROOT / "GFMS" / "GFMS_MoM",
+     _csv_files(r'Final_Attributes_\d{8}\.csv', mom_final_gfms_get_ts),
+     parse_timestamp_day,
+     "mom_gfms", "stage_mom_gfms",
+     _text_ext(mom_gfms_extract, errors="ignore"), len, True),
+
+    # Phase 1: Attributes_Clean
+    ("MoM HWRF",        "mom_hwrf",
      DOWNLOADS_ROOT / "HWRF" / "HWRF_MoM",
      _csv_files(r'Attributes_Clean_\d{10}HWRFUpdated\.csv', mom_hwrf_get_ts),
      parse_timestamp_hh,
      "mom_hwrf", "stage_mom_hwrf",
-     _text_ext(mom_hwrf_extract, errors="ignore"), len),
+     _text_ext(mom_hwrf_extract, errors="ignore"), len, False),
 
-    ("MoM DFO",    "mom_dfo",
+    # Phase 2: Final_Attributes
+    ("MoM HWRF Final",  "mom_hwrf_final",
+     DOWNLOADS_ROOT / "HWRF" / "HWRF_MoM",
+     _csv_files(r'Final_Attributes_\d{10}HWRFUpdated\.csv', mom_final_hwrf_get_ts),
+     parse_timestamp_hh,
+     "mom_hwrf", "stage_mom_hwrf",
+     _text_ext(mom_hwrf_extract, errors="ignore"), len, True),
+
+    # Phase 1: Attributes_Clean
+    ("MoM DFO",         "mom_dfo",
      DOWNLOADS_ROOT / "DFO" / "DFO_MoM",
      _csv_files(r'Attributes_Clean_\d{10}MOM\+DFOUpdated\.csv', mom_dfo_get_ts),
      parse_timestamp_hh,
      "mom_dfo", "stage_mom_dfo",
-     _text_ext(mom_dfo_extract, errors="ignore"), len),
+     _text_ext(mom_dfo_extract, errors="ignore"), len, False),
 
-    ("MoM VIIRS",  "mom_viirs",
+    # Phase 2: Final_Attributes
+    ("MoM DFO Final",   "mom_dfo_final",
+     DOWNLOADS_ROOT / "DFO" / "DFO_MoM",
+     _csv_files(r'Final_Attributes_\d{10}MOM\+DFOUpdated\.csv', mom_final_dfo_get_ts),
+     parse_timestamp_hh,
+     "mom_dfo", "stage_mom_dfo",
+     _text_ext(mom_dfo_extract, errors="ignore"), len, True),
+
+    # Phase 1: Attributes_Clean
+    ("MoM VIIRS",       "mom_viirs",
      DOWNLOADS_ROOT / "VIIRS" / "VIIRS_MoM",
      _csv_files(r'Attributes_[Cc]lean_\d{10}MOM\+DFO\+VIIRSUpdated\.csv', mom_viirs_get_ts),
      parse_timestamp_hh,
      "mom_viirs", "stage_mom_viirs",
-     _text_ext(mom_viirs_extract, errors="ignore"), len),
+     _text_ext(mom_viirs_extract, errors="ignore"), len, False),
 
-    ("GloFAS",     "glofas",
+    # Phase 2: Final_Attributes
+    ("MoM VIIRS Final", "mom_viirs_final",
+     DOWNLOADS_ROOT / "VIIRS" / "VIIRS_MoM",
+     _csv_files(r'Final_Attributes_\d{10}MOM\+DFO\+VIIRSUpdated\.csv', mom_final_viirs_get_ts),
+     parse_timestamp_hh,
+     "mom_viirs", "stage_mom_viirs",
+     _text_ext(mom_viirs_extract, errors="ignore"), len, True),
+
+    ("GloFAS",          "glofas",
      DOWNLOADS_ROOT / "GLOFAS",
      _glofas_files,
      parse_timestamp_hh,
      "summary_glofas", "stage_glofas",
-     _glofas_ext, len),
+     _glofas_ext, len, False),
 ]
 
 
@@ -203,10 +246,11 @@ def _insert(conn, stage_table, df, fname, failed_key=None, expected_rows=None):
 
 
 def _process_source(conn, label, log_name, folder, file_lister, parse_ts,
-                    history_table, stage_table, extract_fn, count_fn=len):
+                    history_table, stage_table, extract_fn, count_fn=len,
+                    always_upload=False):
     print(f"\n{label}")
     count = 0
-    for ts, fname in file_lister(folder)[209:220]:
+    for ts, fname in [f for f in file_lister(folder) if f[1].endswith("json")]:
         parsed_ts = parse_ts(ts)
         failed_key = f"{ts}_{log_name}"
         df = extract_fn(folder / fname, ts)
@@ -226,9 +270,10 @@ def _process_source(conn, label, log_name, folder, file_lister, parse_ts,
 
 conn = psycopg2.connect(**DB_PARAMS)
 try:
-    for label, log_name, folder, file_lister, parse_ts, hist, stage, extract_fn, count_fn in SOURCES:
+    for label, log_name, folder, file_lister, parse_ts, hist, stage, extract_fn, count_fn, always_upload in SOURCES:
         _process_source(conn, label, log_name, folder, file_lister, parse_ts,
-                        hist, stage, extract_fn, count_fn=count_fn)
+                        hist, stage, extract_fn, count_fn=count_fn,
+                        always_upload=always_upload)
 finally:
     conn.close()
 

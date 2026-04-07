@@ -10,14 +10,16 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 -- Columns mirror the shapefile schema exactly (WGS84 / EPSG:4326).
 -- ============================================================
 CREATE TABLE IF NOT EXISTS watershed_shapes (
-    pfaf_id             INTEGER         PRIMARY KEY,
-    "area_km2"          DOUBLE PRECISION,
-    "ISO"               VARCHAR(8),
-    "Admin0"            TEXT,
-    "Admin1"            TEXT,
-    "rfr_score"         DOUBLE PRECISION,
-    "cfr_score"         DOUBLE PRECISION,
-    geom                GEOMETRY(MultiPolygon, 4326)
+    pfaf_id                      INTEGER         PRIMARY KEY,
+    "area_km2"                   DOUBLE PRECISION,
+    "ISO"                        VARCHAR(8),
+    "Admin0"                     TEXT,
+    "Admin1"                     TEXT,
+    "rfr_score"                  DOUBLE PRECISION,
+    "cfr_score"                  DOUBLE PRECISION,
+    "Resilience_Index"           DOUBLE PRECISION,
+    "NormalizedLackofResilience" DOUBLE PRECISION,
+    geom                         GEOMETRY(MultiPolygon, 4326)
 );
 
 CREATE INDEX IF NOT EXISTS idx_watershed_shapes_geom
@@ -208,51 +210,127 @@ CREATE TABLE IF NOT EXISTS summary_final_alert (
 -- rfr_score, cfr_score) are excluded here.
 -- ============================================================
 
--- GFMS MoM (Attributes_Clean_YYYYMMDD.csv — daily)
+-- GFMS MoM (Attributes_Clean_YYYYMMDD.csv base + Final_Attributes_YYYYMMDD.csv enrichment)
+-- Resilience_Index / NormalizedLackofResilience are backfilled to watershed_shapes and
+-- not stored here. No Flag column at the GFMS stage.
 CREATE TABLE IF NOT EXISTS mom_gfms (
     pfaf_id                      INTEGER         REFERENCES watershed_shapes(pfaf_id),
     "timestamp"                  TIMESTAMPTZ,
     "FID"                        DOUBLE PRECISION,
-    "Resilience_Index"           DOUBLE PRECISION,
-    "NormalizedLackofResilience" DOUBLE PRECISION,
     "Alert"                      TEXT,
-    "Flag"                       TEXT,
+    -- GloFAS scores (sparse — only when GloFAS has an active signal)
+    "Alert_level"                DOUBLE PRECISION,
+    "Days_until_peak"            DOUBLE PRECISION,
+    "GloFAS_2yr"                 DOUBLE PRECISION,
+    "GloFAS_5yr"                 DOUBLE PRECISION,
+    "GloFAS_20yr"                DOUBLE PRECISION,
+    "Alert_Score"                DOUBLE PRECISION,
+    "PeakArrivalScore"           DOUBLE PRECISION,
+    "TwoYScore"                  DOUBLE PRECISION,
+    "FiveYScore"                 DOUBLE PRECISION,
+    "TwtyYScore"                 DOUBLE PRECISION,
+    "Sum_Score_x"                DOUBLE PRECISION,
+    -- GFMS raw values and scores
+    "GFMS_TotalArea_km"          DOUBLE PRECISION,
+    "GFMS_perc_Area"             DOUBLE PRECISION,
+    "GFMS_MeanDepth"             DOUBLE PRECISION,
+    "GFMS_MaxDepth"              DOUBLE PRECISION,
+    "GFMS_Duration"              DOUBLE PRECISION,
+    "GFMS_area_score"            DOUBLE PRECISION,
+    "GFMS_perc_area_score"       DOUBLE PRECISION,
+    "MeanD_Score"                DOUBLE PRECISION,
+    "MaxD_Score"                 DOUBLE PRECISION,
+    "Duration_Score"             DOUBLE PRECISION,
+    "Sum_Score_y"                DOUBLE PRECISION,
+    -- Composite scores
+    "Hazard_Score"               DOUBLE PRECISION,
+    "Scaled_Riverine_Risk"       DOUBLE PRECISION,
+    "Scaled_Coastal_Risk"        DOUBLE PRECISION,
+    "Severity"                   DOUBLE PRECISION,
     PRIMARY KEY ("timestamp", pfaf_id)
 );
 
--- HWRF MoM (Attributes_Clean_YYYYMMDDHHHWRFUpdated.csv)
+-- HWRF MoM (Attributes_Clean_YYYYMMDDHHHWRFUpdated.csv base + Final_Attributes enrichment)
+-- Stores only what is new at the HWRF stage. GloFAS/GFMS columns are in mom_gfms.
+-- Resilience_Index / NormalizedLackofResilience are backfilled to watershed_shapes.
 CREATE TABLE IF NOT EXISTS mom_hwrf (
     pfaf_id                      INTEGER         REFERENCES watershed_shapes(pfaf_id),
     "timestamp"                  TIMESTAMPTZ,
     "FID"                        DOUBLE PRECISION,
-    "Resilience_Index"           DOUBLE PRECISION,
-    "NormalizedLackofResilience" DOUBLE PRECISION,
     "Alert"                      TEXT,
     "Flag"                       TEXT,
+    -- HWRF raw values and scores (new at this stage)
+    "Rain_TotalArea_km"          DOUBLE PRECISION,
+    "perc_Area"                  DOUBLE PRECISION,
+    "MeanRain"                   DOUBLE PRECISION,
+    "MaxRain"                    DOUBLE PRECISION,
+    "HWRF_area_score"            DOUBLE PRECISION,
+    "HWRF_percarea_score"        DOUBLE PRECISION,
+    "MeanRain_Score"             DOUBLE PRECISION,
+    "MaxRain_Score"              DOUBLE PRECISION,
+    "HWRFTot_Score"              DOUBLE PRECISION,
+    -- Updated composite scores
+    "MOM_Score"                  DOUBLE PRECISION,
+    "Hazard_Score"               DOUBLE PRECISION,
+    "Severity"                   DOUBLE PRECISION,
     PRIMARY KEY ("timestamp", pfaf_id)
 );
 
--- DFO MoM (Attributes_Clean_YYYYMMDDHHMOM+DFOUpdated.csv)
+-- DFO MoM (Attributes_Clean_YYYYMMDDHHMOM+DFOUpdated.csv base + Final_Attributes enrichment)
+-- Stores only what is new at the DFO stage. GloFAS/GFMS columns are in mom_gfms;
+-- HWRF columns are in mom_hwrf.
+-- Resilience_Index / NormalizedLackofResilience are backfilled to watershed_shapes.
 CREATE TABLE IF NOT EXISTS mom_dfo (
     pfaf_id                      INTEGER         REFERENCES watershed_shapes(pfaf_id),
     "timestamp"                  TIMESTAMPTZ,
     "FID"                        DOUBLE PRECISION,
-    "Resilience_Index"           DOUBLE PRECISION,
-    "NormalizedLackofResilience" DOUBLE PRECISION,
     "Alert"                      TEXT,
     "Flag"                       TEXT,
+    -- DFO raw flood areas (new at this stage)
+    "1-Day_TotalArea_km2"        DOUBLE PRECISION,
+    "1-Day_perc_Area"            DOUBLE PRECISION,
+    "1-Day_CS_TotalArea_km2"     DOUBLE PRECISION,
+    "1-Day_CS_perc_Area"         DOUBLE PRECISION,
+    "2-Day_TotalArea_km2"        DOUBLE PRECISION,
+    "2-Day_perc_Area"            DOUBLE PRECISION,
+    "3-Day_TotalArea_km2"        DOUBLE PRECISION,
+    "3-Day_perc_Area"            DOUBLE PRECISION,
+    -- DFO scoring (new at this stage)
+    "DFO_area_1day_score"        DOUBLE PRECISION,
+    "DFO_percarea_1day_score"    DOUBLE PRECISION,
+    "DFO_area_2day_score"        DOUBLE PRECISION,
+    "DFO_percarea_2day_score"    DOUBLE PRECISION,
+    "DFO_area_3day_score"        DOUBLE PRECISION,
+    "DFO_percarea_3day_score"    DOUBLE PRECISION,
+    "DFOTotal_Score"             DOUBLE PRECISION,
+    -- Updated composite scores
+    "Hazard_Score"               DOUBLE PRECISION,
+    "Severity"                   DOUBLE PRECISION,
     PRIMARY KEY ("timestamp", pfaf_id)
 );
 
--- VIIRS MoM (Attributes_clean_YYYYMMDDHHWRF+MOM+DFO+VIIRSUpdated.csv)
+-- VIIRS MoM (Attributes_clean_YYYYMMDDHHWRF+MOM+DFO+VIIRSUpdated.csv base + Final_Attributes enrichment)
+-- Stores only what is new at the VIIRS stage. Earlier stage columns are in mom_gfms/hwrf/dfo.
+-- Resilience_Index / NormalizedLackofResilience are backfilled to watershed_shapes.
 CREATE TABLE IF NOT EXISTS mom_viirs (
     pfaf_id                      INTEGER         REFERENCES watershed_shapes(pfaf_id),
     "timestamp"                  TIMESTAMPTZ,
     "FID"                        DOUBLE PRECISION,
-    "Resilience_Index"           DOUBLE PRECISION,
-    "NormalizedLackofResilience" DOUBLE PRECISION,
     "Alert"                      TEXT,
     "Flag"                       TEXT,
+    -- VIIRS raw values and scores (new at this stage)
+    "onedayFlood_Area_km"        DOUBLE PRECISION,
+    "onedayperc_Area"            DOUBLE PRECISION,
+    "fivedayFlood_Area_km"       DOUBLE PRECISION,
+    "fivedayperc_Area"           DOUBLE PRECISION,
+    "VIIRS_area_1day_score"      DOUBLE PRECISION,
+    "VIIRS_percarea_1day_score"  DOUBLE PRECISION,
+    "VIIRS_area_5day_score"      DOUBLE PRECISION,
+    "VIIRS_percarea_5day_score"  DOUBLE PRECISION,
+    "VIIRSTotal_Score"           DOUBLE PRECISION,
+    -- Updated composite scores
+    "Hazard_Score"               DOUBLE PRECISION,
+    "Severity"                   DOUBLE PRECISION,
     PRIMARY KEY ("timestamp", pfaf_id)
 );
 
@@ -266,10 +344,33 @@ CREATE TABLE IF NOT EXISTS mom_gfms_latest (
     "timestamp"                  TIMESTAMPTZ,
     pfaf_id                      INTEGER         PRIMARY KEY REFERENCES watershed_shapes(pfaf_id),
     "FID"                        DOUBLE PRECISION,
-    "Resilience_Index"           DOUBLE PRECISION,
-    "NormalizedLackofResilience" DOUBLE PRECISION,
     "Alert"                      TEXT,
-    "Flag"                       TEXT
+    "Alert_level"                DOUBLE PRECISION,
+    "Days_until_peak"            DOUBLE PRECISION,
+    "GloFAS_2yr"                 DOUBLE PRECISION,
+    "GloFAS_5yr"                 DOUBLE PRECISION,
+    "GloFAS_20yr"                DOUBLE PRECISION,
+    "Alert_Score"                DOUBLE PRECISION,
+    "PeakArrivalScore"           DOUBLE PRECISION,
+    "TwoYScore"                  DOUBLE PRECISION,
+    "FiveYScore"                 DOUBLE PRECISION,
+    "TwtyYScore"                 DOUBLE PRECISION,
+    "Sum_Score_x"                DOUBLE PRECISION,
+    "GFMS_TotalArea_km"          DOUBLE PRECISION,
+    "GFMS_perc_Area"             DOUBLE PRECISION,
+    "GFMS_MeanDepth"             DOUBLE PRECISION,
+    "GFMS_MaxDepth"              DOUBLE PRECISION,
+    "GFMS_Duration"              DOUBLE PRECISION,
+    "GFMS_area_score"            DOUBLE PRECISION,
+    "GFMS_perc_area_score"       DOUBLE PRECISION,
+    "MeanD_Score"                DOUBLE PRECISION,
+    "MaxD_Score"                 DOUBLE PRECISION,
+    "Duration_Score"             DOUBLE PRECISION,
+    "Sum_Score_y"                DOUBLE PRECISION,
+    "Hazard_Score"               DOUBLE PRECISION,
+    "Scaled_Riverine_Risk"       DOUBLE PRECISION,
+    "Scaled_Coastal_Risk"        DOUBLE PRECISION,
+    "Severity"                   DOUBLE PRECISION
 );
 
 -- HWRF MoM Latest
@@ -277,10 +378,20 @@ CREATE TABLE IF NOT EXISTS mom_hwrf_latest (
     "timestamp"                  TIMESTAMPTZ,
     pfaf_id                      INTEGER         PRIMARY KEY REFERENCES watershed_shapes(pfaf_id),
     "FID"                        DOUBLE PRECISION,
-    "Resilience_Index"           DOUBLE PRECISION,
-    "NormalizedLackofResilience" DOUBLE PRECISION,
     "Alert"                      TEXT,
-    "Flag"                       TEXT
+    "Flag"                       TEXT,
+    "Rain_TotalArea_km"          DOUBLE PRECISION,
+    "perc_Area"                  DOUBLE PRECISION,
+    "MeanRain"                   DOUBLE PRECISION,
+    "MaxRain"                    DOUBLE PRECISION,
+    "HWRF_area_score"            DOUBLE PRECISION,
+    "HWRF_percarea_score"        DOUBLE PRECISION,
+    "MeanRain_Score"             DOUBLE PRECISION,
+    "MaxRain_Score"              DOUBLE PRECISION,
+    "HWRFTot_Score"              DOUBLE PRECISION,
+    "MOM_Score"                  DOUBLE PRECISION,
+    "Hazard_Score"               DOUBLE PRECISION,
+    "Severity"                   DOUBLE PRECISION
 );
 
 -- DFO MoM Latest
@@ -288,10 +399,46 @@ CREATE TABLE IF NOT EXISTS mom_dfo_latest (
     "timestamp"                  TIMESTAMPTZ,
     pfaf_id                      INTEGER         PRIMARY KEY REFERENCES watershed_shapes(pfaf_id),
     "FID"                        DOUBLE PRECISION,
-    "Resilience_Index"           DOUBLE PRECISION,
-    "NormalizedLackofResilience" DOUBLE PRECISION,
     "Alert"                      TEXT,
-    "Flag"                       TEXT
+    "Flag"                       TEXT,
+    "Alert_level"                DOUBLE PRECISION,
+    "Days_until_peak"            DOUBLE PRECISION,
+    "GloFAS_2yr"                 DOUBLE PRECISION,
+    "GloFAS_5yr"                 DOUBLE PRECISION,
+    "GloFAS_20yr"                DOUBLE PRECISION,
+    "Alert_Score"                DOUBLE PRECISION,
+    "PeakArrivalScore"           DOUBLE PRECISION,
+    "TwoYScore"                  DOUBLE PRECISION,
+    "FiveYScore"                 DOUBLE PRECISION,
+    "TwtyYScore"                 DOUBLE PRECISION,
+    "Sum_Score_x"                DOUBLE PRECISION,
+    "GFMS_TotalArea_km"          DOUBLE PRECISION,
+    "GFMS_perc_Area"             DOUBLE PRECISION,
+    "GFMS_MeanDepth"             DOUBLE PRECISION,
+    "GFMS_MaxDepth"              DOUBLE PRECISION,
+    "GFMS_Duration"              DOUBLE PRECISION,
+    "GFMS_area_score"            DOUBLE PRECISION,
+    "GFMS_perc_area_score"       DOUBLE PRECISION,
+    "MeanD_Score"                DOUBLE PRECISION,
+    "MaxD_Score"                 DOUBLE PRECISION,
+    "Duration_Score"             DOUBLE PRECISION,
+    "1-Day_TotalArea_km2"        DOUBLE PRECISION,
+    "1-Day_perc_Area"            DOUBLE PRECISION,
+    "1-Day_CS_TotalArea_km2"     DOUBLE PRECISION,
+    "1-Day_CS_perc_Area"         DOUBLE PRECISION,
+    "2-Day_TotalArea_km2"        DOUBLE PRECISION,
+    "2-Day_perc_Area"            DOUBLE PRECISION,
+    "3-Day_TotalArea_km2"        DOUBLE PRECISION,
+    "3-Day_perc_Area"            DOUBLE PRECISION,
+    "DFO_area_1day_score"        DOUBLE PRECISION,
+    "DFO_percarea_1day_score"    DOUBLE PRECISION,
+    "DFO_area_2day_score"        DOUBLE PRECISION,
+    "DFO_percarea_2day_score"    DOUBLE PRECISION,
+    "DFO_area_3day_score"        DOUBLE PRECISION,
+    "DFO_percarea_3day_score"    DOUBLE PRECISION,
+    "DFOTotal_Score"             DOUBLE PRECISION,
+    "Hazard_Score"               DOUBLE PRECISION,
+    "Severity"                   DOUBLE PRECISION
 );
 
 -- VIIRS MoM Latest
@@ -299,10 +446,19 @@ CREATE TABLE IF NOT EXISTS mom_viirs_latest (
     "timestamp"                  TIMESTAMPTZ,
     pfaf_id                      INTEGER         PRIMARY KEY REFERENCES watershed_shapes(pfaf_id),
     "FID"                        DOUBLE PRECISION,
-    "Resilience_Index"           DOUBLE PRECISION,
-    "NormalizedLackofResilience" DOUBLE PRECISION,
     "Alert"                      TEXT,
-    "Flag"                       TEXT
+    "Flag"                       TEXT,
+    "onedayFlood_Area_km"        DOUBLE PRECISION,
+    "onedayperc_Area"            DOUBLE PRECISION,
+    "fivedayFlood_Area_km"       DOUBLE PRECISION,
+    "fivedayperc_Area"           DOUBLE PRECISION,
+    "VIIRS_area_1day_score"      DOUBLE PRECISION,
+    "VIIRS_percarea_1day_score"  DOUBLE PRECISION,
+    "VIIRS_area_5day_score"      DOUBLE PRECISION,
+    "VIIRS_percarea_5day_score"  DOUBLE PRECISION,
+    "VIIRSTotal_Score"           DOUBLE PRECISION,
+    "Hazard_Score"               DOUBLE PRECISION,
+    "Severity"                   DOUBLE PRECISION
 );
 
 

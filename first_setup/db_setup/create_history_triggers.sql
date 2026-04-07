@@ -303,6 +303,8 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_dfo_sync();
 -- MoM GFMS
 -- =============================================================================
 
+-- Syncs mom_gfms_latest → mom_gfms. Uses ON CONFLICT DO UPDATE so that a
+-- Phase-2 (Final_Attributes) upsert flows through to the history table.
 CREATE OR REPLACE FUNCTION fn_mom_gfms_sync()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
@@ -322,15 +324,59 @@ BEGIN
 
     INSERT INTO mom_gfms (
         pfaf_id, "timestamp",
-        "FID", "Resilience_Index", "NormalizedLackofResilience",
-        "Alert", "Flag"
+        "FID", "Alert",
+        "Alert_level", "Days_until_peak",
+        "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr",
+        "Alert_Score", "PeakArrivalScore",
+        "TwoYScore", "FiveYScore", "TwtyYScore", "Sum_Score_x",
+        "GFMS_TotalArea_km", "GFMS_perc_Area",
+        "GFMS_MeanDepth", "GFMS_MaxDepth", "GFMS_Duration",
+        "GFMS_area_score", "GFMS_perc_area_score",
+        "MeanD_Score", "MaxD_Score", "Duration_Score", "Sum_Score_y",
+        "Hazard_Score", "Scaled_Riverine_Risk", "Scaled_Coastal_Risk", "Severity"
     )
     SELECT
         pfaf_id, "timestamp",
-        "FID", "Resilience_Index", "NormalizedLackofResilience",
-        "Alert", "Flag"
+        "FID", "Alert",
+        "Alert_level", "Days_until_peak",
+        "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr",
+        "Alert_Score", "PeakArrivalScore",
+        "TwoYScore", "FiveYScore", "TwtyYScore", "Sum_Score_x",
+        "GFMS_TotalArea_km", "GFMS_perc_Area",
+        "GFMS_MeanDepth", "GFMS_MaxDepth", "GFMS_Duration",
+        "GFMS_area_score", "GFMS_perc_area_score",
+        "MeanD_Score", "MaxD_Score", "Duration_Score", "Sum_Score_y",
+        "Hazard_Score", "Scaled_Riverine_Risk", "Scaled_Coastal_Risk", "Severity"
     FROM new_rows
-    ON CONFLICT ("timestamp", pfaf_id) DO NOTHING;
+    ON CONFLICT ("timestamp", pfaf_id) DO UPDATE SET
+        "FID"                   = EXCLUDED."FID",
+        "Alert"                 = EXCLUDED."Alert",
+        "Alert_level"           = EXCLUDED."Alert_level",
+        "Days_until_peak"       = EXCLUDED."Days_until_peak",
+        "GloFAS_2yr"            = EXCLUDED."GloFAS_2yr",
+        "GloFAS_5yr"            = EXCLUDED."GloFAS_5yr",
+        "GloFAS_20yr"           = EXCLUDED."GloFAS_20yr",
+        "Alert_Score"           = EXCLUDED."Alert_Score",
+        "PeakArrivalScore"      = EXCLUDED."PeakArrivalScore",
+        "TwoYScore"             = EXCLUDED."TwoYScore",
+        "FiveYScore"            = EXCLUDED."FiveYScore",
+        "TwtyYScore"            = EXCLUDED."TwtyYScore",
+        "Sum_Score_x"           = EXCLUDED."Sum_Score_x",
+        "GFMS_TotalArea_km"     = EXCLUDED."GFMS_TotalArea_km",
+        "GFMS_perc_Area"        = EXCLUDED."GFMS_perc_Area",
+        "GFMS_MeanDepth"        = EXCLUDED."GFMS_MeanDepth",
+        "GFMS_MaxDepth"         = EXCLUDED."GFMS_MaxDepth",
+        "GFMS_Duration"         = EXCLUDED."GFMS_Duration",
+        "GFMS_area_score"       = EXCLUDED."GFMS_area_score",
+        "GFMS_perc_area_score"  = EXCLUDED."GFMS_perc_area_score",
+        "MeanD_Score"           = EXCLUDED."MeanD_Score",
+        "MaxD_Score"            = EXCLUDED."MaxD_Score",
+        "Duration_Score"        = EXCLUDED."Duration_Score",
+        "Sum_Score_y"           = EXCLUDED."Sum_Score_y",
+        "Hazard_Score"          = EXCLUDED."Hazard_Score",
+        "Scaled_Riverine_Risk"  = EXCLUDED."Scaled_Riverine_Risk",
+        "Scaled_Coastal_Risk"   = EXCLUDED."Scaled_Coastal_Risk",
+        "Severity"              = EXCLUDED."Severity";
 
     RETURN NULL;
 END;
@@ -352,6 +398,8 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_gfms_sync();
 -- MoM HWRF
 -- =============================================================================
 
+-- Syncs mom_hwrf_latest → mom_hwrf. Uses ON CONFLICT DO UPDATE so that a
+-- Phase-2 (Final_Attributes) upsert flows through to the history table.
 CREATE OR REPLACE FUNCTION fn_mom_hwrf_sync()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
@@ -371,15 +419,36 @@ BEGIN
 
     INSERT INTO mom_hwrf (
         pfaf_id, "timestamp",
-        "FID", "Resilience_Index", "NormalizedLackofResilience",
-        "Alert", "Flag"
+        "FID", "Alert", "Flag",
+        "Rain_TotalArea_km", "perc_Area", "MeanRain", "MaxRain",
+        "HWRF_area_score", "HWRF_percarea_score",
+        "MeanRain_Score", "MaxRain_Score", "HWRFTot_Score",
+        "MOM_Score", "Hazard_Score", "Severity"
     )
     SELECT
         pfaf_id, "timestamp",
-        "FID", "Resilience_Index", "NormalizedLackofResilience",
-        "Alert", "Flag"
+        "FID", "Alert", "Flag",
+        "Rain_TotalArea_km", "perc_Area", "MeanRain", "MaxRain",
+        "HWRF_area_score", "HWRF_percarea_score",
+        "MeanRain_Score", "MaxRain_Score", "HWRFTot_Score",
+        "MOM_Score", "Hazard_Score", "Severity"
     FROM new_rows
-    ON CONFLICT ("timestamp", pfaf_id) DO NOTHING;
+    ON CONFLICT ("timestamp", pfaf_id) DO UPDATE SET
+        "FID"                 = EXCLUDED."FID",
+        "Alert"               = EXCLUDED."Alert",
+        "Flag"                = EXCLUDED."Flag",
+        "Rain_TotalArea_km"   = EXCLUDED."Rain_TotalArea_km",
+        "perc_Area"           = EXCLUDED."perc_Area",
+        "MeanRain"            = EXCLUDED."MeanRain",
+        "MaxRain"             = EXCLUDED."MaxRain",
+        "HWRF_area_score"     = EXCLUDED."HWRF_area_score",
+        "HWRF_percarea_score" = EXCLUDED."HWRF_percarea_score",
+        "MeanRain_Score"      = EXCLUDED."MeanRain_Score",
+        "MaxRain_Score"       = EXCLUDED."MaxRain_Score",
+        "HWRFTot_Score"       = EXCLUDED."HWRFTot_Score",
+        "MOM_Score"           = EXCLUDED."MOM_Score",
+        "Hazard_Score"        = EXCLUDED."Hazard_Score",
+        "Severity"            = EXCLUDED."Severity";
 
     RETURN NULL;
 END;
@@ -401,6 +470,10 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_hwrf_sync();
 -- MoM DFO
 -- =============================================================================
 
+-- Syncs mom_dfo_latest → mom_dfo. Uses ON CONFLICT DO UPDATE so that a
+-- Phase-2 (Final_Attributes) upsert flows through to the history table.
+-- mom_dfo_latest already holds the COALESCE-merged state from the flush
+-- function, so EXCLUDED values here are fully merged — direct assignment is correct.
 CREATE OR REPLACE FUNCTION fn_mom_dfo_sync()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
@@ -420,15 +493,49 @@ BEGIN
 
     INSERT INTO mom_dfo (
         pfaf_id, "timestamp",
-        "FID", "Resilience_Index", "NormalizedLackofResilience",
-        "Alert", "Flag"
+        "FID", "Alert", "Flag",
+        "1-Day_TotalArea_km2", "1-Day_perc_Area",
+        "1-Day_CS_TotalArea_km2", "1-Day_CS_perc_Area",
+        "2-Day_TotalArea_km2", "2-Day_perc_Area",
+        "3-Day_TotalArea_km2", "3-Day_perc_Area",
+        "DFO_area_1day_score", "DFO_percarea_1day_score",
+        "DFO_area_2day_score", "DFO_percarea_2day_score",
+        "DFO_area_3day_score", "DFO_percarea_3day_score",
+        "DFOTotal_Score", "Hazard_Score", "Severity"
     )
     SELECT
         pfaf_id, "timestamp",
-        "FID", "Resilience_Index", "NormalizedLackofResilience",
-        "Alert", "Flag"
+        "FID", "Alert", "Flag",
+        "1-Day_TotalArea_km2", "1-Day_perc_Area",
+        "1-Day_CS_TotalArea_km2", "1-Day_CS_perc_Area",
+        "2-Day_TotalArea_km2", "2-Day_perc_Area",
+        "3-Day_TotalArea_km2", "3-Day_perc_Area",
+        "DFO_area_1day_score", "DFO_percarea_1day_score",
+        "DFO_area_2day_score", "DFO_percarea_2day_score",
+        "DFO_area_3day_score", "DFO_percarea_3day_score",
+        "DFOTotal_Score", "Hazard_Score", "Severity"
     FROM new_rows
-    ON CONFLICT ("timestamp", pfaf_id) DO NOTHING;
+    ON CONFLICT ("timestamp", pfaf_id) DO UPDATE SET
+        "FID"                     = EXCLUDED."FID",
+        "Alert"                   = EXCLUDED."Alert",
+        "Flag"                    = EXCLUDED."Flag",
+        "1-Day_TotalArea_km2"     = EXCLUDED."1-Day_TotalArea_km2",
+        "1-Day_perc_Area"         = EXCLUDED."1-Day_perc_Area",
+        "1-Day_CS_TotalArea_km2"  = EXCLUDED."1-Day_CS_TotalArea_km2",
+        "1-Day_CS_perc_Area"      = EXCLUDED."1-Day_CS_perc_Area",
+        "2-Day_TotalArea_km2"     = EXCLUDED."2-Day_TotalArea_km2",
+        "2-Day_perc_Area"         = EXCLUDED."2-Day_perc_Area",
+        "3-Day_TotalArea_km2"     = EXCLUDED."3-Day_TotalArea_km2",
+        "3-Day_perc_Area"         = EXCLUDED."3-Day_perc_Area",
+        "DFO_area_1day_score"     = EXCLUDED."DFO_area_1day_score",
+        "DFO_percarea_1day_score" = EXCLUDED."DFO_percarea_1day_score",
+        "DFO_area_2day_score"     = EXCLUDED."DFO_area_2day_score",
+        "DFO_percarea_2day_score" = EXCLUDED."DFO_percarea_2day_score",
+        "DFO_area_3day_score"     = EXCLUDED."DFO_area_3day_score",
+        "DFO_percarea_3day_score" = EXCLUDED."DFO_percarea_3day_score",
+        "DFOTotal_Score"          = EXCLUDED."DFOTotal_Score",
+        "Hazard_Score"            = EXCLUDED."Hazard_Score",
+        "Severity"                = EXCLUDED."Severity";
 
     RETURN NULL;
 END;
@@ -450,6 +557,8 @@ FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_dfo_sync();
 -- MoM VIIRS
 -- =============================================================================
 
+-- Syncs mom_viirs_latest → mom_viirs. Uses ON CONFLICT DO UPDATE so that a
+-- Phase-2 (Final_Attributes) upsert flows through to the history table.
 CREATE OR REPLACE FUNCTION fn_mom_viirs_sync()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
@@ -469,15 +578,37 @@ BEGIN
 
     INSERT INTO mom_viirs (
         pfaf_id, "timestamp",
-        "FID", "Resilience_Index", "NormalizedLackofResilience",
-        "Alert", "Flag"
+        "FID", "Alert", "Flag",
+        "onedayFlood_Area_km", "onedayperc_Area",
+        "fivedayFlood_Area_km", "fivedayperc_Area",
+        "VIIRS_area_1day_score", "VIIRS_percarea_1day_score",
+        "VIIRS_area_5day_score", "VIIRS_percarea_5day_score",
+        "VIIRSTotal_Score", "Hazard_Score", "Severity"
     )
     SELECT
         pfaf_id, "timestamp",
-        "FID", "Resilience_Index", "NormalizedLackofResilience",
-        "Alert", "Flag"
+        "FID", "Alert", "Flag",
+        "onedayFlood_Area_km", "onedayperc_Area",
+        "fivedayFlood_Area_km", "fivedayperc_Area",
+        "VIIRS_area_1day_score", "VIIRS_percarea_1day_score",
+        "VIIRS_area_5day_score", "VIIRS_percarea_5day_score",
+        "VIIRSTotal_Score", "Hazard_Score", "Severity"
     FROM new_rows
-    ON CONFLICT ("timestamp", pfaf_id) DO NOTHING;
+    ON CONFLICT ("timestamp", pfaf_id) DO UPDATE SET
+        "FID"                        = EXCLUDED."FID",
+        "Alert"                      = EXCLUDED."Alert",
+        "Flag"                       = EXCLUDED."Flag",
+        "onedayFlood_Area_km"        = EXCLUDED."onedayFlood_Area_km",
+        "onedayperc_Area"            = EXCLUDED."onedayperc_Area",
+        "fivedayFlood_Area_km"       = EXCLUDED."fivedayFlood_Area_km",
+        "fivedayperc_Area"           = EXCLUDED."fivedayperc_Area",
+        "VIIRS_area_1day_score"      = EXCLUDED."VIIRS_area_1day_score",
+        "VIIRS_percarea_1day_score"  = EXCLUDED."VIIRS_percarea_1day_score",
+        "VIIRS_area_5day_score"      = EXCLUDED."VIIRS_area_5day_score",
+        "VIIRS_percarea_5day_score"  = EXCLUDED."VIIRS_percarea_5day_score",
+        "VIIRSTotal_Score"           = EXCLUDED."VIIRSTotal_Score",
+        "Hazard_Score"               = EXCLUDED."Hazard_Score",
+        "Severity"                   = EXCLUDED."Severity";
 
     RETURN NULL;
 END;
