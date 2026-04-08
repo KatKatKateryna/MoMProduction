@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS all_glofas_stations (
     "Station"           TEXT,
     "Basin"             TEXT,
     "Country"           TEXT,
-    "Country_code"      VARCHAR(8),
+    "Country_code"      VARCHAR(3),
     "Continent"         TEXT,
     "Location"          TEXT,
     "Lat"               NUMERIC(8,3),

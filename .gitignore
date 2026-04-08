@@ -137,4 +137,4 @@ database_update/downloads_mom/
 database_update/*.csv
 *.tiff
 */*/db_config.cfg
-database_update/failed.txt
+database_update/db_upload_utils/failed.txt

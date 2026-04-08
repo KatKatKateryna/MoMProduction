@@ -53,6 +53,9 @@ def build_df(props_list, timestamp):
         return pd.DataFrame()
     df = pd.DataFrame(props_list)
     df.insert(0, "timestamp", timestamp)
+    # 'Not found' is a sentinel for unknown country code — store as NULL
+    if "Country_code" in df.columns:
+        df["Country_code"] = df["Country_code"].replace("Not found", None)
     return df
 
 
