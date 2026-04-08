@@ -222,7 +222,7 @@ GRANT SELECT ON
     mom_gfms_latest, mom_hwrf_latest, mom_dfo_latest, mom_viirs_latest
     TO mom_reader;
 
-ALTER ROLE "${INTERNAL_READER_USER}" SET statement_timeout = '60s';
+ALTER ROLE mom_reader SET statement_timeout = '300s';
 SQL
 
 echo ""
