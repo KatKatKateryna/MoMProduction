@@ -36,6 +36,12 @@ if [[ "$ADMIN_PASSWORD" == "???" ]]; then
     echo "       Replace the ??? placeholder with a real password and re-run."
     exit 1
 fi
+
+if [[ "$INTERNAL_READER_PASSWORD" == "???" ]]; then
+    echo "ERROR: INTERNAL_READER_PASSWORD is not set in $CONFIG_FILE"
+    echo "       Replace the ??? placeholder with a real password and re-run."
+    exit 1
+fi
 # -----------------------------------------------------------------------------
 
 for f in "$SQL_FILE" "$SQL_ID_TRIGGERS" "$SQL_HISTORY_TRIGGERS" "$SQL_STAGING" "$SQL_QUERY_FUNCTIONS"; do
@@ -133,7 +139,7 @@ else
     echo "    Shapefile loaded."
 fi
 
-echo "=== [7/7] Creating/updating restricted admin user '${ADMIN_USER}' ==="
+echo "=== [7/8] Creating/updating restricted admin user '${ADMIN_USER}' ==="
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" <<SQL
 DO \$\$
 BEGIN
@@ -165,6 +171,58 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
     GRANT USAGE, SELECT ON SEQUENCES TO "${ADMIN_USER}";
 
 ALTER ROLE "${ADMIN_USER}" SET statement_timeout = '300s';
+SQL
+
+echo "=== [8/8] Creating/updating reader roles ==="
+
+# Allow mom_internal_reader to connect remotely
+READER_RULE="host    ${DB_NAME}    ${INTERNAL_READER_USER}    0.0.0.0/0    scram-sha-256"
+if ! sudo grep -qF "${READER_RULE}" "${PG_CONF_DIR}/pg_hba.conf"; then
+    echo "${READER_RULE}" | sudo tee -a "${PG_CONF_DIR}/pg_hba.conf" > /dev/null
+    echo "    Remote access rule for ${INTERNAL_READER_USER} added."
+else
+    echo "    Remote access rule for ${INTERNAL_READER_USER} already present, skipping."
+fi
+sudo systemctl reload postgresql
+
+sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" <<SQL
+-- mom_reader: permission group only, no login — sub-roles inherit SELECT from here
+DO \$\$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'mom_reader') THEN
+        CREATE ROLE mom_reader;
+    END IF;
+END
+\$\$;
+
+-- mom_internal_reader: login role, inherits from mom_reader
+DO \$\$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${INTERNAL_READER_USER}') THEN
+        CREATE ROLE "${INTERNAL_READER_USER}" WITH LOGIN PASSWORD '${INTERNAL_READER_PASSWORD}' IN ROLE mom_reader;
+    ELSE
+        ALTER ROLE "${INTERNAL_READER_USER}" WITH LOGIN PASSWORD '${INTERNAL_READER_PASSWORD}';
+        GRANT mom_reader TO "${INTERNAL_READER_USER}";
+    END IF;
+END
+\$\$;
+
+GRANT CONNECT ON DATABASE "${DB_NAME}" TO mom_reader;
+GRANT USAGE ON SCHEMA public TO mom_reader;
+
+-- SELECT on all data tables (not staging)
+GRANT SELECT ON
+    watershed_shapes,
+    all_glofas_stations,
+    all_watersheds,
+    summary_gfms, summary_hwrf, summary_viirs, summary_dfo, summary_glofas, summary_final_alert,
+    summary_gfms_latest, summary_hwrf_latest, summary_viirs_latest,
+    summary_dfo_latest, summary_glofas_latest, summary_final_alert_latest,
+    mom_gfms, mom_hwrf, mom_dfo, mom_viirs,
+    mom_gfms_latest, mom_hwrf_latest, mom_dfo_latest, mom_viirs_latest
+    TO mom_reader;
+
+ALTER ROLE "${INTERNAL_READER_USER}" SET statement_timeout = '60s';
 SQL
 
 echo ""
