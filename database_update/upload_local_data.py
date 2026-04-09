@@ -256,7 +256,7 @@ def _process_source(conn, label, log_name, folder, file_lister, parse_ts,
         df = extract_fn(folder / fname, ts)
         if failed_key in _failed:
             print(f"  {fname}: previously incomplete, re-attempting")
-        else:
+        elif not always_upload:
             success, actual_count = _in_history(conn, history_table, parsed_ts, count_fn(df))
             if success:
                 print(f"{history_table}: {actual_count}/{count_fn(df)}")

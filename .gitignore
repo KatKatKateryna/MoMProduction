@@ -138,3 +138,4 @@ database_update/*.csv
 *.tiff
 */*/db_config.cfg
 database_update/db_upload_utils/failed.txt
+nohup.out

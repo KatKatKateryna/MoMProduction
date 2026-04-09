@@ -528,7 +528,7 @@ BEGIN
     ON CONFLICT (pfaf_id) DO UPDATE SET
         "timestamp"             = EXCLUDED."timestamp",
         "FID"                   = COALESCE(EXCLUDED."FID",                   mom_gfms_latest."FID"),
-        "Alert"                 = COALESCE(EXCLUDED."Alert",                 mom_gfms_latest."Alert"),
+        "Alert"                 = COALESCE(NULLIF(EXCLUDED."Alert", ''),      mom_gfms_latest."Alert"),
         "Alert_level"           = COALESCE(EXCLUDED."Alert_level",           mom_gfms_latest."Alert_level"),
         "Days_until_peak"       = COALESCE(EXCLUDED."Days_until_peak",       mom_gfms_latest."Days_until_peak"),
         "GloFAS_2yr"            = COALESCE(EXCLUDED."GloFAS_2yr",            mom_gfms_latest."GloFAS_2yr"),
@@ -642,7 +642,7 @@ BEGIN
     ON CONFLICT (pfaf_id) DO UPDATE SET
         "timestamp"           = EXCLUDED."timestamp",
         "FID"                 = COALESCE(EXCLUDED."FID",                 mom_hwrf_latest."FID"),
-        "Alert"               = COALESCE(EXCLUDED."Alert",               mom_hwrf_latest."Alert"),
+        "Alert"               = COALESCE(NULLIF(EXCLUDED."Alert", ''),    mom_hwrf_latest."Alert"),
         "Flag"                = COALESCE(EXCLUDED."Flag",                mom_hwrf_latest."Flag"),
         "Rain_TotalArea_km"   = COALESCE(EXCLUDED."Rain_TotalArea_km",   mom_hwrf_latest."Rain_TotalArea_km"),
         "perc_Area"           = COALESCE(EXCLUDED."perc_Area",           mom_hwrf_latest."perc_Area"),
@@ -756,7 +756,7 @@ BEGIN
     ON CONFLICT (pfaf_id) DO UPDATE SET
         "timestamp"               = EXCLUDED."timestamp",
         "FID"                     = COALESCE(EXCLUDED."FID",                     mom_dfo_latest."FID"),
-        "Alert"                   = COALESCE(EXCLUDED."Alert",                   mom_dfo_latest."Alert"),
+        "Alert"                   = COALESCE(NULLIF(EXCLUDED."Alert", ''),        mom_dfo_latest."Alert"),
         "Flag"                    = COALESCE(EXCLUDED."Flag",                    mom_dfo_latest."Flag"),
         "1-Day_TotalArea_km2"     = COALESCE(EXCLUDED."1-Day_TotalArea_km2",     mom_dfo_latest."1-Day_TotalArea_km2"),
         "1-Day_perc_Area"         = COALESCE(EXCLUDED."1-Day_perc_Area",         mom_dfo_latest."1-Day_perc_Area"),
@@ -863,7 +863,7 @@ BEGIN
     ON CONFLICT (pfaf_id) DO UPDATE SET
         "timestamp"                  = EXCLUDED."timestamp",
         "FID"                        = COALESCE(EXCLUDED."FID",                        mom_viirs_latest."FID"),
-        "Alert"                      = COALESCE(EXCLUDED."Alert",                      mom_viirs_latest."Alert"),
+        "Alert"                      = COALESCE(NULLIF(EXCLUDED."Alert", ''),           mom_viirs_latest."Alert"),
         "Flag"                       = COALESCE(EXCLUDED."Flag",                       mom_viirs_latest."Flag"),
         "onedayFlood_Area_km"        = COALESCE(EXCLUDED."onedayFlood_Area_km",        mom_viirs_latest."onedayFlood_Area_km"),
         "onedayperc_Area"            = COALESCE(EXCLUDED."onedayperc_Area",            mom_viirs_latest."onedayperc_Area"),
