@@ -11,6 +11,7 @@ source, or None to process all available files.
 
 import re
 from pathlib import Path
+from datetime import datetime, timezone
 
 import psycopg2
 
@@ -236,10 +237,10 @@ SOURCES = [
 ]
 
 
-def _insert(conn, stage_table, df, fname, failed_key=None, expected_rows=None):
+def _insert(conn, stage_table, df, fname, failed_key=None, expected_rows=None, history_table_name=""):
     try:
         upsert_dataframe(stage_table, df, conn=conn, failed_key=failed_key, expected_rows=expected_rows)
-        print(f"  {fname}: inserted {len(df)} rows")
+        print(f"  {history_table_name} - {fname}: inserted {len(df)} rows")
     except Exception as exc:
         conn.rollback()
         print(f"  {fname}: FAILED — {exc}")
@@ -249,9 +250,13 @@ def _process_source(conn, label, log_name, folder, file_lister, parse_ts,
                     history_table, stage_table, extract_fn, count_fn=len,
                     always_upload=False):
     print(f"\n{label}")
+    #if label != "VIIRS":
+    #    return
     count = 0
-    for ts, fname in [f for f in file_lister(folder) if f[1].endswith("json")]:
+    for ts, fname in [f for f in file_lister(folder)]:
         parsed_ts = parse_ts(ts)
+        #if parsed_ts < datetime(2025, 7, 2).replace(tzinfo=timezone.utc):
+        #    continue
         failed_key = f"{ts}_{log_name}"
         df = extract_fn(folder / fname, ts)
         if failed_key in _failed:
@@ -259,9 +264,9 @@ def _process_source(conn, label, log_name, folder, file_lister, parse_ts,
         elif not always_upload:
             success, actual_count = _in_history(conn, history_table, parsed_ts, count_fn(df))
             if success:
-                print(f"{history_table}: {actual_count}/{count_fn(df)}")
+                print(f"{history_table} - {fname}: {actual_count}/{count_fn(df)}")
                 continue
-        _insert(conn, stage_table, df, fname, failed_key=failed_key, expected_rows=count_fn(df))
+        _insert(conn, stage_table, df, fname, failed_key=failed_key, expected_rows=count_fn(df), history_table_name=history_table)
         count += 1
         if FILES_PER_SOURCE is not None and count >= FILES_PER_SOURCE:
             print(f"  {fname}: reached file limit, skipping remaining files")

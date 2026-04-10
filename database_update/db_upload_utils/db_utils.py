@@ -47,8 +47,8 @@ def _failed_log_remove(key: str) -> None:
              if l.strip() and l.strip() != key]
     if lines:
         FAILED_LOG.write_text("\n".join(lines) + "\n")
-    else:
-        FAILED_LOG.unlink(missing_ok=True)
+    # else:
+    #    FAILED_LOG.unlink(missing_ok=True)
 
 
 def load_failed_log() -> set:
