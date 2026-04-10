@@ -89,7 +89,8 @@ def crawl(url, local_dir, session):
         sub_local = local_dir / unquote(dirname.rstrip("/"))
         print(f"\n[dir] {sub_url}")
         global LOCAL_ROOT
-        if sub_local.endswith("_image"):
+        if str(sub_local).endswith("_image"):
+            print("IMAGE")
             LOCAL_ROOT = LOCAL_ROOT_IMG
         else:
             LOCAL_ROOT = LOCAL_ROOT_TABLES
