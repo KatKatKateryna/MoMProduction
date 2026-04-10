@@ -21,10 +21,12 @@ import requests
 
 BASE_URL = "https://mom.tg-ear190027.projects.jetstream-cloud.org/ModelofModels/"
 FOLDERS = ["DFO", "Final_Alert", "GFMS", "GLOFAS", "HWRF", "VIIRS"]
-LOCAL_ROOT = Path(__file__).parent / "downloads_mom" if not Path("/mnt").exists() else Path("/mnt/volume_ams3_02/downloads_mom") 
+LOCAL_ROOT = Path(__file__).parent / "downloads_mom" if not Path("/mnt").exists() else Path("/mnt/volume_ams3_02/downloads_mom")
+
+LOCAL_ROOT_TABLES = Path(__file__).parent / "downloads_mom" if not Path("/mnt").exists() else Path("/mnt/volume_ams3_02/downloads_mom")
+LOCAL_ROOT_IMG = Path(__file__).parent / "downloads_img" if not Path("/mnt").exists() else Path("/mnt/temp_img_download/downloads_img") 
+
 LIMIT = None
-ONLY_CSV = True
-ONLY_IMG = False
 REQUEST_DELAY = 0.5   # seconds between each HTTP request (listing or download)
 
 
@@ -72,11 +74,6 @@ def crawl(url, local_dir, session):
         print(f"  [warn] Could not list {url}: {e}", file=sys.stderr)
         return
 
-    if ONLY_CSV and not ONLY_IMG:
-        files = [f for f in files if f.lower().endswith(".csv") or f.lower().endswith("json")]
-    if ONLY_IMG and not ONLY_CSV:
-        files = [f for f in files if f.lower().endswith(".tiff")]
-
     count = 0
     for filename in files:
         file_url = urljoin(url, filename)
@@ -91,6 +88,11 @@ def crawl(url, local_dir, session):
         sub_url = urljoin(url, dirname)
         sub_local = local_dir / unquote(dirname.rstrip("/"))
         print(f"\n[dir] {sub_url}")
+        global LOCAL_ROOT
+        if sub_local.endswith("_image"):
+            LOCAL_ROOT = LOCAL_ROOT_IMG
+        else:
+            LOCAL_ROOT = LOCAL_ROOT_TABLES
         crawl(sub_url, sub_local, session)
 
 
