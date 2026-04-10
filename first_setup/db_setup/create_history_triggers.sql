@@ -1,22 +1,19 @@
 -- =============================================================================
 -- create_history_triggers.sql
 --
--- Statement-level AFTER triggers on all _latest tables.
--- Both INSERT and UPDATE paths are covered (ON CONFLICT DO UPDATE in the
--- staging flush produces UPDATE-path rows; new pfaf_ids produce INSERT-path rows).
--- Both paths run the same sync function — duplicates in history are
--- prevented by ON CONFLICT DO NOTHING on the history INSERT.
+-- Statement-level AFTER INSERT triggers on all _latest tables.
+-- Only INSERT triggers are needed: the staging flush functions always use
+-- DELETE + INSERT (never UPSERT), so _latest tables are cleared before each
+-- batch and only INSERT events occur.
 --
--- Each trigger function does two things:
---   1. CLEAR-AND-REPLACE: delete all rows in _latest whose timestamp
---      differs from the batch timestamp (atomic swap — no reader sees mixed state).
---
---   2. HISTORY COPY with filtering:
---        GFMS / DFO  — only non-zero flood rows; fallback to last row
---                      (highest pfaf_id) if the entire batch is zeros.
---        HWRF / VIIRS / GloFAS / Final Alert — all rows, no filtering.
---        For GloFAS and Final Alert, station/watershed metadata columns are
---        stripped; those already live in the reference tables.
+-- Each trigger function copies rows from _latest to the history table:
+--   GFMS / DFO  — only non-zero flood rows; fallback to last row
+--                 (highest pfaf_id) if the entire batch is zeros.
+--   HWRF / VIIRS / GloFAS / Final Alert — all rows, no filtering.
+--   For GloFAS and Final Alert, station/watershed metadata columns are
+--   stripped; those already live in the reference tables.
+--   MoM tables — ON CONFLICT DO UPDATE so Phase-2 (Final_Attributes)
+--   enrichment overwrites Phase-1 (Attributes_Clean) rows in history.
 --
 -- Assumption: matching_id_station and matching_id_watershed are already
 -- resolved by the caller before inserting into the _latest tables.
@@ -44,10 +41,6 @@ BEGIN
     IF row_count < 1 THEN
         RETURN NULL;
     END IF;
-
-    -- Clear stale rows from _latest when a full batch arrives
-    DELETE FROM summary_gfms_latest
-    WHERE "timestamp" != batch_ts;
 
     -- Flood-row filter with last-row fallback
     SELECT EXISTS (
@@ -103,11 +96,6 @@ AFTER INSERT ON summary_gfms_latest
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION fn_gfms_sync();
 
-CREATE TRIGGER trg_gfms_sync_upd
-AFTER UPDATE ON summary_gfms_latest
-REFERENCING NEW TABLE AS new_rows
-FOR EACH STATEMENT EXECUTE FUNCTION fn_gfms_sync();
-
 
 -- =============================================================================
 -- HWRF
@@ -126,9 +114,6 @@ BEGIN
     IF row_count < 1 THEN
         RETURN NULL;
     END IF;
-
-    DELETE FROM summary_hwrf_latest
-    WHERE "timestamp" != batch_ts;
 
     INSERT INTO summary_hwrf (
         pfaf_id, "timestamp",
@@ -150,11 +135,6 @@ AFTER INSERT ON summary_hwrf_latest
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION fn_hwrf_sync();
 
-CREATE TRIGGER trg_hwrf_sync_upd
-AFTER UPDATE ON summary_hwrf_latest
-REFERENCING NEW TABLE AS new_rows
-FOR EACH STATEMENT EXECUTE FUNCTION fn_hwrf_sync();
-
 
 -- =============================================================================
 -- VIIRS
@@ -173,9 +153,6 @@ BEGIN
     IF row_count < 1 THEN
         RETURN NULL;
     END IF;
-
-    DELETE FROM summary_viirs_latest
-    WHERE "timestamp" != batch_ts;
 
     INSERT INTO summary_viirs (
         pfaf_id, "timestamp",
@@ -199,11 +176,6 @@ AFTER INSERT ON summary_viirs_latest
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION fn_viirs_sync();
 
-CREATE TRIGGER trg_viirs_sync_upd
-AFTER UPDATE ON summary_viirs_latest
-REFERENCING NEW TABLE AS new_rows
-FOR EACH STATEMENT EXECUTE FUNCTION fn_viirs_sync();
-
 
 -- =============================================================================
 -- DFO
@@ -223,9 +195,6 @@ BEGIN
     IF row_count < 1 THEN
         RETURN NULL;
     END IF;
-
-    DELETE FROM summary_dfo_latest
-    WHERE "timestamp" != batch_ts;
 
     SELECT EXISTS (
         SELECT 1 FROM new_rows
@@ -293,11 +262,6 @@ AFTER INSERT ON summary_dfo_latest
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION fn_dfo_sync();
 
-CREATE TRIGGER trg_dfo_sync_upd
-AFTER UPDATE ON summary_dfo_latest
-REFERENCING NEW TABLE AS new_rows
-FOR EACH STATEMENT EXECUTE FUNCTION fn_dfo_sync();
-
 
 -- =============================================================================
 -- MoM GFMS
@@ -318,9 +282,6 @@ BEGIN
     IF row_count < 1 THEN
         RETURN NULL;
     END IF;
-
-    DELETE FROM mom_gfms_latest
-    WHERE "timestamp" != batch_ts;
 
     INSERT INTO mom_gfms (
         pfaf_id, "timestamp",
@@ -388,11 +349,6 @@ AFTER INSERT ON mom_gfms_latest
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_gfms_sync();
 
-CREATE TRIGGER trg_mom_gfms_sync_upd
-AFTER UPDATE ON mom_gfms_latest
-REFERENCING NEW TABLE AS new_rows
-FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_gfms_sync();
-
 
 -- =============================================================================
 -- MoM HWRF
@@ -413,9 +369,6 @@ BEGIN
     IF row_count < 1 THEN
         RETURN NULL;
     END IF;
-
-    DELETE FROM mom_hwrf_latest
-    WHERE "timestamp" != batch_ts;
 
     INSERT INTO mom_hwrf (
         pfaf_id, "timestamp",
@@ -460,11 +413,6 @@ AFTER INSERT ON mom_hwrf_latest
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_hwrf_sync();
 
-CREATE TRIGGER trg_mom_hwrf_sync_upd
-AFTER UPDATE ON mom_hwrf_latest
-REFERENCING NEW TABLE AS new_rows
-FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_hwrf_sync();
-
 
 -- =============================================================================
 -- MoM DFO
@@ -487,9 +435,6 @@ BEGIN
     IF row_count < 1 THEN
         RETURN NULL;
     END IF;
-
-    DELETE FROM mom_dfo_latest
-    WHERE "timestamp" != batch_ts;
 
     INSERT INTO mom_dfo (
         pfaf_id, "timestamp",
@@ -547,11 +492,6 @@ AFTER INSERT ON mom_dfo_latest
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_dfo_sync();
 
-CREATE TRIGGER trg_mom_dfo_sync_upd
-AFTER UPDATE ON mom_dfo_latest
-REFERENCING NEW TABLE AS new_rows
-FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_dfo_sync();
-
 
 -- =============================================================================
 -- MoM VIIRS
@@ -572,9 +512,6 @@ BEGIN
     IF row_count < 1 THEN
         RETURN NULL;
     END IF;
-
-    DELETE FROM mom_viirs_latest
-    WHERE "timestamp" != batch_ts;
 
     INSERT INTO mom_viirs (
         pfaf_id, "timestamp",
@@ -620,11 +557,6 @@ AFTER INSERT ON mom_viirs_latest
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_viirs_sync();
 
-CREATE TRIGGER trg_mom_viirs_sync_upd
-AFTER UPDATE ON mom_viirs_latest
-REFERENCING NEW TABLE AS new_rows
-FOR EACH STATEMENT EXECUTE FUNCTION fn_mom_viirs_sync();
-
 
 -- =============================================================================
 -- GloFAS
@@ -645,9 +577,6 @@ BEGIN
     IF row_count < 1 THEN
         RETURN NULL;
     END IF;
-
-    DELETE FROM summary_glofas_latest
-    WHERE "timestamp" != batch_ts;
 
     INSERT INTO summary_glofas (
         "timestamp", matching_id_station, pfaf_id,
@@ -675,11 +604,6 @@ AFTER INSERT ON summary_glofas_latest
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION fn_glofas_sync();
 
-CREATE TRIGGER trg_glofas_sync_upd
-AFTER UPDATE ON summary_glofas_latest
-REFERENCING NEW TABLE AS new_rows
-FOR EACH STATEMENT EXECUTE FUNCTION fn_glofas_sync();
-
 
 -- =============================================================================
 -- Final Alert
@@ -700,9 +624,6 @@ BEGIN
     IF row_count < 1 THEN
         RETURN NULL;
     END IF;
-
-    DELETE FROM summary_final_alert_latest
-    WHERE "timestamp" != batch_ts;
 
     INSERT INTO summary_final_alert (
         "timestamp", matching_id_watershed, pfaf_id,
@@ -767,10 +688,5 @@ $$;
 
 CREATE TRIGGER trg_final_alert_sync_ins
 AFTER INSERT ON summary_final_alert_latest
-REFERENCING NEW TABLE AS new_rows
-FOR EACH STATEMENT EXECUTE FUNCTION fn_final_alert_sync();
-
-CREATE TRIGGER trg_final_alert_sync_upd
-AFTER UPDATE ON summary_final_alert_latest
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION fn_final_alert_sync();

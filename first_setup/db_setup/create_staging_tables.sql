@@ -63,6 +63,8 @@ BEGIN
         DELETE FROM summary_gfms WHERE "timestamp" = batch_ts;
     END IF;
 
+    DELETE FROM summary_gfms_latest;
+
     INSERT INTO summary_gfms_latest (
         pfaf_id, "timestamp",
         "GFMS_TotalArea_km", "GFMS_perc_Area",
@@ -72,14 +74,7 @@ BEGIN
         pfaf_id, "timestamp",
         "GFMS_TotalArea_km", "GFMS_perc_Area",
         "GFMS_MeanDepth", "GFMS_MaxDepth", "GFMS_Duration"
-    FROM stage_gfms
-    ON CONFLICT (pfaf_id) DO UPDATE SET
-        "timestamp"         = EXCLUDED."timestamp",
-        "GFMS_TotalArea_km" = EXCLUDED."GFMS_TotalArea_km",
-        "GFMS_perc_Area"    = EXCLUDED."GFMS_perc_Area",
-        "GFMS_MeanDepth"    = EXCLUDED."GFMS_MeanDepth",
-        "GFMS_MaxDepth"     = EXCLUDED."GFMS_MaxDepth",
-        "GFMS_Duration"     = EXCLUDED."GFMS_Duration";
+    FROM stage_gfms;
 
     DELETE FROM stage_gfms;
     RETURN NULL;
@@ -133,6 +128,8 @@ BEGIN
         DELETE FROM summary_hwrf WHERE "timestamp" = batch_ts;
     END IF;
 
+    DELETE FROM summary_hwrf_latest;
+
     INSERT INTO summary_hwrf_latest (
         pfaf_id, "timestamp",
         "Rain_TotalArea_km", "perc_Area", "MeanRain", "MaxRain"
@@ -140,13 +137,7 @@ BEGIN
     SELECT
         pfaf_id, "timestamp",
         "Rain_TotalArea_km", "perc_Area", "MeanRain", "MaxRain"
-    FROM stage_hwrf
-    ON CONFLICT (pfaf_id) DO UPDATE SET
-        "timestamp"        = EXCLUDED."timestamp",
-        "Rain_TotalArea_km"= EXCLUDED."Rain_TotalArea_km",
-        "perc_Area"        = EXCLUDED."perc_Area",
-        "MeanRain"         = EXCLUDED."MeanRain",
-        "MaxRain"          = EXCLUDED."MaxRain";
+    FROM stage_hwrf;
 
     DELETE FROM stage_hwrf;
     RETURN NULL;
@@ -200,6 +191,8 @@ BEGIN
         DELETE FROM summary_viirs WHERE "timestamp" = batch_ts;
     END IF;
 
+    DELETE FROM summary_viirs_latest;
+
     INSERT INTO summary_viirs_latest (
         pfaf_id, "timestamp",
         "onedayFlood_Area_km", "onedayperc_Area",
@@ -209,13 +202,7 @@ BEGIN
         pfaf_id, "timestamp",
         "onedayFlood_Area_km", "onedayperc_Area",
         "fivedayFlood_Area_km", "fivedayperc_Area"
-    FROM stage_viirs
-    ON CONFLICT (pfaf_id) DO UPDATE SET
-        "timestamp"           = EXCLUDED."timestamp",
-        "onedayFlood_Area_km" = EXCLUDED."onedayFlood_Area_km",
-        "onedayperc_Area"     = EXCLUDED."onedayperc_Area",
-        "fivedayFlood_Area_km"= EXCLUDED."fivedayFlood_Area_km",
-        "fivedayperc_Area"    = EXCLUDED."fivedayperc_Area";
+    FROM stage_viirs;
 
     DELETE FROM stage_viirs;
     RETURN NULL;
@@ -273,6 +260,8 @@ BEGIN
         DELETE FROM summary_dfo WHERE "timestamp" = batch_ts;
     END IF;
 
+    DELETE FROM summary_dfo_latest;
+
     INSERT INTO summary_dfo_latest (
         pfaf_id, "timestamp",
         "1-Day_TotalArea_km2", "1-Day_perc_Area",
@@ -286,17 +275,7 @@ BEGIN
         "1-Day_CS_TotalArea_km2", "1-Day_CS_perc_Area",
         "2-Day_TotalArea_km2", "2-Day_perc_Area",
         "3-Day_TotalArea_km2", "3-Day_perc_Area"
-    FROM stage_dfo
-    ON CONFLICT (pfaf_id) DO UPDATE SET
-        "timestamp"              = EXCLUDED."timestamp",
-        "1-Day_TotalArea_km2"    = EXCLUDED."1-Day_TotalArea_km2",
-        "1-Day_perc_Area"        = EXCLUDED."1-Day_perc_Area",
-        "1-Day_CS_TotalArea_km2" = EXCLUDED."1-Day_CS_TotalArea_km2",
-        "1-Day_CS_perc_Area"     = EXCLUDED."1-Day_CS_perc_Area",
-        "2-Day_TotalArea_km2"    = EXCLUDED."2-Day_TotalArea_km2",
-        "2-Day_perc_Area"        = EXCLUDED."2-Day_perc_Area",
-        "3-Day_TotalArea_km2"    = EXCLUDED."3-Day_TotalArea_km2",
-        "3-Day_perc_Area"        = EXCLUDED."3-Day_perc_Area";
+    FROM stage_dfo;
 
     DELETE FROM stage_dfo;
     RETURN NULL;
@@ -384,6 +363,8 @@ BEGIN
     FROM stage_glofas s
     ON CONFLICT ("Station", "Country", "Lat", "Lon", pfaf_id) DO NOTHING;
 
+    DELETE FROM summary_glofas_latest;
+
     INSERT INTO summary_glofas_latest (
         matching_id_station,
         "timestamp", pfaf_id,
@@ -405,19 +386,7 @@ BEGIN
         s."Alert_level", s."Days_until_peak",
         s."GloFAS_2yr", s."GloFAS_5yr", s."GloFAS_20yr",
         s."max_EPS", s."Forecast Date"
-    FROM stage_glofas s
-    ON CONFLICT (matching_id_station) DO UPDATE SET
-        "timestamp"       = EXCLUDED."timestamp",
-        pfaf_id           = EXCLUDED.pfaf_id,
-        "ID"              = EXCLUDED."ID",
-        "Point No"        = EXCLUDED."Point No",
-        "Alert_level"     = EXCLUDED."Alert_level",
-        "Days_until_peak" = EXCLUDED."Days_until_peak",
-        "GloFAS_2yr"      = EXCLUDED."GloFAS_2yr",
-        "GloFAS_5yr"      = EXCLUDED."GloFAS_5yr",
-        "GloFAS_20yr"     = EXCLUDED."GloFAS_20yr",
-        "max_EPS"         = EXCLUDED."max_EPS",
-        "Forecast Date"   = EXCLUDED."Forecast Date";
+    FROM stage_glofas s;
 
     DELETE FROM stage_glofas;
     RETURN NULL;
@@ -499,6 +468,8 @@ BEGIN
       AND s."Resilience_Index" IS NOT NULL
       AND ws."Resilience_Index" IS NULL;
 
+    DELETE FROM mom_gfms_latest;
+
     INSERT INTO mom_gfms_latest (
         pfaf_id, "timestamp",
         "FID", "Alert",
@@ -524,37 +495,7 @@ BEGIN
         "GFMS_area_score", "GFMS_perc_area_score",
         "MeanD_Score", "MaxD_Score", "Duration_Score", "Sum_Score_y",
         "Hazard_Score", "Scaled_Riverine_Risk", "Scaled_Coastal_Risk", "Severity"
-    FROM stage_mom_gfms
-    ON CONFLICT (pfaf_id) DO UPDATE SET
-        "timestamp"             = EXCLUDED."timestamp",
-        "FID"                   = COALESCE(EXCLUDED."FID",                   mom_gfms_latest."FID"),
-        "Alert"                 = COALESCE(NULLIF(EXCLUDED."Alert", ''),      mom_gfms_latest."Alert"),
-        "Alert_level"           = COALESCE(EXCLUDED."Alert_level",           mom_gfms_latest."Alert_level"),
-        "Days_until_peak"       = COALESCE(EXCLUDED."Days_until_peak",       mom_gfms_latest."Days_until_peak"),
-        "GloFAS_2yr"            = COALESCE(EXCLUDED."GloFAS_2yr",            mom_gfms_latest."GloFAS_2yr"),
-        "GloFAS_5yr"            = COALESCE(EXCLUDED."GloFAS_5yr",            mom_gfms_latest."GloFAS_5yr"),
-        "GloFAS_20yr"           = COALESCE(EXCLUDED."GloFAS_20yr",           mom_gfms_latest."GloFAS_20yr"),
-        "Alert_Score"           = COALESCE(EXCLUDED."Alert_Score",           mom_gfms_latest."Alert_Score"),
-        "PeakArrivalScore"      = COALESCE(EXCLUDED."PeakArrivalScore",      mom_gfms_latest."PeakArrivalScore"),
-        "TwoYScore"             = COALESCE(EXCLUDED."TwoYScore",             mom_gfms_latest."TwoYScore"),
-        "FiveYScore"            = COALESCE(EXCLUDED."FiveYScore",            mom_gfms_latest."FiveYScore"),
-        "TwtyYScore"            = COALESCE(EXCLUDED."TwtyYScore",            mom_gfms_latest."TwtyYScore"),
-        "Sum_Score_x"           = COALESCE(EXCLUDED."Sum_Score_x",           mom_gfms_latest."Sum_Score_x"),
-        "GFMS_TotalArea_km"     = COALESCE(EXCLUDED."GFMS_TotalArea_km",     mom_gfms_latest."GFMS_TotalArea_km"),
-        "GFMS_perc_Area"        = COALESCE(EXCLUDED."GFMS_perc_Area",        mom_gfms_latest."GFMS_perc_Area"),
-        "GFMS_MeanDepth"        = COALESCE(EXCLUDED."GFMS_MeanDepth",        mom_gfms_latest."GFMS_MeanDepth"),
-        "GFMS_MaxDepth"         = COALESCE(EXCLUDED."GFMS_MaxDepth",         mom_gfms_latest."GFMS_MaxDepth"),
-        "GFMS_Duration"         = COALESCE(EXCLUDED."GFMS_Duration",         mom_gfms_latest."GFMS_Duration"),
-        "GFMS_area_score"       = COALESCE(EXCLUDED."GFMS_area_score",       mom_gfms_latest."GFMS_area_score"),
-        "GFMS_perc_area_score"  = COALESCE(EXCLUDED."GFMS_perc_area_score",  mom_gfms_latest."GFMS_perc_area_score"),
-        "MeanD_Score"           = COALESCE(EXCLUDED."MeanD_Score",           mom_gfms_latest."MeanD_Score"),
-        "MaxD_Score"            = COALESCE(EXCLUDED."MaxD_Score",            mom_gfms_latest."MaxD_Score"),
-        "Duration_Score"        = COALESCE(EXCLUDED."Duration_Score",        mom_gfms_latest."Duration_Score"),
-        "Sum_Score_y"           = COALESCE(EXCLUDED."Sum_Score_y",           mom_gfms_latest."Sum_Score_y"),
-        "Hazard_Score"          = COALESCE(EXCLUDED."Hazard_Score",          mom_gfms_latest."Hazard_Score"),
-        "Scaled_Riverine_Risk"  = COALESCE(EXCLUDED."Scaled_Riverine_Risk",  mom_gfms_latest."Scaled_Riverine_Risk"),
-        "Scaled_Coastal_Risk"   = COALESCE(EXCLUDED."Scaled_Coastal_Risk",   mom_gfms_latest."Scaled_Coastal_Risk"),
-        "Severity"              = COALESCE(EXCLUDED."Severity",              mom_gfms_latest."Severity");
+    FROM stage_mom_gfms;
 
     DELETE FROM stage_mom_gfms;
     RETURN NULL;
@@ -623,6 +564,8 @@ BEGIN
       AND s."Resilience_Index" IS NOT NULL
       AND ws."Resilience_Index" IS NULL;
 
+    DELETE FROM mom_hwrf_latest;
+
     INSERT INTO mom_hwrf_latest (
         pfaf_id, "timestamp",
         "FID", "Alert", "Flag",
@@ -638,24 +581,7 @@ BEGIN
         "HWRF_area_score", "HWRF_percarea_score",
         "MeanRain_Score", "MaxRain_Score", "HWRFTot_Score",
         "MOM_Score", "Hazard_Score", "Severity"
-    FROM stage_mom_hwrf
-    ON CONFLICT (pfaf_id) DO UPDATE SET
-        "timestamp"           = EXCLUDED."timestamp",
-        "FID"                 = COALESCE(EXCLUDED."FID",                 mom_hwrf_latest."FID"),
-        "Alert"               = COALESCE(NULLIF(EXCLUDED."Alert", ''),    mom_hwrf_latest."Alert"),
-        "Flag"                = COALESCE(EXCLUDED."Flag",                mom_hwrf_latest."Flag"),
-        "Rain_TotalArea_km"   = COALESCE(EXCLUDED."Rain_TotalArea_km",   mom_hwrf_latest."Rain_TotalArea_km"),
-        "perc_Area"           = COALESCE(EXCLUDED."perc_Area",           mom_hwrf_latest."perc_Area"),
-        "MeanRain"            = COALESCE(EXCLUDED."MeanRain",            mom_hwrf_latest."MeanRain"),
-        "MaxRain"             = COALESCE(EXCLUDED."MaxRain",             mom_hwrf_latest."MaxRain"),
-        "HWRF_area_score"     = COALESCE(EXCLUDED."HWRF_area_score",     mom_hwrf_latest."HWRF_area_score"),
-        "HWRF_percarea_score" = COALESCE(EXCLUDED."HWRF_percarea_score", mom_hwrf_latest."HWRF_percarea_score"),
-        "MeanRain_Score"      = COALESCE(EXCLUDED."MeanRain_Score",      mom_hwrf_latest."MeanRain_Score"),
-        "MaxRain_Score"       = COALESCE(EXCLUDED."MaxRain_Score",       mom_hwrf_latest."MaxRain_Score"),
-        "HWRFTot_Score"       = COALESCE(EXCLUDED."HWRFTot_Score",       mom_hwrf_latest."HWRFTot_Score"),
-        "MOM_Score"           = COALESCE(EXCLUDED."MOM_Score",           mom_hwrf_latest."MOM_Score"),
-        "Hazard_Score"        = COALESCE(EXCLUDED."Hazard_Score",        mom_hwrf_latest."Hazard_Score"),
-        "Severity"            = COALESCE(EXCLUDED."Severity",            mom_hwrf_latest."Severity");
+    FROM stage_mom_hwrf;
 
     DELETE FROM stage_mom_hwrf;
     RETURN NULL;
@@ -729,6 +655,8 @@ BEGIN
       AND s."Resilience_Index" IS NOT NULL
       AND ws."Resilience_Index" IS NULL;
 
+    DELETE FROM mom_dfo_latest;
+
     INSERT INTO mom_dfo_latest (
         pfaf_id, "timestamp",
         "FID", "Alert", "Flag",
@@ -752,29 +680,7 @@ BEGIN
         "DFO_area_2day_score", "DFO_percarea_2day_score",
         "DFO_area_3day_score", "DFO_percarea_3day_score",
         "DFOTotal_Score", "Hazard_Score", "Severity"
-    FROM stage_mom_dfo
-    ON CONFLICT (pfaf_id) DO UPDATE SET
-        "timestamp"               = EXCLUDED."timestamp",
-        "FID"                     = COALESCE(EXCLUDED."FID",                     mom_dfo_latest."FID"),
-        "Alert"                   = COALESCE(NULLIF(EXCLUDED."Alert", ''),        mom_dfo_latest."Alert"),
-        "Flag"                    = COALESCE(EXCLUDED."Flag",                    mom_dfo_latest."Flag"),
-        "1-Day_TotalArea_km2"     = COALESCE(EXCLUDED."1-Day_TotalArea_km2",     mom_dfo_latest."1-Day_TotalArea_km2"),
-        "1-Day_perc_Area"         = COALESCE(EXCLUDED."1-Day_perc_Area",         mom_dfo_latest."1-Day_perc_Area"),
-        "1-Day_CS_TotalArea_km2"  = COALESCE(EXCLUDED."1-Day_CS_TotalArea_km2",  mom_dfo_latest."1-Day_CS_TotalArea_km2"),
-        "1-Day_CS_perc_Area"      = COALESCE(EXCLUDED."1-Day_CS_perc_Area",      mom_dfo_latest."1-Day_CS_perc_Area"),
-        "2-Day_TotalArea_km2"     = COALESCE(EXCLUDED."2-Day_TotalArea_km2",     mom_dfo_latest."2-Day_TotalArea_km2"),
-        "2-Day_perc_Area"         = COALESCE(EXCLUDED."2-Day_perc_Area",         mom_dfo_latest."2-Day_perc_Area"),
-        "3-Day_TotalArea_km2"     = COALESCE(EXCLUDED."3-Day_TotalArea_km2",     mom_dfo_latest."3-Day_TotalArea_km2"),
-        "3-Day_perc_Area"         = COALESCE(EXCLUDED."3-Day_perc_Area",         mom_dfo_latest."3-Day_perc_Area"),
-        "DFO_area_1day_score"     = COALESCE(EXCLUDED."DFO_area_1day_score",     mom_dfo_latest."DFO_area_1day_score"),
-        "DFO_percarea_1day_score" = COALESCE(EXCLUDED."DFO_percarea_1day_score", mom_dfo_latest."DFO_percarea_1day_score"),
-        "DFO_area_2day_score"     = COALESCE(EXCLUDED."DFO_area_2day_score",     mom_dfo_latest."DFO_area_2day_score"),
-        "DFO_percarea_2day_score" = COALESCE(EXCLUDED."DFO_percarea_2day_score", mom_dfo_latest."DFO_percarea_2day_score"),
-        "DFO_area_3day_score"     = COALESCE(EXCLUDED."DFO_area_3day_score",     mom_dfo_latest."DFO_area_3day_score"),
-        "DFO_percarea_3day_score" = COALESCE(EXCLUDED."DFO_percarea_3day_score", mom_dfo_latest."DFO_percarea_3day_score"),
-        "DFOTotal_Score"          = COALESCE(EXCLUDED."DFOTotal_Score",          mom_dfo_latest."DFOTotal_Score"),
-        "Hazard_Score"            = COALESCE(EXCLUDED."Hazard_Score",            mom_dfo_latest."Hazard_Score"),
-        "Severity"                = COALESCE(EXCLUDED."Severity",                mom_dfo_latest."Severity");
+    FROM stage_mom_dfo;
 
     DELETE FROM stage_mom_dfo;
     RETURN NULL;
@@ -842,6 +748,8 @@ BEGIN
       AND s."Resilience_Index" IS NOT NULL
       AND ws."Resilience_Index" IS NULL;
 
+    DELETE FROM mom_viirs_latest;
+
     INSERT INTO mom_viirs_latest (
         pfaf_id, "timestamp",
         "FID", "Alert", "Flag",
@@ -859,23 +767,7 @@ BEGIN
         "VIIRS_area_1day_score", "VIIRS_percarea_1day_score",
         "VIIRS_area_5day_score", "VIIRS_percarea_5day_score",
         "VIIRSTotal_Score", "Hazard_Score", "Severity"
-    FROM stage_mom_viirs
-    ON CONFLICT (pfaf_id) DO UPDATE SET
-        "timestamp"                  = EXCLUDED."timestamp",
-        "FID"                        = COALESCE(EXCLUDED."FID",                        mom_viirs_latest."FID"),
-        "Alert"                      = COALESCE(NULLIF(EXCLUDED."Alert", ''),           mom_viirs_latest."Alert"),
-        "Flag"                       = COALESCE(EXCLUDED."Flag",                       mom_viirs_latest."Flag"),
-        "onedayFlood_Area_km"        = COALESCE(EXCLUDED."onedayFlood_Area_km",        mom_viirs_latest."onedayFlood_Area_km"),
-        "onedayperc_Area"            = COALESCE(EXCLUDED."onedayperc_Area",            mom_viirs_latest."onedayperc_Area"),
-        "fivedayFlood_Area_km"       = COALESCE(EXCLUDED."fivedayFlood_Area_km",       mom_viirs_latest."fivedayFlood_Area_km"),
-        "fivedayperc_Area"           = COALESCE(EXCLUDED."fivedayperc_Area",           mom_viirs_latest."fivedayperc_Area"),
-        "VIIRS_area_1day_score"      = COALESCE(EXCLUDED."VIIRS_area_1day_score",      mom_viirs_latest."VIIRS_area_1day_score"),
-        "VIIRS_percarea_1day_score"  = COALESCE(EXCLUDED."VIIRS_percarea_1day_score",  mom_viirs_latest."VIIRS_percarea_1day_score"),
-        "VIIRS_area_5day_score"      = COALESCE(EXCLUDED."VIIRS_area_5day_score",      mom_viirs_latest."VIIRS_area_5day_score"),
-        "VIIRS_percarea_5day_score"  = COALESCE(EXCLUDED."VIIRS_percarea_5day_score",  mom_viirs_latest."VIIRS_percarea_5day_score"),
-        "VIIRSTotal_Score"           = COALESCE(EXCLUDED."VIIRSTotal_Score",           mom_viirs_latest."VIIRSTotal_Score"),
-        "Hazard_Score"               = COALESCE(EXCLUDED."Hazard_Score",               mom_viirs_latest."Hazard_Score"),
-        "Severity"                   = COALESCE(EXCLUDED."Severity",                   mom_viirs_latest."Severity");
+    FROM stage_mom_viirs;
 
     DELETE FROM stage_mom_viirs;
     RETURN NULL;
@@ -1009,6 +901,8 @@ BEGIN
     FROM stage_final_alert s
     ON CONFLICT (pfaf_id, "name", "name_1", "CentroidX", "CentroidY") DO NOTHING;
 
+    DELETE FROM summary_final_alert_latest;
+
     INSERT INTO summary_final_alert_latest (
         matching_id_watershed,
         "timestamp", pfaf_id,
@@ -1070,64 +964,7 @@ BEGIN
         s."VIIRS_area_5day_score", s."VIIRS_percarea_5day_score",
         s."VIIRSTotal_Score",
         s."Severity", s."Alert", s."Status"
-    FROM stage_final_alert s
-    ON CONFLICT (matching_id_watershed) DO UPDATE SET
-        "timestamp"                 = EXCLUDED."timestamp",
-        pfaf_id                     = EXCLUDED.pfaf_id,
-        "Alert_level"               = EXCLUDED."Alert_level",
-        "Days_until_peak"           = EXCLUDED."Days_until_peak",
-        "GloFAS_2yr"                = EXCLUDED."GloFAS_2yr",
-        "GloFAS_5yr"                = EXCLUDED."GloFAS_5yr",
-        "GloFAS_20yr"               = EXCLUDED."GloFAS_20yr",
-        "Alert_Score"               = EXCLUDED."Alert_Score",
-        "PeakArrivalScore"          = EXCLUDED."PeakArrivalScore",
-        "TwoYScore"                 = EXCLUDED."TwoYScore",
-        "FiveYScore"                = EXCLUDED."FiveYScore",
-        "TwtyYScore"                = EXCLUDED."TwtyYScore",
-        "Sum_Score_x"               = EXCLUDED."Sum_Score_x",
-        "GFMS_TotalArea_km"         = EXCLUDED."GFMS_TotalArea_km",
-        "GFMS_perc_Area"            = EXCLUDED."GFMS_perc_Area",
-        "GFMS_MeanDepth"            = EXCLUDED."GFMS_MeanDepth",
-        "GFMS_MaxDepth"             = EXCLUDED."GFMS_MaxDepth",
-        "GFMS_Duration"             = EXCLUDED."GFMS_Duration",
-        "GFMS_area_score"           = EXCLUDED."GFMS_area_score",
-        "GFMS_perc_area_score"      = EXCLUDED."GFMS_perc_area_score",
-        "MeanD_Score"               = EXCLUDED."MeanD_Score",
-        "MaxD_Score"                = EXCLUDED."MaxD_Score",
-        "Duration_Score"            = EXCLUDED."Duration_Score",
-        "Sum_Score_y"               = EXCLUDED."Sum_Score_y",
-        "MOM_Score"                 = EXCLUDED."MOM_Score",
-        "Hazard_Score"              = EXCLUDED."Hazard_Score",
-        "Scaled_Riverine_Risk"      = EXCLUDED."Scaled_Riverine_Risk",
-        "Scaled_Coastal_Risk"       = EXCLUDED."Scaled_Coastal_Risk",
-        "Flag"                      = EXCLUDED."Flag",
-        "1-Day_TotalArea_km2"       = EXCLUDED."1-Day_TotalArea_km2",
-        "1-Day_perc_Area"           = EXCLUDED."1-Day_perc_Area",
-        "1-Day_CS_TotalArea_km2"    = EXCLUDED."1-Day_CS_TotalArea_km2",
-        "1-Day_CS_perc_Area"        = EXCLUDED."1-Day_CS_perc_Area",
-        "2-Day_TotalArea_km2"       = EXCLUDED."2-Day_TotalArea_km2",
-        "2-Day_perc_Area"           = EXCLUDED."2-Day_perc_Area",
-        "3-Day_TotalArea_km2"       = EXCLUDED."3-Day_TotalArea_km2",
-        "3-Day_perc_Area"           = EXCLUDED."3-Day_perc_Area",
-        "DFO_area_1day_score"       = EXCLUDED."DFO_area_1day_score",
-        "DFO_percarea_1day_score"   = EXCLUDED."DFO_percarea_1day_score",
-        "DFO_area_2day_score"       = EXCLUDED."DFO_area_2day_score",
-        "DFO_percarea_2day_score"   = EXCLUDED."DFO_percarea_2day_score",
-        "DFO_area_3day_score"       = EXCLUDED."DFO_area_3day_score",
-        "DFO_percarea_3day_score"   = EXCLUDED."DFO_percarea_3day_score",
-        "DFOTotal_Score"            = EXCLUDED."DFOTotal_Score",
-        "onedayFlood_Area_km"       = EXCLUDED."onedayFlood_Area_km",
-        "onedayperc_Area"           = EXCLUDED."onedayperc_Area",
-        "fivedayFlood_Area_km"      = EXCLUDED."fivedayFlood_Area_km",
-        "fivedayperc_Area"          = EXCLUDED."fivedayperc_Area",
-        "VIIRS_area_1day_score"     = EXCLUDED."VIIRS_area_1day_score",
-        "VIIRS_percarea_1day_score" = EXCLUDED."VIIRS_percarea_1day_score",
-        "VIIRS_area_5day_score"     = EXCLUDED."VIIRS_area_5day_score",
-        "VIIRS_percarea_5day_score" = EXCLUDED."VIIRS_percarea_5day_score",
-        "VIIRSTotal_Score"          = EXCLUDED."VIIRSTotal_Score",
-        "Severity"                  = EXCLUDED."Severity",
-        "Alert"                     = EXCLUDED."Alert",
-        "Status"                    = EXCLUDED."Status";
+    FROM stage_final_alert s;
 
     DELETE FROM stage_final_alert;
     RETURN NULL;

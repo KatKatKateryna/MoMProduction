@@ -81,6 +81,8 @@ CREATE TABLE IF NOT EXISTS summary_gfms (
     "GFMS_MeanDepth"     DOUBLE PRECISION,
     "GFMS_MaxDepth"      DOUBLE PRECISION,
     "GFMS_Duration"      INTEGER,
+    created_at           TIMESTAMPTZ     DEFAULT NULL,
+    updated_at           TIMESTAMPTZ     DEFAULT NULL,
     PRIMARY KEY ("timestamp", pfaf_id)
 );
 
@@ -92,6 +94,8 @@ CREATE TABLE IF NOT EXISTS summary_hwrf (
     "perc_Area"          DOUBLE PRECISION,
     "MeanRain"           DOUBLE PRECISION,
     "MaxRain"            DOUBLE PRECISION,
+    created_at           TIMESTAMPTZ     DEFAULT NULL,
+    updated_at           TIMESTAMPTZ     DEFAULT NULL,
     PRIMARY KEY ("timestamp", pfaf_id)
 );
 
@@ -104,6 +108,8 @@ CREATE TABLE IF NOT EXISTS summary_viirs (
     "onedayperc_Area"        DOUBLE PRECISION,
     "fivedayFlood_Area_km"   DOUBLE PRECISION,
     "fivedayperc_Area"       DOUBLE PRECISION,
+    created_at               TIMESTAMPTZ     DEFAULT NULL,
+    updated_at               TIMESTAMPTZ     DEFAULT NULL,
     PRIMARY KEY ("timestamp", pfaf_id)
 );
 
@@ -120,6 +126,8 @@ CREATE TABLE IF NOT EXISTS summary_dfo (
     "2-Day_perc_Area"         DOUBLE PRECISION,
     "3-Day_TotalArea_km2"     DOUBLE PRECISION,
     "3-Day_perc_Area"         DOUBLE PRECISION,
+    created_at                TIMESTAMPTZ     DEFAULT NULL,
+    updated_at                TIMESTAMPTZ     DEFAULT NULL,
     PRIMARY KEY ("timestamp", pfaf_id)
 );
 
@@ -137,6 +145,8 @@ CREATE TABLE IF NOT EXISTS summary_glofas (
     "GloFAS_20yr"       DOUBLE PRECISION,
     "max_EPS"           TEXT,
     "Forecast Date"     TIMESTAMP,
+    created_at          TIMESTAMPTZ     DEFAULT NULL,
+    updated_at          TIMESTAMPTZ     DEFAULT NULL,
     PRIMARY KEY ("timestamp", matching_id_station)
 );
 
@@ -199,6 +209,8 @@ CREATE TABLE IF NOT EXISTS summary_final_alert (
     "Severity"                  DOUBLE PRECISION,
     "Alert"                     TEXT,
     "Status"                    TEXT,
+    created_at                  TIMESTAMPTZ     DEFAULT NULL,
+    updated_at                  TIMESTAMPTZ     DEFAULT NULL,
     PRIMARY KEY ("timestamp", matching_id_watershed)
 );
 
@@ -247,6 +259,8 @@ CREATE TABLE IF NOT EXISTS mom_gfms (
     "Scaled_Riverine_Risk"       DOUBLE PRECISION,
     "Scaled_Coastal_Risk"        DOUBLE PRECISION,
     "Severity"                   DOUBLE PRECISION,
+    created_at                   TIMESTAMPTZ     DEFAULT NULL,
+    updated_at                   TIMESTAMPTZ     DEFAULT NULL,
     PRIMARY KEY ("timestamp", pfaf_id)
 );
 
@@ -273,6 +287,8 @@ CREATE TABLE IF NOT EXISTS mom_hwrf (
     "MOM_Score"                  DOUBLE PRECISION,
     "Hazard_Score"               DOUBLE PRECISION,
     "Severity"                   DOUBLE PRECISION,
+    created_at                   TIMESTAMPTZ     DEFAULT NULL,
+    updated_at                   TIMESTAMPTZ     DEFAULT NULL,
     PRIMARY KEY ("timestamp", pfaf_id)
 );
 
@@ -306,6 +322,8 @@ CREATE TABLE IF NOT EXISTS mom_dfo (
     -- Updated composite scores
     "Hazard_Score"               DOUBLE PRECISION,
     "Severity"                   DOUBLE PRECISION,
+    created_at                   TIMESTAMPTZ     DEFAULT NULL,
+    updated_at                   TIMESTAMPTZ     DEFAULT NULL,
     PRIMARY KEY ("timestamp", pfaf_id)
 );
 
@@ -331,6 +349,8 @@ CREATE TABLE IF NOT EXISTS mom_viirs (
     -- Updated composite scores
     "Hazard_Score"               DOUBLE PRECISION,
     "Severity"                   DOUBLE PRECISION,
+    created_at                   TIMESTAMPTZ     DEFAULT NULL,
+    updated_at                   TIMESTAMPTZ     DEFAULT NULL,
     PRIMARY KEY ("timestamp", pfaf_id)
 );
 
@@ -370,7 +390,9 @@ CREATE TABLE IF NOT EXISTS mom_gfms_latest (
     "Hazard_Score"               DOUBLE PRECISION,
     "Scaled_Riverine_Risk"       DOUBLE PRECISION,
     "Scaled_Coastal_Risk"        DOUBLE PRECISION,
-    "Severity"                   DOUBLE PRECISION
+    "Severity"                   DOUBLE PRECISION,
+    created_at                   TIMESTAMPTZ     DEFAULT NULL,
+    updated_at                   TIMESTAMPTZ     DEFAULT NULL
 );
 
 -- HWRF MoM Latest
@@ -391,7 +413,9 @@ CREATE TABLE IF NOT EXISTS mom_hwrf_latest (
     "HWRFTot_Score"              DOUBLE PRECISION,
     "MOM_Score"                  DOUBLE PRECISION,
     "Hazard_Score"               DOUBLE PRECISION,
-    "Severity"                   DOUBLE PRECISION
+    "Severity"                   DOUBLE PRECISION,
+    created_at                   TIMESTAMPTZ     DEFAULT NULL,
+    updated_at                   TIMESTAMPTZ     DEFAULT NULL
 );
 
 -- DFO MoM Latest
@@ -417,7 +441,9 @@ CREATE TABLE IF NOT EXISTS mom_dfo_latest (
     "DFO_percarea_3day_score"    DOUBLE PRECISION,
     "DFOTotal_Score"             DOUBLE PRECISION,
     "Hazard_Score"               DOUBLE PRECISION,
-    "Severity"                   DOUBLE PRECISION
+    "Severity"                   DOUBLE PRECISION,
+    created_at                   TIMESTAMPTZ     DEFAULT NULL,
+    updated_at                   TIMESTAMPTZ     DEFAULT NULL
 );
 
 -- VIIRS MoM Latest
@@ -437,7 +463,9 @@ CREATE TABLE IF NOT EXISTS mom_viirs_latest (
     "VIIRS_percarea_5day_score"  DOUBLE PRECISION,
     "VIIRSTotal_Score"           DOUBLE PRECISION,
     "Hazard_Score"               DOUBLE PRECISION,
-    "Severity"                   DOUBLE PRECISION
+    "Severity"                   DOUBLE PRECISION,
+    created_at                   TIMESTAMPTZ     DEFAULT NULL,
+    updated_at                   TIMESTAMPTZ     DEFAULT NULL
 );
 
 
@@ -449,7 +477,9 @@ CREATE TABLE IF NOT EXISTS summary_gfms_latest (
     "GFMS_perc_Area"     DOUBLE PRECISION,
     "GFMS_MeanDepth"     DOUBLE PRECISION,
     "GFMS_MaxDepth"      DOUBLE PRECISION,
-    "GFMS_Duration"      INTEGER
+    "GFMS_Duration"      INTEGER,
+    created_at           TIMESTAMPTZ     DEFAULT NULL,
+    updated_at           TIMESTAMPTZ     DEFAULT NULL
 );
 
 -- HWRF Latest
@@ -459,7 +489,9 @@ CREATE TABLE IF NOT EXISTS summary_hwrf_latest (
     "Rain_TotalArea_km"  DOUBLE PRECISION,
     "perc_Area"          DOUBLE PRECISION,
     "MeanRain"           DOUBLE PRECISION,
-    "MaxRain"            DOUBLE PRECISION
+    "MaxRain"            DOUBLE PRECISION,
+    created_at           TIMESTAMPTZ     DEFAULT NULL,
+    updated_at           TIMESTAMPTZ     DEFAULT NULL
 );
 
 -- GloFAS Latest: forecast data only — station metadata lives in all_glofas_stations.
@@ -477,7 +509,9 @@ CREATE TABLE IF NOT EXISTS summary_glofas_latest (
     "GloFAS_5yr"         DOUBLE PRECISION,
     "GloFAS_20yr"        DOUBLE PRECISION,
     "max_EPS"            TEXT,
-    "Forecast Date"      TIMESTAMP
+    "Forecast Date"      TIMESTAMP,
+    created_at           TIMESTAMPTZ     DEFAULT NULL,
+    updated_at           TIMESTAMPTZ     DEFAULT NULL
 );
 
 -- VIIRS Latest
@@ -487,7 +521,9 @@ CREATE TABLE IF NOT EXISTS summary_viirs_latest (
     "onedayFlood_Area_km"    DOUBLE PRECISION,
     "onedayperc_Area"        DOUBLE PRECISION,
     "fivedayFlood_Area_km"   DOUBLE PRECISION,
-    "fivedayperc_Area"       DOUBLE PRECISION
+    "fivedayperc_Area"       DOUBLE PRECISION,
+    created_at               TIMESTAMPTZ     DEFAULT NULL,
+    updated_at               TIMESTAMPTZ     DEFAULT NULL
 );
 
 -- DFO Latest
@@ -501,7 +537,9 @@ CREATE TABLE IF NOT EXISTS summary_dfo_latest (
     "2-Day_TotalArea_km2"     DOUBLE PRECISION,
     "2-Day_perc_Area"         DOUBLE PRECISION,
     "3-Day_TotalArea_km2"     DOUBLE PRECISION,
-    "3-Day_perc_Area"         DOUBLE PRECISION
+    "3-Day_perc_Area"         DOUBLE PRECISION,
+    created_at                TIMESTAMPTZ     DEFAULT NULL,
+    updated_at                TIMESTAMPTZ     DEFAULT NULL
 );
 
 -- Final Alert Latest: alert data only — watershed metadata lives in all_watersheds,
@@ -565,5 +603,50 @@ CREATE TABLE IF NOT EXISTS summary_final_alert_latest (
     "VIIRSTotal_Score"          DOUBLE PRECISION,
     "Severity"                  DOUBLE PRECISION,
     "Alert"                     TEXT,
-    "Status"                    TEXT
+    "Status"                    TEXT,
+    created_at                  TIMESTAMPTZ     DEFAULT NULL,
+    updated_at                  TIMESTAMPTZ     DEFAULT NULL
 );
+
+
+-- ============================================================
+-- Shared row-level timestamp trigger
+-- Sets created_at on INSERT, updated_at on UPDATE.
+-- Apply to all history and _latest tables.
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION fn_set_timestamps()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        NEW.created_at = NOW();
+    ELSIF TG_OP = 'UPDATE' THEN
+        NEW.updated_at = NOW();
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+-- History tables
+CREATE TRIGGER trg_summary_gfms_ts           BEFORE INSERT OR UPDATE ON summary_gfms           FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
+CREATE TRIGGER trg_summary_hwrf_ts           BEFORE INSERT OR UPDATE ON summary_hwrf           FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
+CREATE TRIGGER trg_summary_viirs_ts          BEFORE INSERT OR UPDATE ON summary_viirs          FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
+CREATE TRIGGER trg_summary_dfo_ts            BEFORE INSERT OR UPDATE ON summary_dfo            FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
+CREATE TRIGGER trg_summary_glofas_ts         BEFORE INSERT OR UPDATE ON summary_glofas         FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
+CREATE TRIGGER trg_summary_final_alert_ts    BEFORE INSERT OR UPDATE ON summary_final_alert    FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
+CREATE TRIGGER trg_mom_gfms_ts               BEFORE INSERT OR UPDATE ON mom_gfms               FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
+CREATE TRIGGER trg_mom_hwrf_ts               BEFORE INSERT OR UPDATE ON mom_hwrf               FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
+CREATE TRIGGER trg_mom_dfo_ts                BEFORE INSERT OR UPDATE ON mom_dfo                FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
+CREATE TRIGGER trg_mom_viirs_ts              BEFORE INSERT OR UPDATE ON mom_viirs              FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
+
+-- Latest tables
+CREATE TRIGGER trg_summary_gfms_latest_ts         BEFORE INSERT OR UPDATE ON summary_gfms_latest         FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
+CREATE TRIGGER trg_summary_hwrf_latest_ts         BEFORE INSERT OR UPDATE ON summary_hwrf_latest         FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
+CREATE TRIGGER trg_summary_viirs_latest_ts        BEFORE INSERT OR UPDATE ON summary_viirs_latest        FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
+CREATE TRIGGER trg_summary_dfo_latest_ts          BEFORE INSERT OR UPDATE ON summary_dfo_latest          FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
+CREATE TRIGGER trg_summary_glofas_latest_ts       BEFORE INSERT OR UPDATE ON summary_glofas_latest       FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
+CREATE TRIGGER trg_summary_final_alert_latest_ts  BEFORE INSERT OR UPDATE ON summary_final_alert_latest  FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
+CREATE TRIGGER trg_mom_gfms_latest_ts             BEFORE INSERT OR UPDATE ON mom_gfms_latest             FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
+CREATE TRIGGER trg_mom_hwrf_latest_ts             BEFORE INSERT OR UPDATE ON mom_hwrf_latest             FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
+CREATE TRIGGER trg_mom_dfo_latest_ts              BEFORE INSERT OR UPDATE ON mom_dfo_latest              FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
+CREATE TRIGGER trg_mom_viirs_latest_ts            BEFORE INSERT OR UPDATE ON mom_viirs_latest            FOR EACH ROW EXECUTE FUNCTION fn_set_timestamps();
