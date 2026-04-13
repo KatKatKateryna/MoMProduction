@@ -250,17 +250,17 @@ def _process_source(conn, label, log_name, folder, file_lister, parse_ts,
                     history_table, stage_table, extract_fn, count_fn=len,
                     always_upload=False):
     print(f"\n{label}")
-    if label in ["GFMS","HWRF","DFO","VIIRS"]:
-        return
+    #if label in ["GFMS","HWRF","DFO","VIIRS"]:
+    #    return
     count = 0
     for ts, fname in [f for f in file_lister(folder)]:
         parsed_ts = parse_ts(ts)
-        if label == "Final Alert" and parsed_ts < datetime(2022, 10, 16).replace(tzinfo=timezone.utc):
-            continue
-        if label == "MoM GFMS" and parsed_ts > datetime(2022, 10, 17).replace(tzinfo=timezone.utc):
-            continue
-        if label == "MoM GFMS Final" and (parsed_ts > datetime(2022, 10, 17).replace(tzinfo=timezone.utc) and parsed_ts < datetime(2025, 1, 14).replace(tzinfo=timezone.utc)):
-            continue
+        #if label == "Final Alert" and parsed_ts < datetime(2023, 3, 5).replace(tzinfo=timezone.utc):
+        #    continue
+        #if label == "MoM GFMS" and parsed_ts > datetime(2022, 10, 17).replace(tzinfo=timezone.utc):
+        #    continue
+        #if label == "MoM GFMS Final" and (parsed_ts > datetime(2022, 10, 17).replace(tzinfo=timezone.utc) and parsed_ts < datetime(2025, 1, 14).replace(tzinfo=timezone.utc)):
+        #    continue
         failed_key = f"{ts}_{log_name}"
         df = extract_fn(folder / fname, ts)
         if failed_key in _failed:

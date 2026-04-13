@@ -51,7 +51,75 @@ for f in "$SQL_FILE" "$SQL_ID_TRIGGERS" "$SQL_HISTORY_TRIGGERS" "$SQL_STAGING" "
     fi
 done
 
-echo "=== [1/7] Installing PostgreSQL and PostGIS ==="
+echo "=== [1/9] Configuring swap (guards against OOM kills on low-RAM servers) ==="
+SWAP_FILE="/swapfile"
+SWAP_SIZE="2G"
+
+# Detect environments where swap cannot be enabled (containers, certain VMs).
+# Signs: /proc/1/cgroup shows docker/lxc, or the kernel explicitly disallows swapon.
+_swap_supported=true
+if grep -qE '(docker|lxc|kubepods)' /proc/1/cgroup 2>/dev/null; then
+    echo "    Container environment detected — swap is controlled by the host, skipping."
+    _swap_supported=false
+fi
+
+if [[ "$_swap_supported" == true ]]; then
+    if swapon --show | grep -q "$SWAP_FILE"; then
+        echo "    Swap file ${SWAP_FILE} already active, skipping."
+    elif [[ -f "$SWAP_FILE" ]]; then
+        echo "    Swap file ${SWAP_FILE} exists but is not active — activating..."
+        if ! sudo swapon "$SWAP_FILE" 2>/dev/null; then
+            echo "    WARNING: swapon failed (unsupported by this kernel/environment) — skipping swap."
+            _swap_supported=false
+        fi
+    else
+        # Check root filesystem has enough space before allocating
+        _root_avail_kb=$(df --output=avail / | tail -1)
+        _needed_kb=$((2 * 1024 * 1024))  # 2 GB in KB
+        if [[ "$_root_avail_kb" -lt "$_needed_kb" ]]; then
+            echo "    WARNING: Less than 2 GB free on / (${_root_avail_kb} KB available) — skipping swap."
+            _swap_supported=false
+        else
+            echo "    Creating ${SWAP_SIZE} swap file at ${SWAP_FILE}..."
+            # fallocate is instant but unsupported on btrfs/NFS; fall back to dd
+            if ! sudo fallocate -l "$SWAP_SIZE" "$SWAP_FILE" 2>/dev/null; then
+                echo "    fallocate unsupported on this filesystem — using dd fallback..."
+                sudo dd if=/dev/zero of="$SWAP_FILE" bs=1M count=2048 status=none
+            fi
+            sudo chmod 600 "$SWAP_FILE"
+            sudo mkswap "$SWAP_FILE"
+            if ! sudo swapon "$SWAP_FILE" 2>/dev/null; then
+                echo "    WARNING: swapon failed (unsupported by this kernel/environment) — cleaning up."
+                sudo rm -f "$SWAP_FILE"
+                _swap_supported=false
+            else
+                # Persist across reboots (add only if not already in fstab)
+                if ! grep -q "$SWAP_FILE" /etc/fstab; then
+                    echo "${SWAP_FILE} none swap sw 0 0" | sudo tee -a /etc/fstab > /dev/null
+                    echo "    Added ${SWAP_FILE} to /etc/fstab."
+                fi
+                echo "    Swap created and active."
+            fi
+        fi
+    fi
+fi
+
+# Set swappiness=1: kernel uses swap only as a last resort (~last 5% of RAM pressure),
+# keeping all hot data in RAM under normal load.
+if [[ "$_swap_supported" == true ]]; then
+    echo "    Setting vm.swappiness=1 (use swap only under extreme memory pressure)..."
+    sudo sysctl -w vm.swappiness=1 > /dev/null
+    if ! grep -q "vm.swappiness" /etc/sysctl.conf 2>/dev/null; then
+        echo "vm.swappiness=1" | sudo tee -a /etc/sysctl.conf > /dev/null
+        echo "    Persisted vm.swappiness=1 in /etc/sysctl.conf."
+    else
+        sudo sed -i 's/^vm\.swappiness\s*=.*/vm.swappiness=1/' /etc/sysctl.conf
+    fi
+fi
+
+free -h | grep -E "^(Mem|Swap):"
+
+echo "=== [2/9] Installing PostgreSQL and PostGIS ==="
 sudo apt-get update -y
 sudo apt-get install -y \
     postgresql \
@@ -63,7 +131,7 @@ PG_VERSION=$(ls /usr/lib/postgresql/ | sort -V | tail -1)
 PG_CONF_DIR="/etc/postgresql/${PG_VERSION}/main"
 echo "    PostgreSQL version: ${PG_VERSION}"
 
-echo "=== [2/7] Setting up database cluster at ${DATA_DIR} ==="
+echo "=== [3/9] Setting up database cluster at ${DATA_DIR} ==="
 EXISTING_DATADIR=$(pg_lsclusters -h 2>/dev/null | awk 'NR==1{print $6}')
 
 if [[ "$EXISTING_DATADIR" == "$DATA_DIR" ]]; then
@@ -83,7 +151,7 @@ else
     sudo pg_createcluster --datadir "${DATA_DIR}" "${PG_VERSION}" main
 fi
 
-echo "=== [3/7] Enabling remote connections ==="
+echo "=== [4/9] Enabling remote connections ==="
 sudo sed -i "s/^#*listen_addresses\s*=.*/listen_addresses = '*'/" \
     "${PG_CONF_DIR}/postgresql.conf"
 
@@ -99,18 +167,18 @@ if command -v ufw &>/dev/null; then
     sudo ufw allow 5432/tcp
 fi
 
-echo "=== [4/7] Starting PostgreSQL service ==="
+echo "=== [5/9] Starting PostgreSQL service ==="
 sudo systemctl enable postgresql
 sudo systemctl restart postgresql
 
-echo "=== [5/7] Running schema DDL (PostGIS extension + all tables + triggers + functions) ==="
+echo "=== [6/9] Running schema DDL (PostGIS extension + all tables + triggers + functions) ==="
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_FILE}"
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_ID_TRIGGERS}"
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_HISTORY_TRIGGERS}"
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_STAGING}"
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_QUERY_FUNCTIONS}"
 
-echo "=== [6/7] Loading watershed shapefile into watershed_shapes ==="
+echo "=== [7/9] Loading watershed shapefile into watershed_shapes ==="
 PROJECT_ROOT="$(realpath "${SCRIPT_DIR}/../..")"
 WATERSHED_DIR="${PROJECT_ROOT}/data/watershed_shp"
 SHP_FILE="${WATERSHED_DIR}/Watershed_pfaf_id.shp"
@@ -139,7 +207,7 @@ else
     echo "    Shapefile loaded."
 fi
 
-echo "=== [7/8] Creating/updating restricted admin user '${ADMIN_USER}' ==="
+echo "=== [8/9] Creating/updating restricted admin user '${ADMIN_USER}' ==="
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" <<SQL
 DO \$\$
 BEGIN
@@ -173,7 +241,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
 ALTER ROLE "${ADMIN_USER}" SET statement_timeout = '300s';
 SQL
 
-echo "=== [8/8] Creating/updating reader roles ==="
+echo "=== [9/9] Creating/updating reader roles ==="
 
 # Allow mom_internal_reader to connect remotely
 READER_RULE="host    ${DB_NAME}    ${INTERNAL_READER_USER}    0.0.0.0/0    scram-sha-256"

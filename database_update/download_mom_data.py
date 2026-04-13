@@ -73,7 +73,7 @@ def crawl(url, local_dir, session):
     except requests.RequestException as e:
         print(f"  [warn] Could not list {url}: {e}", file=sys.stderr)
         return
-
+    print(f"\n[__________SAVED HERE] {local_dir}")
     count = 0
     for filename in files:
         file_url = urljoin(url, filename)
@@ -85,15 +85,19 @@ def crawl(url, local_dir, session):
                 break
 
     for dirname in dirs:
+        # global LOCAL_ROOT
+        # print(dirname)
+        if str(dirname).rstrip("/").endswith("_image"):
+            # print("IMAGE")
+            local_dir = LOCAL_ROOT_IMG / local_dir.name
+        else:
+            local_dir = LOCAL_ROOT_TABLES / local_dir.name
+        
+        # local_dir = LOCAL_ROOT / local_dir.name
         sub_url = urljoin(url, dirname)
         sub_local = local_dir / unquote(dirname.rstrip("/"))
         print(f"\n[dir] {sub_url}")
-        global LOCAL_ROOT
-        if str(sub_local).endswith("_image"):
-            print("IMAGE")
-            LOCAL_ROOT = LOCAL_ROOT_IMG
-        else:
-            LOCAL_ROOT = LOCAL_ROOT_TABLES
+        print(f"[local_dir] {sub_local}")
         crawl(sub_url, sub_local, session)
 
 
