@@ -84,21 +84,49 @@ if [[ "$_swap_supported" == true ]]; then
             # fallocate is instant but unsupported on btrfs/NFS; fall back to dd
             if ! sudo fallocate -l "$SWAP_SIZE" "$SWAP_FILE" 2>/dev/null; then
                 echo "    fallocate unsupported on this filesystem — using dd fallback..."
-                sudo dd if=/dev/zero of="$SWAP_FILE" bs=1M count=2048 status=none
-            fi
-            sudo chmod 600 "$SWAP_FILE"
-            sudo mkswap "$SWAP_FILE"
-            if ! sudo swapon "$SWAP_FILE" 2>/dev/null; then
-                echo "    WARNING: swapon failed (unsupported by this kernel/environment) — cleaning up."
-                sudo rm -f "$SWAP_FILE"
-                _swap_supported=false
-            else
-                # Persist across reboots (add only if not already in fstab)
-                if ! grep -q "$SWAP_FILE" /etc/fstab; then
-                    echo "${SWAP_FILE} none swap sw 0 0" | sudo tee -a /etc/fstab > /dev/null
-                    echo "    Added ${SWAP_FILE} to /etc/fstab."
+                if ! sudo dd if=/dev/zero of="$SWAP_FILE" bs=1M count=2048 status=none 2>/dev/null; then
+                    echo "    WARNING: dd failed (I/O error or filesystem full) — cleaning up."
+                    sudo rm -f "$SWAP_FILE"
+                    _swap_supported=false
                 fi
-                echo "    Swap created and active."
+            fi
+            if [[ "$_swap_supported" == true ]]; then
+                sudo chmod 600 "$SWAP_FILE"
+                if ! sudo mkswap "$SWAP_FILE" > /dev/null 2>&1; then
+                    echo "    WARNING: mkswap failed — cleaning up."
+                    sudo rm -f "$SWAP_FILE"
+                    _swap_supported=false
+                fi
+            fi
+            if [[ "$_swap_supported" == true ]]; then
+                if ! sudo swapon "$SWAP_FILE" 2>/dev/null; then
+                    echo "    WARNING: swapon failed (unsupported by this kernel/environment) — cleaning up."
+                    sudo rm -f "$SWAP_FILE"
+                    _swap_supported=false
+                else
+                    # Persist across reboots via a systemd swap unit rather than
+                    # /etc/fstab: a missing/corrupt swap file at boot time will be
+                    # logged and skipped rather than dropping the system to an
+                    # emergency shell.
+                    SWAP_UNIT="/etc/systemd/system/swapfile.swap"
+                    if [[ ! -f "$SWAP_UNIT" ]]; then
+                        sudo tee "$SWAP_UNIT" > /dev/null <<EOF
+[Unit]
+Description=Swap file
+After=local-fs.target
+
+[Swap]
+What=${SWAP_FILE}
+
+[Install]
+WantedBy=swap.target
+EOF
+                        sudo systemctl daemon-reload
+                        sudo systemctl enable swapfile.swap
+                        echo "    Registered ${SWAP_FILE} as systemd swap unit (persists across reboots)."
+                    fi
+                    echo "    Swap created and active."
+                fi
             fi
         fi
     fi
@@ -109,12 +137,11 @@ fi
 if [[ "$_swap_supported" == true ]]; then
     echo "    Setting vm.swappiness=1 (use swap only under extreme memory pressure)..."
     sudo sysctl -w vm.swappiness=1 > /dev/null
-    if ! grep -q "vm.swappiness" /etc/sysctl.conf 2>/dev/null; then
-        echo "vm.swappiness=1" | sudo tee -a /etc/sysctl.conf > /dev/null
-        echo "    Persisted vm.swappiness=1 in /etc/sysctl.conf."
-    else
-        sudo sed -i 's/^vm\.swappiness\s*=.*/vm.swappiness=1/' /etc/sysctl.conf
-    fi
+    # Write to a drop-in file rather than /etc/sysctl.conf so that the setting
+    # wins over distro-shipped files (which use lower numeric prefixes like 10-,
+    # 50-) regardless of what the base image or prior tooling has set.
+    echo "vm.swappiness=1" | sudo tee /etc/sysctl.d/99-mom-swappiness.conf > /dev/null
+    echo "    Persisted vm.swappiness=1 in /etc/sysctl.d/99-mom-swappiness.conf."
 fi
 
 free -h | grep -E "^(Mem|Swap):"
