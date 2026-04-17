@@ -10,6 +10,7 @@ source, or None to process all available files.
 """
 
 import re
+import argparse
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -41,6 +42,12 @@ from db_upload_utils.update_db_mom import (
 # =============================================================================
 
 FILES_PER_SOURCE = None   # set to None to process all files
+
+parser = argparse.ArgumentParser(description="Upload local flood data to database")
+parser.add_argument("-d", "--date", default="20260417",
+                    help="Minimum upload date (yyyymmdd format, default: 20260410)")
+args = parser.parse_args()
+UPLOAD_DATE_MIN = args.date
 
 # =============================================================================
 
@@ -253,14 +260,17 @@ def _process_source(conn, label, log_name, folder, file_lister, parse_ts,
     #if label in ["GFMS","HWRF","DFO","VIIRS"]:
     #    return
     count = 0
+    start_date = datetime(
+        int(UPLOAD_DATE_MIN[0:4]),
+        int(UPLOAD_DATE_MIN[4:6]),
+        int(UPLOAD_DATE_MIN[6:8])
+    ).replace(tzinfo=timezone.utc)
+
     for ts, fname in [f for f in file_lister(folder)]:
         parsed_ts = parse_ts(ts)
-        #if label == "Final Alert" and parsed_ts < datetime(2023, 3, 5).replace(tzinfo=timezone.utc):
-        #    continue
-        #if label == "MoM GFMS" and parsed_ts > datetime(2022, 10, 17).replace(tzinfo=timezone.utc):
-        #    continue
-        #if label == "MoM GFMS Final" and (parsed_ts > datetime(2022, 10, 17).replace(tzinfo=timezone.utc) and parsed_ts < datetime(2025, 1, 14).replace(tzinfo=timezone.utc)):
-        #    continue
+        if parsed_ts < start_date:
+            continue
+
         failed_key = f"{ts}_{log_name}"
         df = extract_fn(folder / fname, ts)
         if failed_key in _failed:
