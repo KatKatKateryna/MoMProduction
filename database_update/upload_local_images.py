@@ -19,13 +19,14 @@ Usage:
     python database_update/upload_local_images.py
     python database_update/upload_local_images.py --folder GFMS
     python database_update/upload_local_images.py --force   # reprocess existing
-    python database_update/upload_local_images.py -g max    # larger file, faster online loading
+    python database_update/upload_local_images.py -q max    # larger file, faster online loading
 """
 
 import argparse
 import re
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -203,7 +204,7 @@ def main() -> None:
         help="Re-process images that already exist in the COG output folder.",
     )
     parser.add_argument(
-        "-g", "--quality",
+        "-q", "--quality",
         choices=["nano", "min", "max"],
         default="nano",
         help=(
@@ -213,6 +214,11 @@ def main() -> None:
         ),
     )
     args = parser.parse_args()
+
+    # Force line-buffering so every print() flushes immediately when stdout is
+    # redirected to a file (e.g. nohup). Without this, output accumulates in an
+    # 8 KB buffer and only appears at program exit.
+    sys.stdout.reconfigure(line_buffering=True)
 
     cog_root = _get_cog_root()
     print(f"Quality: {args.quality}")
@@ -250,9 +256,11 @@ def main() -> None:
                 skipped += 1
                 continue
 
-            print(f"  [COG ] {rel}")
             try:
+                t0 = time.monotonic()
                 convert_to_cog(src_path, dst_path, crs=FOLDER_CRS.get(folder_name), quality=args.quality)
+                elapsed = time.monotonic() - t0
+                print(f"  [COG ] {rel}  ({elapsed:.1f}s)")
                 total += 1
             except Exception as exc:
                 print(f"  [FAIL] {rel}: {exc}", file=sys.stderr)
