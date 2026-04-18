@@ -9,7 +9,7 @@ Source layout (downloads_img root, same convention as download_mom_img.py):
     <SOURCE>/<SOURCE>_image/*.tiff
 
 Output layout (cog_images root, sibling of the Postgres DATA_DIR):
-    <SOURCE>/<SOURCE>_image/*.tiff   (COG, tiled, overviews, DEFLATE)
+    <SOURCE>/*.tiff   (COG, tiled, overviews, DEFLATE)
 
 The Postgres data directory is read from first_setup/db_setup/db_config.cfg
 (key DATA_DIR).  The COG root is placed as a sibling of that directory:
@@ -79,7 +79,7 @@ def _get_cog_root() -> Path:
         )
         sys.exit(1)
 
-    return Path(data_dir).expanduser().parent / "cog_images"
+    return Path(data_dir).expanduser().parent.parent / "cog_images"
 
 
 TOP_FOLDERS = ["DFO", "Final_Alert", "GFMS", "HWRF", "VIIRS"]
@@ -121,7 +121,7 @@ def convert_to_cog(src_path: Path, dst_path: Path) -> None:
         tmp_path = Path(_tmp.name)
 
     try:
-        # --- Step 1: write a tiled intermediate copy ---
+        # --- Step 1: write a tiled intermediate copy (windowed to avoid OOM) ---
         with rasterio.open(src_path) as src:
             profile = src.profile.copy()
             profile.update(
@@ -134,7 +134,8 @@ def convert_to_cog(src_path: Path, dst_path: Path) -> None:
                 interleave="band",
             )
             with rasterio.open(tmp_path, "w", **profile) as tmp:
-                tmp.write(src.read())
+                for _, window in src.block_windows(1):
+                    tmp.write(src.read(window=window), window=window)
 
         # --- Step 2: build overviews on the intermediate file ---
         with rasterio.open(tmp_path, "r+") as tmp:
@@ -212,7 +213,7 @@ def main() -> None:
 
         for src_path in tiffs:
             rel      = src_path.relative_to(DOWNLOADS_ROOT)
-            dst_path = cog_root / rel
+            dst_path = cog_root / folder_name / src_path.name
 
             if dst_path.exists() and not args.force:
                 skipped += 1

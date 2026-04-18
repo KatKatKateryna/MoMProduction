@@ -139,4 +139,5 @@ database_update/*.csv
 */*/db_config.cfg
 database_update/db_upload_utils/failed.txt
 database_update/logs/*
+database_update/nginx_cog*
 nohup.out

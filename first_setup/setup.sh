@@ -46,7 +46,8 @@ if [ "$IS_GITHUB_ACTIONS" = false ]; then
         python3.12-dev \
         curl \
         git \
-        wget
+        wget \
+        nginx
 else
     echo "Skipping system package installation in GitHub Actions."
 fi
