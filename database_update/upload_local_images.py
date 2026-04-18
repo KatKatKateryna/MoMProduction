@@ -221,7 +221,7 @@ def main() -> None:
     sys.stdout.reconfigure(line_buffering=True)
 
     cog_root = _get_cog_root()
-    print(f"Quality: {args.quality}")
+    print(f"Quality: {args.quality}", flush=True)
 
     if not DOWNLOADS_ROOT.exists():
         print(f"ERROR: downloads root not found: {DOWNLOADS_ROOT}", file=sys.stderr)
@@ -229,8 +229,8 @@ def main() -> None:
         sys.exit(1)
 
     cog_root.mkdir(parents=True, exist_ok=True)
-    print(f"Source : {DOWNLOADS_ROOT}")
-    print(f"Output : {cog_root}")
+    print(f"Source : {DOWNLOADS_ROOT}", flush=True)
+    print(f"Output : {cog_root}", flush=True)
 
     folders = [args.folder] if args.folder else TOP_FOLDERS
     total = skipped = errors = 0
@@ -238,15 +238,15 @@ def main() -> None:
     for folder_name in folders:
         src_folder = DOWNLOADS_ROOT / folder_name
         if not src_folder.exists():
-            print(f"\n[{folder_name}] not found in source, skipping.")
+            print(f"\n[{folder_name}] not found in source, skipping.", flush=True)
             continue
 
         tiffs = list(_iter_tiffs(src_folder))
         if not tiffs:
-            print(f"\n[{folder_name}] no .tiff files found.")
+            print(f"\n[{folder_name}] no .tiff files found.", flush=True)
             continue
 
-        print(f"\n{'='*60}\n[{folder_name}]  {len(tiffs)} image(s) found\n{'='*60}")
+        print(f"\n{'='*60}\n[{folder_name}]  {len(tiffs)} image(s) found\n{'='*60}", flush=True)
 
         for src_path in tiffs:
             rel      = src_path.relative_to(DOWNLOADS_ROOT)
@@ -260,13 +260,13 @@ def main() -> None:
                 t0 = time.monotonic()
                 convert_to_cog(src_path, dst_path, crs=FOLDER_CRS.get(folder_name), quality=args.quality)
                 elapsed = time.monotonic() - t0
-                print(f"  [COG ] {rel}  ({elapsed:.1f}s)")
+                print(f"  [COG ] {rel}  ({elapsed:.1f}s)", flush=True)
                 total += 1
             except Exception as exc:
-                print(f"  [FAIL] {rel}: {exc}", file=sys.stderr)
+                print(f"  [FAIL] {rel}: {exc}", flush=True, file=sys.stderr)
                 errors += 1
 
-    print(f"\nDone.  converted={total}  skipped={skipped}  errors={errors}")
+    print(f"\nDone.  converted={total}  skipped={skipped}  errors={errors}", flush=True)
     if errors:
         sys.exit(1)
 
