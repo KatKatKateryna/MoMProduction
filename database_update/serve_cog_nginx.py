@@ -19,6 +19,10 @@ Usage:
     python database_update/serve_cog_nginx.py status
     python database_update/serve_cog_nginx.py config  # print generated config only
 
+Requests:
+    curl -I http://167.71.4.135:8090/GFMS/Flood_byStor_2025010100.tiff
+    curl http://167.71.4.135:8090/GFMS/Flood_byStor_2025010100.tiff -o output.tiff
+
 Defaults:
     --port  8090
 """
@@ -123,8 +127,9 @@ http {{
         # Serve COG files from the configured root
         root    {cog_root};
 
-        # Disable directory listing — no browsing allowed
-        autoindex  off;
+        # Enable directory listing for browsing available images
+        autoindex  on;
+        autoindex_exact_size  off;
 
         # --- COG tile endpoint ---
         # Accepts any .tiff / .tif path; returns the file with headers that
@@ -145,20 +150,14 @@ http {{
             add_header  Cache-Control  "public, max-age=3600"  always;
         }}
 
-        # Block preflight OPTIONS at root level
-        location = / {{
+        # Directory browsing — allow GET/HEAD; handle OPTIONS preflight
+        location / {{
             if ($request_method = OPTIONS) {{
                 add_header  Access-Control-Allow-Origin  "*";
                 add_header  Access-Control-Allow-Methods "GET, HEAD, OPTIONS";
                 add_header  Access-Control-Allow-Headers "Range";
                 return 204;
             }}
-            return 403;
-        }}
-
-        # Deny everything else — no other directories are exposed
-        location / {{
-            return 403;
         }}
     }}
 }}
