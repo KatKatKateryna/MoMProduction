@@ -8,7 +8,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
-CONDA="$(which conda)"
+CONDA=""
+for _c in "$(which conda 2>/dev/null || true)" /root/miniconda3/bin/conda /opt/miniconda3/bin/conda /usr/local/bin/conda; do
+    if [[ -x "$_c" ]]; then CONDA="$_c"; break; fi
+done
+if [[ -z "$CONDA" ]]; then echo "ERROR: conda not found" >&2; exit 1; fi
 CONDA_RUN="${CONDA} run -n myenv"
 
 SERVICE_NAME="nginx-cog"
@@ -22,9 +26,10 @@ After=network.target
 [Service]
 Type=forking
 PIDFile=${SCRIPT_DIR}/nginx_cog.pid
-ExecStartPre=${CONDA_RUN} python ${SCRIPT_DIR}/serve_cog_nginx.py stop
+ExecStartPre=-${CONDA_RUN} python ${SCRIPT_DIR}/serve_cog_nginx.py stop
+ExecStartPre=-/usr/bin/fuser -k 8090/tcp
 ExecStart=${CONDA_RUN} python ${SCRIPT_DIR}/serve_cog_nginx.py start
-ExecStop=${CONDA_RUN} python ${SCRIPT_DIR}/serve_cog_nginx.py stop
+ExecStop=-${CONDA_RUN} python ${SCRIPT_DIR}/serve_cog_nginx.py stop
 RemainAfterExit=no
 Restart=on-failure
 RestartSec=10
