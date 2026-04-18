@@ -19,6 +19,7 @@ Usage:
     python database_update/upload_local_images.py
     python database_update/upload_local_images.py --folder GFMS
     python database_update/upload_local_images.py --force   # reprocess existing
+    python database_update/upload_local_images.py -g max    # larger file, faster online loading
 """
 
 import argparse
@@ -89,17 +90,21 @@ FOLDER_CRS = {
     "GFMS": 4326,
 }
 
-# Tile block size for COG internal tiling
-BLOCK_SIZE = 512
-
-# Overview levels written into the COG
-OVERVIEW_LEVELS = [2, 4, 8, 16, 32]
+# Quality presets:
+# "nano" — absolute minimum file size: no overviews, ZSTD max compression, 2048-px tiles (lossless)
+# "min"  — small file, some overviews for zoom-out speed
+# "max"  — fastest tile loading, largest file
+QUALITY_PRESETS = {
+    "nano": {"block_size": 2048, "overview_levels": [],                "compress": "zstd", "zlevel": 22},
+    "min":  {"block_size": 1024, "overview_levels": [4, 16],           "compress": "deflate", "zlevel": 9},
+    "max":  {"block_size": 256,  "overview_levels": [2, 4, 8, 16, 32], "compress": "deflate", "zlevel": 6},
+}
 
 # ---------------------------------------------------------------------------
 # COG conversion
 # ---------------------------------------------------------------------------
 
-def convert_to_cog(src_path: Path, dst_path: Path, crs=None) -> None:
+def convert_to_cog(src_path: Path, dst_path: Path, crs=None, quality: str = "nano") -> None:
     """Convert a GeoTIFF at *src_path* to a COG written at *dst_path*.
 
     Strategy:
@@ -120,6 +125,12 @@ def convert_to_cog(src_path: Path, dst_path: Path, crs=None) -> None:
         )
         sys.exit(1)
 
+    preset = QUALITY_PRESETS[quality]
+    block_size = preset["block_size"]
+    overview_levels = preset["overview_levels"]
+    compress = preset["compress"]
+    zlevel = preset["zlevel"]
+
     dst_path.parent.mkdir(parents=True, exist_ok=True)
 
     with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as _tmp:
@@ -132,10 +143,11 @@ def convert_to_cog(src_path: Path, dst_path: Path, crs=None) -> None:
             profile.update(
                 driver="GTiff",
                 tiled=True,
-                blockxsize=BLOCK_SIZE,
-                blockysize=BLOCK_SIZE,
-                compress="deflate",
+                blockxsize=block_size,
+                blockysize=block_size,
+                compress=compress,
                 predictor=2,        # horizontal differencing — improves ratio
+                zlevel=zlevel,
                 interleave="band",
             )
             if crs is not None:
@@ -147,7 +159,7 @@ def convert_to_cog(src_path: Path, dst_path: Path, crs=None) -> None:
 
         # --- Step 2: build overviews on the intermediate file ---
         with rasterio.open(tmp_path, "r+") as tmp:
-            tmp.build_overviews(OVERVIEW_LEVELS, Resampling.average)
+            tmp.build_overviews(overview_levels, Resampling.average)
             tmp.update_tags(ns="rio_overview", resampling="average")
 
         # --- Step 3: copy into true COG layout (overviews before image data) ---
@@ -190,9 +202,20 @@ def main() -> None:
         action="store_true",
         help="Re-process images that already exist in the COG output folder.",
     )
+    parser.add_argument(
+        "-g", "--quality",
+        choices=["nano", "min", "max"],
+        default="nano",
+        help=(
+            "Output quality preset. "
+            "'min' (default): smaller file, fewer overviews, larger tiles, max compression. "
+            "'max': faster tile loading, more overviews, smaller tiles, standard compression."
+        ),
+    )
     args = parser.parse_args()
 
     cog_root = _get_cog_root()
+    print(f"Quality: {args.quality}")
 
     if not DOWNLOADS_ROOT.exists():
         print(f"ERROR: downloads root not found: {DOWNLOADS_ROOT}", file=sys.stderr)
@@ -229,7 +252,7 @@ def main() -> None:
 
             print(f"  [COG ] {rel}")
             try:
-                convert_to_cog(src_path, dst_path, crs=FOLDER_CRS.get(folder_name))
+                convert_to_cog(src_path, dst_path, crs=FOLDER_CRS.get(folder_name), quality=args.quality)
                 total += 1
             except Exception as exc:
                 print(f"  [FAIL] {rel}: {exc}", file=sys.stderr)
