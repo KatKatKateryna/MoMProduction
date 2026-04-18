@@ -84,6 +84,11 @@ def _get_cog_root() -> Path:
 
 TOP_FOLDERS = ["DFO", "Final_Alert", "GFMS", "HWRF", "VIIRS"]
 
+# CRS to assign when the source file lacks one (EPSG code or None to leave as-is)
+FOLDER_CRS = {
+    "GFMS": 4326,
+}
+
 # Tile block size for COG internal tiling
 BLOCK_SIZE = 512
 
@@ -94,7 +99,7 @@ OVERVIEW_LEVELS = [2, 4, 8, 16, 32]
 # COG conversion
 # ---------------------------------------------------------------------------
 
-def convert_to_cog(src_path: Path, dst_path: Path) -> None:
+def convert_to_cog(src_path: Path, dst_path: Path, crs=None) -> None:
     """Convert a GeoTIFF at *src_path* to a COG written at *dst_path*.
 
     Strategy:
@@ -133,6 +138,9 @@ def convert_to_cog(src_path: Path, dst_path: Path) -> None:
                 predictor=2,        # horizontal differencing — improves ratio
                 interleave="band",
             )
+            if crs is not None:
+                from rasterio.crs import CRS
+                profile["crs"] = CRS.from_epsg(crs)
             with rasterio.open(tmp_path, "w", **profile) as tmp:
                 for _, window in src.block_windows(1):
                     tmp.write(src.read(window=window), window=window)
@@ -221,7 +229,7 @@ def main() -> None:
 
             print(f"  [COG ] {rel}")
             try:
-                convert_to_cog(src_path, dst_path)
+                convert_to_cog(src_path, dst_path, crs=FOLDER_CRS.get(folder_name))
                 total += 1
             except Exception as exc:
                 print(f"  [FAIL] {rel}: {exc}", file=sys.stderr)
