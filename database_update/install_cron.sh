@@ -1,5 +1,5 @@
 #!/bin/bash
-# Installs the daily 23:30 cron job for download + upload.
+# Installs the daily 23:50 cron job for download + upload.
 # Run once to register the job; cron persists across reboots automatically.
 #
 # This installs a USER-LEVEL crontab for the root user (via `crontab -`).
@@ -34,19 +34,15 @@
 set -euo pipefail
 
 SCRIPT="/root/MoMProduction/database_update/run_daily_update.sh"
-CRON_LINE="30 23 * * * $SCRIPT"
+CRON_LINE="50 23 * * * $SCRIPT"
 
 # Make the wrapper executable
 chmod +x "$SCRIPT"
 
-# Add the cron entry only if it isn't already present
-if crontab -l 2>/dev/null | grep -qF "$SCRIPT"; then
-    echo "Cron job already installed — no changes made."
-else
-    (crontab -l 2>/dev/null; echo "$CRON_LINE") | crontab -
-    echo "Cron job installed:"
-    echo "  $CRON_LINE"
-fi
+# Remove any existing entry for this script, then add the current one
+(crontab -l 2>/dev/null | grep -vF "$SCRIPT" || true; echo "$CRON_LINE") | crontab -
+echo "Cron job installed:"
+echo "  $CRON_LINE"
 
 echo ""
 echo "Current crontab:"

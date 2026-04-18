@@ -21,7 +21,7 @@ SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 cat > "$SERVICE_FILE" <<EOF
 [Unit]
 Description=Nginx COG image server (port 8090)
-After=network.target
+After=network.target remote-fs.target
 
 [Service]
 Type=forking
@@ -33,6 +33,8 @@ ExecStop=-${CONDA_RUN} python ${SCRIPT_DIR}/serve_cog_nginx.py stop
 RemainAfterExit=no
 Restart=on-failure
 RestartSec=10
+StartLimitIntervalSec=120
+StartLimitBurst=3
 
 [Install]
 WantedBy=multi-user.target
