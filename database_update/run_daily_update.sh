@@ -31,7 +31,11 @@ echo "--- upload_local_data.py -d $YESTERDAY ---"
 python database_update/upload_local_data.py -d "$YESTERDAY"
 
 echo "--- upload_local_images.py ---"
-python database_update/upload_local_images.py
+if pgrep -f "upload_local_images.py" > /dev/null; then
+    echo "upload_local_images.py is already running, skipping."
+else
+    python database_update/upload_local_images.py
+fi
 
 echo "=============================="
 echo "Daily update finished: $(date)"

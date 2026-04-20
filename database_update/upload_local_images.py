@@ -209,7 +209,8 @@ def main() -> None:
         default="nano",
         help=(
             "Output quality preset. "
-            "'min' (default): smaller file, fewer overviews, larger tiles, max compression. "
+            "'nano' (default): smallest file, no overviews, larger tiles, max compression. "
+            "'min': smaller file, fewer overviews, large tiles, max compression. "
             "'max': faster tile loading, more overviews, smaller tiles, standard compression."
         ),
     )
