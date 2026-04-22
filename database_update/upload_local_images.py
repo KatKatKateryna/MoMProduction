@@ -206,7 +206,7 @@ def main() -> None:
     parser.add_argument(
         "-q", "--quality",
         choices=["nano", "min", "max"],
-        default="nano",
+        default="min",
         help=(
             "Output quality preset. "
             "'nano' (default): smallest file, no overviews, larger tiles, max compression. "
