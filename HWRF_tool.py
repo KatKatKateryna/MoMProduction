@@ -342,6 +342,7 @@ def HWRF_cron():
 
     # get date list
     datelist = generate_procesing_list()
+    print(datelist)
     # for debug
     # print(datelist)
     # sys.exit()
@@ -352,6 +353,7 @@ def HWRF_cron():
         curdatestr = get_current_processing_datehour(
             time_delay=settings.HWRF_TIME_DELAY
         )
+        print(curdatestr)
         # check if there is the hwrf data for this hour
         if not hwrf_today(adate=curdatestr[:8], ahour=curdatestr[-2:]):
             logging.info("no HRWRF data, run " + curdatestr)

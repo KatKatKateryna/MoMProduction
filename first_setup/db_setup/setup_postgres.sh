@@ -22,6 +22,7 @@ SQL_ID_TRIGGERS="${SCRIPT_DIR}/create_id_resolution_triggers.sql"
 SQL_HISTORY_TRIGGERS="${SCRIPT_DIR}/create_history_triggers.sql"
 SQL_STAGING="${SCRIPT_DIR}/create_staging_tables.sql"
 SQL_QUERY_FUNCTIONS="${SCRIPT_DIR}/create_query_functions.sql"
+SQL_VIEWS="${SCRIPT_DIR}/create_history_views.sql"
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
     echo "ERROR: Config file not found: $CONFIG_FILE"
@@ -44,7 +45,7 @@ if [[ "$INTERNAL_READER_PASSWORD" == "???" ]]; then
 fi
 # -----------------------------------------------------------------------------
 
-for f in "$SQL_FILE" "$SQL_ID_TRIGGERS" "$SQL_HISTORY_TRIGGERS" "$SQL_STAGING" "$SQL_QUERY_FUNCTIONS"; do
+for f in "$SQL_FILE" "$SQL_ID_TRIGGERS" "$SQL_HISTORY_TRIGGERS" "$SQL_STAGING" "$SQL_QUERY_FUNCTIONS" "$SQL_VIEWS"; do
     if [[ ! -f "$f" ]]; then
         echo "ERROR: SQL file not found: $f"
         exit 1
@@ -204,6 +205,7 @@ sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_ID_TRIGGERS}"
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_HISTORY_TRIGGERS}"
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_STAGING}"
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_QUERY_FUNCTIONS}"
+sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_VIEWS}"
 
 echo "=== [7/9] Loading watershed shapefile into watershed_shapes ==="
 PROJECT_ROOT="$(realpath "${SCRIPT_DIR}/../..")"
@@ -314,7 +316,10 @@ GRANT SELECT ON
     summary_gfms_latest, summary_hwrf_latest, summary_viirs_latest,
     summary_dfo_latest, summary_glofas_latest, summary_final_alert_latest,
     mom_gfms, mom_hwrf, mom_dfo, mom_viirs,
-    mom_gfms_latest, mom_hwrf_latest, mom_dfo_latest, mom_viirs_latest
+    mom_gfms_latest, mom_hwrf_latest, mom_dfo_latest, mom_viirs_latest,
+    view_summary_gfms, view_summary_hwrf, view_summary_viirs,
+    view_summary_dfo, view_summary_glofas, view_summary_final_alert,
+    view_mom_gfms, view_mom_hwrf, view_mom_dfo, view_mom_viirs
     TO mom_reader;
 
 ALTER ROLE mom_reader SET statement_timeout = '300s';

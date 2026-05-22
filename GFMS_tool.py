@@ -15,6 +15,7 @@ import logging
 import math
 import os
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
@@ -44,12 +45,33 @@ def GloFAS_download():
     """download glofas data from ftp"""
     ftpsite = {}
     ftpsite["host"] = settings.config.get("glofas", "HOST")
-    ftpsite["user"] = settings.config.get("glofas", "USER") if "???" not in settings.config.get("glofas", "USER") else os.getenv("AUTH_GLOFAS_USER")
-    ftpsite["passwd"] = settings.config.get("glofas", "PASSWD") if "???" not in settings.config.get("glofas", "PASSWD") else os.getenv("AUTH_GLOFAS_PASSWD")
+    ftpsite["user"] = (
+        settings.config.get("glofas", "USER")
+        if "???" not in settings.config.get("glofas", "USER")
+        else os.getenv("AUTH_GLOFAS_USER")
+    )
+    ftpsite["passwd"] = (
+        settings.config.get("glofas", "PASSWD")
+        if "???" not in settings.config.get("glofas", "PASSWD")
+        else os.getenv("AUTH_GLOFAS_PASSWD")
+    )
     ftpsite["directory"] = settings.config.get("glofas", "DIRECTORY")
     from ftplib import FTP
 
-    ftp = FTP(host=ftpsite["host"], user=ftpsite["user"], passwd=ftpsite["passwd"])
+    last_exc: Exception = Exception("FTP connection failed")
+    for attempt in range(3):
+        try:
+            ftp = FTP(
+                host=ftpsite["host"], user=ftpsite["user"], passwd=ftpsite["passwd"]
+            )
+            break
+        except Exception as e:
+            logging.warning(f"FTP connect attempt {attempt + 1} failed: {e}")
+            last_exc = e
+            time.sleep(2)
+    else:
+        raise last_exc
+
     ftp.cwd(ftpsite["directory"])
     file_list = ftp.nlst()
     job_list = []
@@ -530,15 +552,39 @@ def GFMS_fix_duration(csv0, csvlist):
         df0 = pd.read_csv(basecsv)
         start_in = 0
     else:
-        df0 = pd.read_csv(os.path.join(settings.GFMS_PROC_DIR, csvlist[0]))
-        start_in = 1
-        # also write out to SUM folder
-        df0.to_csv(os.path.join(settings.GFMS_SUM_DIR, csvlist[0]), index=False)
+        # find first available file in proc dir (csv0 may not exist on first run)
+        df0 = None
+        start_in = 0
+        for i, name in enumerate(csvlist):
+            proc_csv = os.path.join(settings.GFMS_PROC_DIR, name)
+            if os.path.exists(proc_csv):
+                df0 = pd.read_csv(proc_csv)
+                df0.to_csv(os.path.join(settings.GFMS_SUM_DIR, name), index=False)
+                start_in = i + 1
+                break
+
+        if df0 is None:
+            # No base CSV available (first run) — copy proc CSVs to SUM as-is
+            # only triggered if no bins downloaded (GFMS is down)
+            # will not work if no GFMS were processed on this machine at all
+            for name in csvlist:
+                proc_csv = os.path.join(settings.GFMS_PROC_DIR, name)
+                if os.path.exists(proc_csv):
+                    pd.read_csv(proc_csv).to_csv(
+                        os.path.join(settings.GFMS_SUM_DIR, name), index=False
+                    )
+                    logging.info(
+                        "first run copy: " + os.path.join(settings.GFMS_SUM_DIR, name)
+                    )
+            return
 
     for name in csvlist[start_in:]:
         csv_file = os.path.join(settings.GFMS_PROC_DIR, name)
 
-        # TODO: handle missing file
+        if not os.path.exists(csv_file):
+            print(f"GFMS_fix_duration: missing {csv_file}, skipping")
+            logging.warning(f"GFMS_fix_duration: missing {csv_file}, skipping")
+            continue
         df = pd.read_csv(csv_file)
 
         df["GFMS_Duration0"] = df["pfaf_id"].map(

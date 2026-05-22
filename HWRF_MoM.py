@@ -21,6 +21,7 @@ from utilities import (
     hour_diff,
     hwrf_today,
     read_data,
+    watersheds_gdb_reader
 )
 
 
@@ -57,8 +58,23 @@ def mofunc_viirs(row):
         return "Information"
 
 
+def HWRF_empty_csv(adate, watersheds):
+    """create a zero-value HWRF summary CSV for dates with no rainfall data"""
+    out_csv = os.path.join(settings.HWRF_SUM_DIR, f"hwrf.{adate}rainfall.csv")
+    with open(out_csv, "w", newline="\n", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["pfaf_id", "Rain_TotalArea_km", "perc_Area", "MeanRain", "MaxRain"])
+        for pfaf_id in watersheds.index:
+            writer.writerow([pfaf_id, 0.0, 0.0, 0.0, 0.0])
+            
+    print(f"created empty HWRF CSV for {adate}: {out_csv}")
+    logging.info(f"created empty HWRF CSV for {adate}: {out_csv}")
+    return out_csv
+
+
 def update_HWRF_MoM(adate):
     """HWRF MoM for a date: YYYYMMDDHH"""
+    print(f"___________update_HWRF_MoM: {adate}")
 
     gfms_sum = os.path.join(settings.GFMS_SUM_DIR, "Flood_byStor_{}.csv".format(adate))
     glofas_sum = os.path.join(
@@ -79,16 +95,21 @@ def update_HWRF_MoM(adate):
         glofas_latest = findLatest(settings.GLOFAS_DIR, "csv")
         glofas_sum = os.path.join(settings.GLOFAS_DIR, glofas_latest)
 
-    # hwrf sum is not exists
+    # hwrf sum doesn't exists
     if not os.path.exists(hwrf_sum):
+        watersheds = watersheds_gdb_reader()
+        hwrf_sum = HWRF_empty_csv(adate, watersheds)
+        r'''
         hwrf_latest = findLatest(settings.HWRF_SUM_DIR, "csv")
-        # 	hwrf.2022110906rainfall.csv
-        ld_str = hwrf_latest.split(".")[1].replace("rainfall", "")
-        h_diff = abs(hour_diff(adate, ld_str))
-        if h_diff <= 6:
-            hwrf_sum = os.path.join(
-                settings.HWRF_SUM_DIR, "hwrf.{}rainfall.csv".format(ld_str)
-            )
+        if hwrf_latest:
+            ld_str = hwrf_latest.split(".")[1].replace("rainfall", "")
+            h_diff = abs(hour_diff(adate, ld_str))
+            if h_diff <= 6:
+                hwrf_sum = os.path.join(settings.HWRF_SUM_DIR, "hwrf.{}rainfall.csv".format(ld_str))
+        if not os.path.exists(hwrf_sum):
+            watersheds = watersheds_gdb_reader()
+            hwrf_sum = HWRF_empty_csv(adate, watersheds)
+        '''
 
     # hwrf_sum may not have
     Final_Attributes_csv = os.path.join(
@@ -534,11 +555,11 @@ def update_HWRF_MoM(adate):
     Final_Attributes[["Sum_Score_x", "Sum_Score_y"]] = Final_Attributes[
         ["Sum_Score_x", "Sum_Score_y"]
     ].fillna(value=0)
-    Final_Attributes["Sum_Score_x"][(Final_Attributes["Sum_Score_y"] == 0)] = (
-        Final_Attributes["Sum_Score_x"] * 2
+    Final_Attributes.loc[Final_Attributes["Sum_Score_y"] == 0, "Sum_Score_x"] = (
+        Final_Attributes.loc[Final_Attributes["Sum_Score_y"] == 0, "Sum_Score_x"] * 2
     )
-    Final_Attributes["Sum_Score_y"][(Final_Attributes["Sum_Score_x"] == 0)] = (
-        Final_Attributes["Sum_Score_y"] * 2
+    Final_Attributes.loc[Final_Attributes["Sum_Score_x"] == 0, "Sum_Score_y"] = (
+        Final_Attributes.loc[Final_Attributes["Sum_Score_x"] == 0, "Sum_Score_y"] * 2
     )
     Final_Attributes = Final_Attributes.assign(
         MOM_Score=lambda x: Final_Attributes["Sum_Score_x"]
