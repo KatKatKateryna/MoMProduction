@@ -130,6 +130,14 @@ conda activate "$CONDA_ENV_NAME"
 echo "Installing libgdal-hdf4 in environment..."
 conda install -c conda-forge libgdal-hdf4 -y
 
+echo "Checking for GDAL plugins directory..."
+if [ -z "$(find "$CONDA_PREFIX" -type d -name "gdalplugins" 2>/dev/null)" ]; then
+    echo "gdalplugins not found. Retrying with pinned version..."
+    conda install -c conda-forge libgdal-hdf4=3.12.2 --no-update-deps -y
+else
+    echo "gdalplugins found. GDAL HDF4 support is ready."
+fi
+
 ############################
 # RUN INITIALIZE.PY
 ############################
