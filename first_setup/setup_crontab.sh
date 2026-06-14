@@ -11,11 +11,14 @@
 
 set -e
 
+LOG_DIR="/root/MoMProduction/logs"
+mkdir -p "$LOG_DIR"
+
 CRON_JOBS=(
-    "0 4,11,14,21 * * * cd /home/tester/MoMProduction && /home/tester/miniconda3/envs/mom/bin/python MoM_run.py -j GFMS > /dev/null 2>&1"
-    "0 2,7,13,19 * * * cd /home/tester/MoMProduction && /home/tester/miniconda3/envs/mom/bin/python MoM_run.py -j HWRF  >/dev/null 2>&1"
-    "0 3,10,23 * * * cd /home/tester/MoMProduction && /home/tester/miniconda3/envs/mom/bin/python MoM_run.py -j DFO >/dev/null 2>&1"
-    "0 5,12,17 * * * cd /home/tester/MoMProduction && /home/tester/miniconda3/envs/mom/bin/python MoM_run.py -j VIIRS  >/dev/null 2>&1"
+    "0 4,11,14,21 * * * mkdir -p /root/MoMProduction/logs && cd /root/MoMProduction && /root/miniconda3/envs/myenv/bin/python MoM_run.py -j GFMS >> /root/MoMProduction/logs/gfms.log 2>&1"
+    "0 2,7,13,19 * * * mkdir -p /root/MoMProduction/logs && cd /root/MoMProduction && /root/miniconda3/envs/myenv/bin/python MoM_run.py -j HWRF >> /root/MoMProduction/logs/hwrf.log 2>&1"
+    "0 3,10,23 * * * mkdir -p /root/MoMProduction/logs && cd /root/MoMProduction && /root/miniconda3/envs/myenv/bin/python MoM_run.py -j DFO >> /root/MoMProduction/logs/dfo.log 2>&1"
+    "0 5,12,17 * * * mkdir -p /root/MoMProduction/logs && cd /root/MoMProduction && /root/miniconda3/envs/myenv/bin/python MoM_run.py -j VIIRS >> /root/MoMProduction/logs/viirs.log 2>&1"
 )
 
 # Remove all existing MoM_run.py entries, then append the current definitions

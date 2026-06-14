@@ -15,6 +15,7 @@ from datetime import datetime, timezone, timedelta
 import glob
 import json
 import logging
+import math
 import os
 import shutil
 import sys
@@ -412,7 +413,7 @@ def VIIRS_cron(adate=""):
     # load_config()
 
     processes = 2
-    gdal.SetConfigOption("GDAL_NUM_THREADS", str(os.cpu_count() / processes))
+    gdal.SetConfigOption("GDAL_NUM_THREADS", str(math.floor(os.cpu_count() / processes)))
 
     if adate == "":
         # check two days

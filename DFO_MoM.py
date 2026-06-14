@@ -273,6 +273,7 @@ def update_DFO_MoM(adate):
         ).cdf(np.log(Final_Output["Hazard_Score"]))
     )
     Final_Output["Alert"] = Final_Output.apply(mofunc_dfo, axis=1)
+    Final_Output["Flag"] = Final_Output["Flag"].astype(object)
     Final_Output.loc[Final_Output["Alert"] == "Information", "Flag"] = ""
     Final_Output.loc[Final_Output["Alert"] == "Advisory", "Flag"] = ""
     Final_Output.to_csv(Final_Attributes_csv, encoding="utf-8-sig")
