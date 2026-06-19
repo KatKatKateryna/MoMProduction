@@ -5,12 +5,14 @@ dependencies:
   - python=3.12
   - beautifulsoup4>=4.14.3
   - fiona>=1.10.1
+  - flack-cors=6.0.5
   - gdal=3.12.2
   - geopandas=1.1.2
   - numpy=2.4.2
   - pandas=3.0.0
   - pandoc
   - py-spy
+  - pygeoapi=0.19.0
   - python-dotenv
   - psycopg2-binary
   - rasterio=1.5.0

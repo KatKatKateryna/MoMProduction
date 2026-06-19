@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MoM Flood Alert Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet">
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/papaparse@5/papaparse.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background: #1a1a2e; }
+    #map { position: absolute; inset: 0; }
+
+    #panel {
+      position: absolute; top: 10px; left: 10px; z-index: 10;
+      background: rgba(255,255,255,0.96);
+      border-radius: 8px; padding: 12px 14px; width: 250px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+    }
+    #panel h3 { font-size: 14px; font-weight: 700; color: #1a237e; margin-bottom: 6px; }
+    #updated-at { font-size: 13px; color: #555; margin-bottom: 10px; }
+    #legend { margin-top: 2px; }
+    #legend h4 { font-size: 11px; font-weight: 700; color: #999; margin-bottom: 6px;
+                 text-transform: uppercase; letter-spacing: .04em; }
+    .leg { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; font-size: 12px; }
+    .swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
+              border: 1px solid rgba(0,0,0,0.15); }
+
+
+    .maplibregl-popup-content { font-size: 12px; padding: 10px 12px; min-width: 190px; max-height: 260px; overflow-y: auto; }
+    .pop-title { font-weight: 700; font-size: 13px; margin-bottom: 6px; color: #222; }
+    .pop-badge {
+      display: inline-block; padding: 2px 9px; border-radius: 10px;
+      color: #fff; font-size: 11px; font-weight: 700; margin-bottom: 7px;
+    }
+    .pop-row { display: flex; justify-content: space-between; align-items: flex-start;
+               gap: 8px; margin-bottom: 3px; font-size: 11px; }
+    .pop-key { color: #888; flex-shrink: 0; }
+    .pop-row span:last-child { text-align: right; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="panel">
+  <h3>MoM Flood Alert Map</h3>
+  <div id="updated-at"></div>
+  <div id="legend">
+    <h4>Alert Level</h4>
+    <div class="leg"><div class="swatch" style="background:#e0e0e0;border-color:#aaa"></div>No data</div>
+  </div>
+</div>
+
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const HOUSTON = { lng: -95.37, lat: 29.76, zoom: 7 };
+
+const ALERT_COLOR = {
+  Warning:     '#f57c00',
+  Watch:       '#fbc02d',
+  Advisory:    '#fff176',
+  Information: '#43a047',
+};
+const ALERT_RANK = { Warning:3, Watch:2, Advisory:1, Information:0 };
+const API_URL = 'http://localhost:5000/collections/watersheds/items';
+const NO_DATA_COLOR = '#e0e0e0';
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let alertMap = {};
+let generation = 0;
+let lastUpdatedAt = '';
+
+// ── Map ───────────────────────────────────────────────────────────────────────
+const map = new maplibregl.Map({
+  container: 'map',
+  style: {
+    version: 8,
+    sources: {
+      osm: {
+        type: 'raster',
+        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tileSize: 256,
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxzoom: 10
+      }
+    },
+    layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
+  },
+  center: [HOUSTON.lng, HOUSTON.lat],
+  zoom: HOUSTON.zoom,
+  minZoom: 5,
+  maxZoom: 10,
+  dragRotate: false,
+  pitchWithRotate: false,
+  maxPitch: 0,
+});
+
+map.touchZoomRotate.disableRotation();
+map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
+
+map.on('load', () => {
+  map.addSource('ws', {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: [] }
+  });
+
+  map.addLayer({
+    id: 'ws-fill',
+    type: 'fill',
+    source: 'ws',
+    paint: {
+      'fill-color': [
+        'match', ['get', 'alert'],
+        'Warning',     '#f57c00',
+        'Watch',       '#fbc02d',
+        'Advisory',    '#fff176',
+        'Information', '#43a047',
+        NO_DATA_COLOR
+      ],
+      'fill-opacity': 0.55
+    }
+  });
+
+  map.addLayer({
+    id: 'ws-outline',
+    type: 'line',
+    source: 'ws',
+    paint: {
+      'line-color': [
+        'match', ['get', 'alert'],
+        'Warning',     '#e65100',
+        'Watch',       '#f57f17',
+        'Advisory',    '#f9a825',
+        'Information', '#2e7d32',
+        '#bdbdbd'
+      ],
+      'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.3, 8, 0.8, 12, 1.5]
+    }
+  });
+
+  loadFeatures();
+  fetchLatestCSV();
+});
+
+let debounce;
+map.on('moveend', () => {
+  clearTimeout(debounce);
+  debounce = setTimeout(loadFeatures, 300);
+});
+
+// ── Click popup ───────────────────────────────────────────────────────────────
+const popup = new maplibregl.Popup({ closeButton: true, maxWidth: '270px' });
+
+map.on('click', 'ws-fill', (e) => {
+  const p = e.features[0].properties;
+  const alert = p.alert || 'No data';
+  const color = ALERT_COLOR[alert] ?? '#999';
+
+  const rows = [
+    ['Watershed ID',      p.pfaf_id],
+    ['Name',         p.name],
+    ['Regions',      p.regions],
+    ['Status',       p.status],
+    ['Days to peak', p.days_until_peak != null && p.days_until_peak !== 'null'
+                       ? p.days_until_peak : null],
+  ].filter(([, v]) => v != null);
+
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  popup.setLngLat(e.lngLat).setHTML(`
+    <div class="pop-title">${esc(p.name || 'Watershed')}</div>
+    <div><span class="pop-badge" style="background:${color}">${esc(alert)}</span></div>
+    ${rows.map(([k, v]) =>
+      `<div class="pop-row"><span class="pop-key">${esc(k)}</span><span>${esc(v)}</span></div>`
+    ).join('')}
+  `).addTo(map);
+});
+
+map.on('mouseenter', 'ws-fill', () => { map.getCanvas().style.cursor = 'pointer'; });
+map.on('mouseleave', 'ws-fill', () => { map.getCanvas().style.cursor = ''; });
+
+// ── Feature loading ───────────────────────────────────────────────────────────
+async function loadFeatures() {
+  if (map.getZoom() < 5) { setStatus('Zoom in to load watersheds'); return; }
+  const base = API_URL;
+  if (!base) return;
+
+  const gen = ++generation;
+  const b = map.getBounds();
+  const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+  const url = `${base}?bbox=${bbox}&f=json&limit=1000`;
+
+  setStatus('Loading…');
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status} — is pygeoapi running?`);
+    const fc = await res.json();
+
+    if (gen !== generation) return;
+
+    let matched = 0;
+    for (const feat of fc.features) {
+      // pygeoapi puts id_field both in properties AND as feat.id — try both
+      const pfaf = String(feat.properties.pfaf_id ?? feat.properties.PFAF_ID ?? feat.id ?? '');
+      const attrs = alertMap[pfaf] ?? {};
+      if (attrs.Alert) matched++;
+      feat.properties = {
+        pfaf_id:         pfaf,
+        alert:           attrs.Alert           ?? null,
+        severity:        attrs.Severity        ?? null,
+        status:          attrs.Status          ?? null,
+        name:            attrs._countries       ?? null,
+        regions:         attrs._regions        ?? null,
+        alert_score:     attrs.Alert_Score     ?? null,
+        days_until_peak: attrs.Days_until_peak ?? null,
+      };
+    }
+
+    map.getSource('ws').setData(fc);
+    setStatus('Ready');
+  } catch (err) {
+    if (gen !== generation) return;
+    console.error(err);
+    setStatus(`${err.message} — run: pygeoapi serve --config pygeoapi-config.yml`);
+  }
+}
+
+// ── CSV loading ───────────────────────────────────────────────────────────────
+const GITHUB_API = 'https://api.github.com/repos/Global-Flood-Assessment/MoMOutputStream/contents/ModelOutputs';
+
+async function fetchLatestCSV() {
+  setStatus('Fetching latest alert data…');
+  try {
+    const res = await fetch(GITHUB_API, { headers: { Accept: 'application/vnd.github.v3+json' } });
+    if (!res.ok) throw new Error(`GitHub API HTTP ${res.status}`);
+
+    const files = await res.json();
+    const csvFiles = files
+      .filter(f => f.type === 'file' && f.name.startsWith('Final_Attributes_') && f.name.endsWith('.csv'))
+      .sort((a, b) => b.name.localeCompare(a.name));
+
+    if (!csvFiles.length) throw new Error('No Final_Attributes CSV found');
+
+    const latest = csvFiles[0];
+    const csvRes = await fetch(latest.download_url);
+    if (!csvRes.ok) throw new Error(`CSV download HTTP ${csvRes.status}`);
+
+    const buf = await csvRes.arrayBuffer();
+    let csvText;
+    try {
+      csvText = new TextDecoder('utf-8', { fatal: true }).decode(buf);
+    } catch {
+      csvText = new TextDecoder('windows-1252').decode(buf);
+    }
+    parseCSVText(csvText, latest.name);
+  } catch (err) {
+    console.error(err);
+    setStatus(`Error: ${err.message}`);
+  }
+}
+
+function parseDateFromFilename(name) {
+  const m = name.match(/Final_Attributes_(\d{4})(\d{2})(\d{2})(\d{2})/);
+  if (!m) return null;
+  return `${m[1]}-${m[2]}-${m[3]} ${m[4]}:00 UTC`;
+}
+
+function parseCSVText(text, filename) {
+  Papa.parse(text, {
+    header: true,
+    dynamicTyping: true,
+    skipEmptyLines: true,
+    complete({ data, errors }) {
+      if (errors.length) console.warn('CSV parse warnings:', errors.slice(0, 3));
+
+      const groups = {};
+      for (const row of data) {
+        const pfaf = String(row.pfaf_id ?? '');
+        if (!pfaf) continue;
+        (groups[pfaf] ??= []).push(row);
+      }
+
+      alertMap = {};
+      for (const [pfaf, rows] of Object.entries(groups)) {
+        const base = rows.reduce((best, row) =>
+          (ALERT_RANK[row.Alert] ?? -1) > (ALERT_RANK[best.Alert] ?? -1) ? row : best
+        );
+        const countries = [...new Set(rows.map(r => r.name).filter(Boolean))].join(', ');
+        const regions   = [...new Set(rows.map(r => r.name_1).filter(Boolean))].join(', ');
+        alertMap[pfaf] = { ...base, _countries: countries, _regions: regions };
+      }
+
+      const updatedAt = parseDateFromFilename(filename);
+      lastUpdatedAt = updatedAt ? `Updated at ${updatedAt}` : filename;
+      document.getElementById('updated-at').textContent = lastUpdatedAt;
+
+      updateLegend();
+      loadFeatures();
+    },
+    error(err) {
+      setStatus(`CSV error: ${err.message}`);
+    }
+  });
+}
+
+
+// ── Legend ────────────────────────────────────────────────────────────────────
+function updateLegend() {
+  const present = new Set(Object.values(alertMap).map(r => r.Alert).filter(Boolean));
+  // Render in severity order, only levels that exist in the data
+  const order = ['Warning','Watch','Advisory','Information'];
+  const el = document.getElementById('legend');
+  el.innerHTML = '<h4>Alert Level</h4>';
+  for (const level of order) {
+    if (!present.has(level)) continue;
+    const color = ALERT_COLOR[level] ?? '#999';
+    el.innerHTML += `<div class="leg"><div class="swatch" style="background:${color}"></div>${level}</div>`;
+  }
+  el.innerHTML += `<div class="leg"><div class="swatch" style="background:#e0e0e0;border-color:#aaa"></div>No data</div>`;
+}
+
+function setStatus(msg) { console.log(msg); }
+</script>
+</body>
+</html>
