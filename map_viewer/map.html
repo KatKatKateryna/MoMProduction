@@ -27,7 +27,6 @@
     .swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
               border: 1px solid rgba(0,0,0,0.15); }
 
-
     .maplibregl-popup-content { font-size: 12px; padding: 10px 12px; min-width: 190px; max-height: 260px; overflow-y: auto; }
     .pop-title { font-weight: 700; font-size: 13px; margin-bottom: 6px; color: #222; }
     .pop-badge {
@@ -52,7 +51,6 @@
   </div>
 </div>
 
-
 <script>
 // ── Config ────────────────────────────────────────────────────────────────────
 const HOUSTON = { lng: -95.37, lat: 29.76, zoom: 7 };
@@ -64,7 +62,12 @@ const ALERT_COLOR = {
   Information: '#43a047',
 };
 const ALERT_RANK = { Warning:3, Watch:2, Advisory:1, Information:0 };
-const API_URL = 'http://localhost:5000/collections/watersheds/items';
+// Behind nginx (port 80/443): relative path, proxied to pygeoapi internally.
+// Local dev (any other port): hit pygeoapi directly on localhost:5000.
+const p = window.location.port;
+const API_URL = (p === '' || p === '80' || p === '443')
+  ? '/collections/watersheds/items'
+  : 'http://localhost:5000/collections/watersheds/items';
 const NO_DATA_COLOR = '#e0e0e0';
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -160,12 +163,12 @@ map.on('click', 'ws-fill', (e) => {
   const color = ALERT_COLOR[alert] ?? '#999';
 
   const rows = [
-    ['Watershed ID',      p.pfaf_id],
-    ['Name',         p.name],
-    ['Regions',      p.regions],
-    ['Status',       p.status],
-    ['Days to peak', p.days_until_peak != null && p.days_until_peak !== 'null'
-                       ? p.days_until_peak : null],
+    ['Watershed ID',  p.pfaf_id],
+    ['Name',          p.name],
+    ['Regions',       p.regions],
+    ['Status',        p.status],
+    ['Days to peak',  p.days_until_peak != null && p.days_until_peak !== 'null'
+                        ? p.days_until_peak : null],
   ].filter(([, v]) => v != null);
 
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -183,48 +186,37 @@ map.on('mouseleave', 'ws-fill', () => { map.getCanvas().style.cursor = ''; });
 
 // ── Feature loading ───────────────────────────────────────────────────────────
 async function loadFeatures() {
-  if (map.getZoom() < 5) { setStatus('Zoom in to load watersheds'); return; }
-  const base = API_URL;
-  if (!base) return;
+  if (map.getZoom() < 5) return;
 
   const gen = ++generation;
   const b = map.getBounds();
   const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
-  const url = `${base}?bbox=${bbox}&f=json&limit=1000`;
-
-  setStatus('Loading…');
+  const url = `${API_URL}?bbox=${bbox}&f=json&limit=1000`;
 
   try {
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status} — is pygeoapi running?`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const fc = await res.json();
 
     if (gen !== generation) return;
 
-    let matched = 0;
     for (const feat of fc.features) {
-      // pygeoapi puts id_field both in properties AND as feat.id — try both
       const pfaf = String(feat.properties.pfaf_id ?? feat.properties.PFAF_ID ?? feat.id ?? '');
       const attrs = alertMap[pfaf] ?? {};
-      if (attrs.Alert) matched++;
       feat.properties = {
         pfaf_id:         pfaf,
         alert:           attrs.Alert           ?? null,
-        severity:        attrs.Severity        ?? null,
         status:          attrs.Status          ?? null,
-        name:            attrs._countries       ?? null,
+        name:            attrs._countries      ?? null,
         regions:         attrs._regions        ?? null,
-        alert_score:     attrs.Alert_Score     ?? null,
         days_until_peak: attrs.Days_until_peak ?? null,
       };
     }
 
     map.getSource('ws').setData(fc);
-    setStatus('Ready');
   } catch (err) {
     if (gen !== generation) return;
-    console.error(err);
-    setStatus(`${err.message} — run: pygeoapi serve --config pygeoapi-config.yml`);
+    console.error('loadFeatures:', err);
   }
 }
 
@@ -232,7 +224,6 @@ async function loadFeatures() {
 const GITHUB_API = 'https://api.github.com/repos/Global-Flood-Assessment/MoMOutputStream/contents/ModelOutputs';
 
 async function fetchLatestCSV() {
-  setStatus('Fetching latest alert data…');
   try {
     const res = await fetch(GITHUB_API, { headers: { Accept: 'application/vnd.github.v3+json' } });
     if (!res.ok) throw new Error(`GitHub API HTTP ${res.status}`);
@@ -257,8 +248,7 @@ async function fetchLatestCSV() {
     }
     parseCSVText(csvText, latest.name);
   } catch (err) {
-    console.error(err);
-    setStatus(`Error: ${err.message}`);
+    console.error('fetchLatestCSV:', err);
   }
 }
 
@@ -300,17 +290,13 @@ function parseCSVText(text, filename) {
       updateLegend();
       loadFeatures();
     },
-    error(err) {
-      setStatus(`CSV error: ${err.message}`);
-    }
+    error(err) { console.error('CSV parse error:', err); }
   });
 }
-
 
 // ── Legend ────────────────────────────────────────────────────────────────────
 function updateLegend() {
   const present = new Set(Object.values(alertMap).map(r => r.Alert).filter(Boolean));
-  // Render in severity order, only levels that exist in the data
   const order = ['Warning','Watch','Advisory','Information'];
   const el = document.getElementById('legend');
   el.innerHTML = '<h4>Alert Level</h4>';
@@ -321,8 +307,6 @@ function updateLegend() {
   }
   el.innerHTML += `<div class="leg"><div class="swatch" style="background:#e0e0e0;border-color:#aaa"></div>No data</div>`;
 }
-
-function setStatus(msg) { console.log(msg); }
 </script>
 </body>
 </html>

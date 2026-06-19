@@ -1,8 +1,8 @@
 server:
     bind:
-        host: 0.0.0.0
+        host: 127.0.0.1
         port: 5000
-    url: http://localhost:5000
+    url: __PUBLIC_URL__
     mimetype: application/json; charset=UTF-8
     encoding: utf-8
     language: en-US
@@ -11,12 +11,12 @@ server:
     limit: 1000
 
 logging:
-    level: ERROR
+    level: WARNING
 
 metadata:
     identification:
         title: MoM Watershed API
-        description: Pfafstetter watershed boundaries for MoM flood alert
+        description: Watershed boundaries for MoM flood alert
         keywords:
             - watersheds
             - flood
@@ -62,7 +62,7 @@ resources:
               name: OGR
               data:
                   source_type: ESRI Shapefile
-                  source: ./data/watershed_shp/Watershed_pfaf_id.shp
+                  source: ../data/watershed_shp/Watershed_pfaf_id.shp
                   source_srs: EPSG:4326
                   target_srs: EPSG:4326
                   source_capabilities:
