@@ -1,25 +1,31 @@
 # MoM Map Viewer — Setup
 
-Interactive flood alert map: watershed polygons colored by alert level, fetched live from pygeoapi, alert data pulled from the MoMOutputStream GitHub repo.
+Interactive flood alert map: watershed polygons colored by alert level, served as PMTiles, alert data fetched from the MoMOutputStream GitHub repo every 30 minutes.
 
 ## Architecture
 
 ```
 Browser → nginx :80
-              ├── /             → map.html (static)
-              └── /collections/ → gunicorn :5000 → pygeoapi → shapefile
+              ├── /           → map.dist.html (obfuscated, static)
+              └── /data/      → watersheds.pmtiles + metadata.json (static)
+
+update_tiles.py (systemd timer, every 30 min)
+    ↓ checks GitHub for new Final_Attributes CSV
+    ↓ joins with shapefile via GDAL
+    → data/watersheds.pmtiles
+    → data/metadata.json
 ```
 
-pygeoapi runs internally only (`127.0.0.1:5000`); nginx is the public entry point. No CORS headers needed.
+No tile server or API process — everything is static files served by nginx.
 
 ## Prerequisites
 
 - Ubuntu 22.04+ (or Debian 12+)
 - The MoMProduction repo at `~/MoMProduction` (cloned by setup.sh, or already present)
 - The watershed shapefile at `data/watershed_shp/Watershed_pfaf_id.shp` (part of the repo)
-- Ports 80 open in the server's firewall
+- Port 80 open in the server's firewall
 
-## Setup
+## Production setup
 
 ```bash
 cd ~/MoMProduction/map_viewer
@@ -27,120 +33,108 @@ chmod +x setup.sh
 ./setup.sh --url http://YOUR_IP_OR_DOMAIN
 ```
 
-If `--url` is omitted, the script auto-detects the server's public IP via `https://api.ipify.org`.
+If `--url` is omitted, the script auto-detects the server's public IP.
 
 The script:
 1. Installs system packages (`nginx`, `git`, `wget`)
 2. Installs Miniconda if not present
 3. Creates the `mom-map` conda environment from `environment.yml`
-4. Writes a resolved `pygeoapi-config.resolved.yml` with absolute paths substituted
-5. Generates `pygeoapi-openapi.yml`
-6. Creates and enables a systemd service (`mom-map`) running pygeoapi via gunicorn
-7. Writes and enables an nginx site config
+4. Runs `update_tiles.py --once` to generate the initial `data/watersheds.pmtiles`
+5. Installs a systemd timer that runs `update_tiles.py --once` every 30 minutes
+6. Writes and enables an nginx site config (serves PMTiles + map page statically)
 
 ## After setup
 
 The map is available at `http://YOUR_IP_OR_DOMAIN`.
 
 ```bash
-# Check service status
-sudo systemctl status mom-map
+# Check timer status
+sudo systemctl status mom-map.timer
+sudo systemctl list-timers mom-map.timer
 
-# Watch live logs
-sudo journalctl -u mom-map -f
+# View update logs
+sudo journalctl -u mom-map.service -f
 
-# Restart after config changes
-sudo systemctl restart mom-map
-sudo systemctl reload nginx
+# Trigger a manual tile update
+python ~/MoMProduction/map_viewer/update_tiles.py --once
 ```
 
 Logs are written to `/var/log/mom-map/`.
+
+## Local development (Windows)
+
+No server processes needed — just Python and a static file server.
+
+**Step 1 — generate tiles** (first time, or to refresh manually):
+
+```powershell
+cd map_viewer
+python update_tiles.py --once
+```
+
+This downloads the latest CSV from GitHub, joins it with the shapefile, and writes `data/watersheds.pmtiles` and `data/metadata.json`.
+
+**Step 2 — serve the map:**
+
+```powershell
+python serve.py
+```
+
+Open `http://localhost:8080/map.html`.
+
+> `python -m http.server` does **not** work — PMTiles requires HTTP Range requests (byte-range serving), which Python's built-in server doesn't support. `serve.py` handles this with no extra dependencies.
+
+**Step 3 — watch for CSV updates** (optional, checks every 30 min):
+
+```powershell
+python update_tiles.py
+```
+
+`map_viewer/data/` is gitignored — do not commit the generated files.
 
 ## Updating
 
 ```bash
 cd ~/MoMProduction
 git pull origin main
-# Re-run setup to apply any config changes:
 cd map_viewer
 ./setup.sh --url http://YOUR_IP_OR_DOMAIN
 ```
 
-## Local development (Windows)
-
-The map page can be tested locally without nginx. You need:
-- pygeoapi running on port 5000
-- A static file server serving `map.html` on any other port (e.g. 8080)
-
-Run from inside `map_viewer/` in PowerShell:
-
-```powershell
-# Generate a local config with the URL substituted, then start pygeoapi
-(Get-Content pygeoapi-config.yml -Raw) -replace '__PUBLIC_URL__','http://localhost:5000' | Set-Content pygeoapi-config.local.yml -Encoding UTF8
-$env:PYGEOAPI_CONFIG="pygeoapi-config.local.yml"; $env:PYGEOAPI_OPENAPI="pygeoapi-openapi.yml"; pygeoapi serve
-```
-
-In a second terminal, serve the map page (e.g. with Python):
-
-```powershell
-python -m http.server 8080
-```
-
-Then open `http://localhost:8080/map.html`.
-
-`pygeoapi-config.local.yml` is gitignored — do not commit it.
-
 ## HTTPS (optional)
-
-Install certbot and obtain a certificate:
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d your.domain.com
 ```
 
-Certbot will rewrite the nginx config to redirect HTTP→HTTPS and add the TLS block automatically.
-
 ## Files
 
 | File | Purpose |
 |------|---------|
 | `map.html` | Source map page — edit this; never served directly |
-| `map.dist.html` | Generated by setup.sh — obfuscated JS, served by nginx; do not edit |
-| `pygeoapi-config.yml` | Template config with `__PUBLIC_URL__` and `__DATA_DIR__` placeholders |
-| `pygeoapi-config.resolved.yml` | Generated by setup.sh with real paths (production) — do not edit manually |
-| `pygeoapi-config.local.yml` | Generated locally for Windows dev — do not commit |
-| `pygeoapi-openapi.yml` | Generated by setup.sh — do not edit manually |
-| `environment.yml` | Conda env: pygeoapi, gdal, gunicorn, nodejs |
-| `setup.sh` | One-shot setup script |
-
-## Updating the map page
-
-Edit `map.html`, then re-run setup.sh to rebuild the obfuscated `map.dist.html` and reload nginx:
-
-```bash
-cd ~/MoMProduction/map_viewer
-./setup.sh --url http://YOUR_IP_OR_DOMAIN
-```
-
-Do not commit `map.dist.html` to git — it is a build artifact.
+| `map.dist.html` | Generated by setup.sh — obfuscated JS, served by nginx |
+| `update_tiles.py` | Checks GitHub for new CSV and regenerates PMTiles |
+| `environment.yml` | Conda env: gdal, geopandas, gunicorn, nodejs |
+| `setup.sh` | One-shot production setup script |
+| `data/watersheds.pmtiles` | Generated — do not commit |
+| `data/metadata.json` | Generated — do not commit |
 
 ## Troubleshooting
 
-**Map loads but watersheds are grey** — pygeoapi may be down. Check:
+**Map loads but no watersheds visible** — PMTiles file missing or empty:
 ```bash
-sudo systemctl status mom-map
-curl http://127.0.0.1:5000/collections/watersheds/items?limit=1
+ls -lh ~/MoMProduction/map_viewer/data/watersheds.pmtiles
+python ~/MoMProduction/map_viewer/update_tiles.py --once
 ```
 
-**502 Bad Gateway** — gunicorn isn't running or crashed:
+**Tile update failed** — check the log:
 ```bash
-sudo journalctl -u mom-map -n 50
-sudo systemctl restart mom-map
+sudo journalctl -u mom-map.service -n 50
+cat /var/log/mom-map/update.log
 ```
 
-**Shapefile not found** — verify the path:
+**Shapefile not found:**
 ```bash
 ls ~/MoMProduction/data/watershed_shp/Watershed_pfaf_id.shp
 ```
-The resolved config at `map_viewer/pygeoapi-config.resolved.yml` should contain the correct absolute path.

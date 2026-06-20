@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet">
   <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
-  <script src="https://unpkg.com/papaparse@5/papaparse.min.js"></script>
+  <script src="https://unpkg.com/pmtiles@3/dist/pmtiles.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: sans-serif; background: #1a1a2e; }
@@ -61,21 +61,11 @@ const ALERT_COLOR = {
   Advisory:    '#fff176',
   Information: '#43a047',
 };
-const ALERT_RANK = { Warning:3, Watch:2, Advisory:1, Information:0 };
-// Behind nginx (port 80/443): relative path, proxied to pygeoapi internally.
-// Local dev (any other port): hit pygeoapi directly on localhost:5000.
-const p = window.location.port;
-const API_URL = (p === '' || p === '80' || p === '443')
-  ? '/collections/watersheds/items'
-  : 'http://localhost:5000/collections/watersheds/items';
 const NO_DATA_COLOR = '#e0e0e0';
 
-// ── State ─────────────────────────────────────────────────────────────────────
-let alertMap = {};
-let generation = 0;
-let lastUpdatedAt = '';
-const loadedPfafs = new Set();
-let loadedFeatures = [];
+// ── PMTiles protocol ──────────────────────────────────────────────────────────
+const protocol = new pmtiles.Protocol();
+maplibregl.addProtocol('pmtiles', protocol.tile.bind(protocol));
 
 // ── Map ───────────────────────────────────────────────────────────────────────
 const map = new maplibregl.Map({
@@ -88,14 +78,54 @@ const map = new maplibregl.Map({
         tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
         tileSize: 256,
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxzoom: 10
-      }
+        maxzoom: 19,
+      },
+      ws: {
+        type: 'vector',
+        url: 'pmtiles://data/watersheds.pmtiles',
+      },
     },
-    layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
+    layers: [
+      { id: 'osm', type: 'raster', source: 'osm' },
+      {
+        id: 'ws-fill',
+        type: 'fill',
+        source: 'ws',
+        'source-layer': 'watersheds',
+        paint: {
+          'fill-color': [
+            'match', ['get', 'alert'],
+            'Warning',     '#f57c00',
+            'Watch',       '#fbc02d',
+            'Advisory',    '#fff176',
+            'Information', '#43a047',
+            NO_DATA_COLOR
+          ],
+          'fill-opacity': 0.55,
+        },
+      },
+      {
+        id: 'ws-outline',
+        type: 'line',
+        source: 'ws',
+        'source-layer': 'watersheds',
+        paint: {
+          'line-color': [
+            'match', ['get', 'alert'],
+            'Warning',     '#e65100',
+            'Watch',       '#f57f17',
+            'Advisory',    '#f9a825',
+            'Information', '#2e7d32',
+            '#bdbdbd'
+          ],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.3, 8, 0.8, 12, 1.5],
+        },
+      },
+    ],
   },
   center: [HOUSTON.lng, HOUSTON.lat],
   zoom: HOUSTON.zoom,
-  minZoom: 2,
+  minZoom: 1,
   maxZoom: 10,
   dragRotate: false,
   pitchWithRotate: false,
@@ -106,55 +136,29 @@ map.touchZoomRotate.disableRotation();
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
 
-map.on('load', () => {
-  map.addSource('ws', {
-    type: 'geojson',
-    data: { type: 'FeatureCollection', features: [] }
-  });
-
-  map.addLayer({
-    id: 'ws-fill',
-    type: 'fill',
-    source: 'ws',
-    paint: {
-      'fill-color': [
-        'match', ['get', 'alert'],
-        'Warning',     '#f57c00',
-        'Watch',       '#fbc02d',
-        'Advisory',    '#fff176',
-        'Information', '#43a047',
-        NO_DATA_COLOR
-      ],
-      'fill-opacity': 0.55
+// ── Metadata (updated-at + legend) ────────────────────────────────────────────
+fetch('data/metadata.json')
+  .then(r => r.json())
+  .then(meta => {
+    if (meta.updated_at) {
+      document.getElementById('updated-at').textContent = `Updated at ${meta.updated_at}`;
     }
-  });
+    updateLegend(meta.alert_levels ?? []);
+  })
+  .catch(() => updateLegend([]));
 
-  map.addLayer({
-    id: 'ws-outline',
-    type: 'line',
-    source: 'ws',
-    paint: {
-      'line-color': [
-        'match', ['get', 'alert'],
-        'Warning',     '#e65100',
-        'Watch',       '#f57f17',
-        'Advisory',    '#f9a825',
-        'Information', '#2e7d32',
-        '#bdbdbd'
-      ],
-      'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.3, 8, 0.8, 12, 1.5]
-    }
-  });
-
-  loadFeatures();
-  fetchLatestCSV();
-});
-
-let debounce;
-map.on('moveend', () => {
-  clearTimeout(debounce);
-  debounce = setTimeout(loadFeatures, 300);
-});
+function updateLegend(levels) {
+  const order = ['Warning', 'Watch', 'Advisory', 'Information'];
+  const present = levels.length ? new Set(levels) : new Set(order);
+  const el = document.getElementById('legend');
+  el.innerHTML = '<h4>Alert Level</h4>';
+  for (const level of order) {
+    if (!present.has(level)) continue;
+    const color = ALERT_COLOR[level];
+    el.innerHTML += `<div class="leg"><div class="swatch" style="background:${color}"></div>${level}</div>`;
+  }
+  el.innerHTML += `<div class="leg"><div class="swatch" style="background:#e0e0e0;border-color:#aaa"></div>No data</div>`;
+}
 
 // ── Click popup ───────────────────────────────────────────────────────────────
 const popup = new maplibregl.Popup({ closeButton: true, maxWidth: '270px' });
@@ -169,9 +173,8 @@ map.on('click', 'ws-fill', (e) => {
     ['Name',          p.name],
     ['Regions',       p.regions],
     ['Status',        p.status],
-    ['Days to peak',  p.days_until_peak != null && p.days_until_peak !== 'null'
-                        ? p.days_until_peak : null],
-  ].filter(([, v]) => v != null);
+    ['Days to peak',  p.days_until_peak != null ? p.days_until_peak : null],
+  ].filter(([, v]) => v != null && v !== 'null' && v !== 'None' && v !== '');
 
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   popup.setLngLat(e.lngLat).setHTML(`
@@ -185,168 +188,6 @@ map.on('click', 'ws-fill', (e) => {
 
 map.on('mouseenter', 'ws-fill', () => { map.getCanvas().style.cursor = 'pointer'; });
 map.on('mouseleave', 'ws-fill', () => { map.getCanvas().style.cursor = ''; });
-
-// ── Feature loading ───────────────────────────────────────────────────────────
-function applyPage(features, gen) {
-  if (gen !== generation) return;
-  let added = 0;
-  for (const feat of features) {
-    const pfaf = String(feat.properties.pfaf_id ?? feat.properties.PFAF_ID ?? feat.id ?? '');
-    if (loadedPfafs.has(pfaf)) continue;
-    loadedPfafs.add(pfaf);
-    const attrs = alertMap[pfaf] ?? {};
-    feat.properties = {
-      pfaf_id:         pfaf,
-      alert:           attrs.Alert           ?? null,
-      status:          attrs.Status          ?? null,
-      name:            attrs._countries      ?? null,
-      regions:         attrs._regions        ?? null,
-      days_until_peak: attrs.Days_until_peak ?? null,
-    };
-    loadedFeatures.push(feat);
-    added++;
-  }
-  if (added > 0) {
-    map.getSource('ws').setData({ type: 'FeatureCollection', features: loadedFeatures });
-  }
-}
-
-async function loadFeatures() {
-  const gen = ++generation;
-  const b = map.getBounds();
-  const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
-  const limit = 100;
-  const base = `${API_URL}?bbox=${bbox}&f=json&limit=${limit}`;
-
-  try {
-    const res = await fetch(`${base}&offset=0`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const fc = await res.json();
-    if (gen !== generation) return;
-    applyPage(fc.features, gen);
-
-    const total = fc.numberMatched;
-
-    if (total != null && total > limit) {
-      // numberMatched available — fire all remaining pages in parallel
-      const offsets = Array.from(
-        { length: Math.ceil((total - limit) / limit) },
-        (_, i) => (i + 1) * limit
-      );
-      await Promise.all(offsets.map(o =>
-        fetch(`${base}&offset=${o}`)
-          .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-          .then(fc => applyPage(fc.features, gen))
-          .catch(err => console.error('loadFeatures page:', err))
-      ));
-    } else if (fc.features.length >= limit) {
-      // numberMatched unavailable — sequential until short page
-      let offset = limit;
-      while (true) {
-        const r = await fetch(`${base}&offset=${offset}`);
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const fc2 = await r.json();
-        if (gen !== generation) return;
-        applyPage(fc2.features, gen);
-        if (fc2.features.length < limit) break;
-        offset += limit;
-      }
-    }
-  } catch (err) {
-    if (gen !== generation) return;
-    console.error('loadFeatures:', err);
-  }
-}
-
-// ── CSV loading ───────────────────────────────────────────────────────────────
-const GITHUB_API = 'https://api.github.com/repos/Global-Flood-Assessment/MoMOutputStream/contents/ModelOutputs';
-
-async function fetchLatestCSV() {
-  try {
-    const res = await fetch(GITHUB_API, { headers: { Accept: 'application/vnd.github.v3+json' } });
-    if (!res.ok) throw new Error(`GitHub API HTTP ${res.status}`);
-
-    const files = await res.json();
-    const csvFiles = files
-      .filter(f => f.type === 'file' && f.name.startsWith('Final_Attributes_') && f.name.endsWith('.csv'))
-      .sort((a, b) => b.name.localeCompare(a.name));
-
-    if (!csvFiles.length) throw new Error('No Final_Attributes CSV found');
-
-    const latest = csvFiles[0];
-    const csvRes = await fetch(latest.download_url);
-    if (!csvRes.ok) throw new Error(`CSV download HTTP ${csvRes.status}`);
-
-    const buf = await csvRes.arrayBuffer();
-    let csvText;
-    try {
-      csvText = new TextDecoder('utf-8', { fatal: true }).decode(buf);
-    } catch {
-      csvText = new TextDecoder('windows-1252').decode(buf);
-    }
-    parseCSVText(csvText, latest.name);
-  } catch (err) {
-    console.error('fetchLatestCSV:', err);
-  }
-}
-
-function parseDateFromFilename(name) {
-  const m = name.match(/Final_Attributes_(\d{4})(\d{2})(\d{2})(\d{2})/);
-  if (!m) return null;
-  return `${m[1]}-${m[2]}-${m[3]} ${m[4]}:00 UTC`;
-}
-
-function parseCSVText(text, filename) {
-  Papa.parse(text, {
-    header: true,
-    dynamicTyping: true,
-    skipEmptyLines: true,
-    complete({ data, errors }) {
-      if (errors.length) console.warn('CSV parse warnings:', errors.slice(0, 3));
-
-      const groups = {};
-      for (const row of data) {
-        const pfaf = String(row.pfaf_id ?? '');
-        if (!pfaf) continue;
-        (groups[pfaf] ??= []).push(row);
-      }
-
-      alertMap = {};
-      for (const [pfaf, rows] of Object.entries(groups)) {
-        const base = rows.reduce((best, row) =>
-          (ALERT_RANK[row.Alert] ?? -1) > (ALERT_RANK[best.Alert] ?? -1) ? row : best
-        );
-        const countries = [...new Set(rows.map(r => r.name).filter(Boolean))].join(', ');
-        const regions   = [...new Set(rows.map(r => r.name_1).filter(Boolean))].join(', ');
-        alertMap[pfaf] = { ...base, _countries: countries, _regions: regions };
-      }
-
-      const updatedAt = parseDateFromFilename(filename);
-      lastUpdatedAt = updatedAt ? `Updated at ${updatedAt}` : filename;
-      document.getElementById('updated-at').textContent = lastUpdatedAt;
-
-      loadedPfafs.clear();
-      loadedFeatures = [];
-      updateLegend();
-      loadFeatures();
-    },
-    error(err) { console.error('CSV parse error:', err); }
-  });
-}
-
-// ── Legend ────────────────────────────────────────────────────────────────────
-function updateLegend() {
-  const present = new Set(Object.values(alertMap).map(r => r.Alert).filter(Boolean));
-  const order = ['Warning','Watch','Advisory','Information'];
-  const el = document.getElementById('legend');
-  el.innerHTML = '<h4>Alert Level</h4>';
-  for (const level of order) {
-    if (!present.has(level)) continue;
-    const color = ALERT_COLOR[level] ?? '#999';
-    el.innerHTML += `<div class="leg"><div class="swatch" style="background:${color}"></div>${level}</div>`;
-  }
-  el.innerHTML += `<div class="leg"><div class="swatch" style="background:#e0e0e0;border-color:#aaa"></div>No data</div>`;
-}
 </script>
 </body>
 </html>

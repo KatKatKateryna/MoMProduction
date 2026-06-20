@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Sets up the MoM map viewer on a fresh Linux server.
-# Installs: miniconda + mom-map env, pygeoapi behind gunicorn, nginx as front-end.
+# Installs: miniconda + mom-map env, nginx (static files only).
 # Usage: ./setup.sh [--url http://YOUR_IP_OR_DOMAIN]
 
 set -e
@@ -11,7 +11,7 @@ set -o pipefail
 ############################
 
 REPO_URL="https://github.com/KatKatKateryna/MoMProduction.git"
-REPO_BRANCH="interactive-map"
+REPO_BRANCH="interactive-map_pmtiles"
 REPO_DIR="$HOME/MoMProduction"
 MODULE_DIR="$REPO_DIR/map_viewer"
 DATA_DIR="$REPO_DIR/data"
@@ -25,7 +25,6 @@ CONDA_ENV_NAME="mom-map"
 MINICONDA_INSTALLER="Miniconda3-latest-Linux-x86_64.sh"
 MINICONDA_URL="https://repo.anaconda.com/miniconda/$MINICONDA_INSTALLER"
 
-PYGEOAPI_PORT=5000
 SERVICE_NAME="mom-map"
 NGINX_SITE="mom-map"
 LOG_DIR="/var/log/mom-map"
@@ -163,59 +162,51 @@ print(f"Written: {dist}")
 PYEOF
 
 ############################
-# PYGEOAPI CONFIG
+# INITIAL TILE GENERATION
 ############################
 
-echo "Writing resolved pygeoapi config..."
+echo "Generating initial PMTiles..."
 mkdir -p "$LOG_DIR"
-
-sed \
-    -e "s|__PUBLIC_URL__|${PUBLIC_URL}|g" \
-    -e "s|\.\./data|${DATA_DIR}|g" \
-    "$MODULE_DIR/pygeoapi-config.yml" \
-    > "$MODULE_DIR/pygeoapi-config.resolved.yml"
-
-echo "Generating pygeoapi OpenAPI spec..."
-PYGEOAPI_CONFIG="$MODULE_DIR/pygeoapi-config.resolved.yml" \
-PYGEOAPI_OPENAPI="$MODULE_DIR/pygeoapi-openapi.yml" \
-    "$CONDA_DIR/envs/$CONDA_ENV_NAME/bin/pygeoapi" openapi generate \
-        "$MODULE_DIR/pygeoapi-config.resolved.yml" \
-        --output-file "$MODULE_DIR/pygeoapi-openapi.yml"
+"$CONDA_DIR/envs/$CONDA_ENV_NAME/bin/python" "$MODULE_DIR/update_tiles.py" --once \
+    2>&1 | tee "$LOG_DIR/tiles_init.log"
 
 ############################
-# SYSTEMD SERVICE
+# SYSTEMD TIMER (hourly CSV check)
 ############################
 
-echo "Writing systemd service..."
-GUNICORN="$CONDA_DIR/envs/$CONDA_ENV_NAME/bin/gunicorn"
+echo "Installing systemd timer for 30-minute tile updates..."
+PYTHON="$CONDA_DIR/envs/$CONDA_ENV_NAME/bin/python"
 
 sudo tee /etc/systemd/system/${SERVICE_NAME}.service > /dev/null <<SERVICE
 [Unit]
-Description=MoM map viewer — pygeoapi via gunicorn
+Description=MoM map viewer — update PMTiles from latest CSV
 After=network.target
 
 [Service]
+Type=oneshot
 User=${USER}
 WorkingDirectory=${MODULE_DIR}
-Environment=PYGEOAPI_CONFIG=${MODULE_DIR}/pygeoapi-config.resolved.yml
-Environment=PYGEOAPI_OPENAPI=${MODULE_DIR}/pygeoapi-openapi.yml
-ExecStart=${GUNICORN} \
-    --workers 4 \
-    --bind 127.0.0.1:${PYGEOAPI_PORT} \
-    --access-logfile ${LOG_DIR}/access.log \
-    --error-logfile  ${LOG_DIR}/error.log \
-    --log-level warning \
-    pygeoapi.flask_app:APP
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
+ExecStart=${PYTHON} ${MODULE_DIR}/update_tiles.py --once
+StandardOutput=append:${LOG_DIR}/update.log
+StandardError=append:${LOG_DIR}/update.log
 SERVICE
 
+sudo tee /etc/systemd/system/${SERVICE_NAME}.timer > /dev/null <<TIMER
+[Unit]
+Description=MoM map viewer — 30-minute CSV check
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+TIMER
+
 sudo systemctl daemon-reload
-sudo systemctl enable  "$SERVICE_NAME"
-sudo systemctl restart "$SERVICE_NAME"
+sudo systemctl enable  "${SERVICE_NAME}.timer"
+sudo systemctl start   "${SERVICE_NAME}.timer"
 
 ############################
 # NGINX
@@ -230,23 +221,18 @@ server {
     root ${MODULE_DIR};
     index map.dist.html;
 
-    # Serve the obfuscated map page
     location / {
         try_files \$uri /map.dist.html;
     }
 
-    # Proxy OGC API Features to pygeoapi
-    location /collections/ {
-        proxy_pass         http://127.0.0.1:${PYGEOAPI_PORT}/collections/;
-        proxy_set_header   Host \$host;
-        proxy_set_header   X-Real-IP \$remote_addr;
-        proxy_set_header   X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_read_timeout 60s;
+    # PMTiles and metadata — static files, enable range requests
+    location /data/ {
+        add_header Accept-Ranges bytes;
+        try_files \$uri =404;
     }
 }
 NGINX
 
-# Enable site, disable default if still linked
 sudo ln -sf /etc/nginx/sites-available/${NGINX_SITE} /etc/nginx/sites-enabled/${NGINX_SITE}
 sudo rm -f /etc/nginx/sites-enabled/default
 
@@ -263,10 +249,10 @@ echo "======================================"
 echo "Map viewer setup complete."
 echo "Open in browser: ${PUBLIC_URL}"
 echo ""
-echo "Service management:"
-echo "  sudo systemctl status  ${SERVICE_NAME}"
-echo "  sudo systemctl restart ${SERVICE_NAME}"
-echo "  sudo journalctl -u ${SERVICE_NAME} -f"
+echo "Tile update timer:"
+echo "  sudo systemctl status  ${SERVICE_NAME}.timer"
+echo "  sudo systemctl list-timers ${SERVICE_NAME}.timer"
+echo "  sudo journalctl -u ${SERVICE_NAME}.service -f"
 echo ""
 echo "Logs: ${LOG_DIR}/"
 echo "======================================"
