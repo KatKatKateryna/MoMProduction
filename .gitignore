@@ -142,8 +142,7 @@ database_update/logs/*
 database_update/nginx_cog*
 nohup.out
 
-# map_viewer build artifacts
-map_viewer/map.dist.html
+# map_viewer generated files
 map_viewer/pygeoapi-config.resolved.yml
 map_viewer/pygeoapi-config.local.yml
 map_viewer/pygeoapi-openapi.yml

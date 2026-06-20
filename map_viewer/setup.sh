@@ -115,51 +115,6 @@ else
 fi
 
 conda activate "$CONDA_ENV_NAME"
-export MODULE_DIR  # needed by the Python obfuscation snippet below
-
-############################
-# JS OBFUSCATION
-############################
-
-echo "Installing javascript-obfuscator..."
-npm install -g javascript-obfuscator --silent
-
-echo "Building obfuscated map.dist.html..."
-# Extract <script> block, obfuscate, recombine into map.dist.html
-python3 - <<'PYEOF'
-import re, subprocess, tempfile, os, sys
-
-src = open(os.path.join(os.environ['MODULE_DIR'], 'map.html')).read()
-m = re.search(r'<script>(.*?)</script>', src, re.DOTALL)
-if not m:
-    print("ERROR: no <script> block found in map.html", file=sys.stderr)
-    sys.exit(1)
-
-with tempfile.NamedTemporaryFile(suffix='.js', mode='w', delete=False) as f:
-    f.write(m.group(1))
-    src_js = f.name
-out_js = src_js.replace('.js', '.obf.js')
-
-subprocess.run([
-    'javascript-obfuscator', src_js,
-    '--output', out_js,
-    '--compact', 'true',
-    '--identifier-names-generator', 'hexadecimal',
-    '--string-array', 'true',
-    '--rotate-string-array', 'true',
-    '--shuffle-string-array', 'true',
-    '--string-array-encoding', 'base64',
-    '--self-defending', 'true',
-], check=True)
-
-obf_js = open(out_js).read()
-result = re.sub(r'(?s)(<script>).*?(</script>)', r'\1\n' + obf_js.replace('\\', '\\\\') + r'\n\2', src)
-dist = os.path.join(os.environ['MODULE_DIR'], 'map.dist.html')
-open(dist, 'w').write(result)
-os.unlink(src_js)
-os.unlink(out_js)
-print(f"Written: {dist}")
-PYEOF
 
 ############################
 # INITIAL TILE GENERATION
@@ -219,10 +174,10 @@ server {
     server_name _;
 
     root ${MODULE_DIR};
-    index map.dist.html;
+    index map.html;
 
     location / {
-        try_files \$uri /map.dist.html;
+        try_files \$uri /map.html;
     }
 
     # PMTiles and metadata — static files, enable range requests
