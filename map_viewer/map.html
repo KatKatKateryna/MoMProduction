@@ -74,6 +74,8 @@ const NO_DATA_COLOR = '#e0e0e0';
 let alertMap = {};
 let generation = 0;
 let lastUpdatedAt = '';
+const loadedPfafs = new Set();
+let loadedFeatures = [];
 
 // ── Map ───────────────────────────────────────────────────────────────────────
 const map = new maplibregl.Map({
@@ -93,7 +95,7 @@ const map = new maplibregl.Map({
   },
   center: [HOUSTON.lng, HOUSTON.lat],
   zoom: HOUSTON.zoom,
-  minZoom: 5,
+  minZoom: 2,
   maxZoom: 10,
   dragRotate: false,
   pitchWithRotate: false,
@@ -186,34 +188,43 @@ map.on('mouseleave', 'ws-fill', () => { map.getCanvas().style.cursor = ''; });
 
 // ── Feature loading ───────────────────────────────────────────────────────────
 async function loadFeatures() {
-  if (map.getZoom() < 5) return;
-
   const gen = ++generation;
   const b = map.getBounds();
   const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
-  const url = `${API_URL}?bbox=${bbox}&f=json&limit=1000`;
 
   try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const fc = await res.json();
+    let nextUrl = `${API_URL}?bbox=${bbox}&f=json&limit=1000`;
 
-    if (gen !== generation) return;
+    while (nextUrl) {
+      const res = await fetch(nextUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const fc = await res.json();
+      if (gen !== generation) return;
 
-    for (const feat of fc.features) {
-      const pfaf = String(feat.properties.pfaf_id ?? feat.properties.PFAF_ID ?? feat.id ?? '');
-      const attrs = alertMap[pfaf] ?? {};
-      feat.properties = {
-        pfaf_id:         pfaf,
-        alert:           attrs.Alert           ?? null,
-        status:          attrs.Status          ?? null,
-        name:            attrs._countries      ?? null,
-        regions:         attrs._regions        ?? null,
-        days_until_peak: attrs.Days_until_peak ?? null,
-      };
+      let added = 0;
+      for (const feat of fc.features) {
+        const pfaf = String(feat.properties.pfaf_id ?? feat.properties.PFAF_ID ?? feat.id ?? '');
+        if (loadedPfafs.has(pfaf)) continue;
+        loadedPfafs.add(pfaf);
+        const attrs = alertMap[pfaf] ?? {};
+        feat.properties = {
+          pfaf_id:         pfaf,
+          alert:           attrs.Alert           ?? null,
+          status:          attrs.Status          ?? null,
+          name:            attrs._countries      ?? null,
+          regions:         attrs._regions        ?? null,
+          days_until_peak: attrs.Days_until_peak ?? null,
+        };
+        loadedFeatures.push(feat);
+        added++;
+      }
+      if (added > 0) {
+        map.getSource('ws').setData({ type: 'FeatureCollection', features: loadedFeatures });
+      }
+
+      const nextLink = (fc.links ?? []).find(l => l.rel === 'next');
+      nextUrl = nextLink?.href ?? null;
     }
-
-    map.getSource('ws').setData(fc);
   } catch (err) {
     if (gen !== generation) return;
     console.error('loadFeatures:', err);
@@ -287,6 +298,8 @@ function parseCSVText(text, filename) {
       lastUpdatedAt = updatedAt ? `Updated at ${updatedAt}` : filename;
       document.getElementById('updated-at').textContent = lastUpdatedAt;
 
+      loadedPfafs.clear();
+      loadedFeatures = [];
       updateLegend();
       loadFeatures();
     },

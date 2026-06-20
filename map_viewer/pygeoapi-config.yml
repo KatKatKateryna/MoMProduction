@@ -9,6 +9,9 @@ server:
     cors: true
     pretty_print: false
     limit: 1000
+    map:
+        url: https://tile.openstreetmap.org/{z}/{x}/{y}.png
+        attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>'
 
 logging:
     level: WARNING
@@ -22,7 +25,7 @@ metadata:
             - flood
         keywords_type: theme
         terms_of_service: null
-        url: null
+        url: ''
     license:
         name: CC-BY 4.0
         url: https://creativecommons.org/licenses/by/4.0/
@@ -48,8 +51,8 @@ metadata:
 resources:
     watersheds:
         type: collection
-        title: Pfafstetter Watersheds
-        description: Global watershed boundaries indexed by pfaf_id
+        title: Watersheds
+        description: Global watershed boundaries
         keywords:
             - watersheds
         links: []
