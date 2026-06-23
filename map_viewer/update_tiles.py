@@ -28,8 +28,8 @@ from osgeo import gdal, ogr
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
 REPO_DIR = SCRIPT_DIR.parent
-SHP_PATH = REPO_DIR / "data" / "watershed_shp" / "Watershed_pfaf_id.shp"
 OUT_DIR = SCRIPT_DIR / "data"
+SHP_PATH = OUT_DIR / "watershed_shp" / "Watershed_pfaf_id.shp"
 PMTILES_OUT = OUT_DIR / "watersheds.pmtiles"
 GEOJSON_TMP = OUT_DIR / "watersheds.geojson"
 METADATA = OUT_DIR / "metadata.json"
