@@ -522,13 +522,13 @@ def GFMS_data_extractor(bin_file):
     # download GFMS binfile, generate vrt file
     vrt_file = GFMS_download(bin_file)
 
-    if not vrt_file:
-        print("VRT not found: " + bin_file)
-        return
-
     # extract data by watershed
     logging.info("processing: " + vrt_file)
     GFMS_extract_by_watershed(vrt_file)
+
+    if not vrt_file:
+        print("VRT not found: " + bin_file)
+        return
 
     # generate tiff from bin file
     tiff_name = os.path.basename(vrt_file).replace(".vrt", ".tiff")
@@ -552,39 +552,13 @@ def GFMS_fix_duration(csv0, csvlist):
         df0 = pd.read_csv(basecsv)
         start_in = 0
     else:
-        # find first available file in proc dir (csv0 may not exist on first run)
-        df0 = None
-        start_in = 0
-        for i, name in enumerate(csvlist):
-            proc_csv = os.path.join(settings.GFMS_PROC_DIR, name)
-            if os.path.exists(proc_csv):
-                df0 = pd.read_csv(proc_csv)
-                df0.to_csv(os.path.join(settings.GFMS_SUM_DIR, name), index=False)
-                start_in = i + 1
-                break
-
-        if df0 is None:
-            # No base CSV available (first run) — copy proc CSVs to SUM as-is
-            # only triggered if no bins downloaded (GFMS is down)
-            # will not work if no GFMS were processed on this machine at all
-            for name in csvlist:
-                proc_csv = os.path.join(settings.GFMS_PROC_DIR, name)
-                if os.path.exists(proc_csv):
-                    pd.read_csv(proc_csv).to_csv(
-                        os.path.join(settings.GFMS_SUM_DIR, name), index=False
-                    )
-                    logging.info(
-                        "first run copy: " + os.path.join(settings.GFMS_SUM_DIR, name)
-                    )
-            return
+        df0 = pd.read_csv(os.path.join(GFMS_PROC_DIR, csvlist[0]))
+        start_in = 1
+        # also write out to SUM folder
+        df0.to_csv(os.path.join(GFMS_SUM_DIR, csvlist[0]), index=False)
 
     for name in csvlist[start_in:]:
         csv_file = os.path.join(settings.GFMS_PROC_DIR, name)
-
-        if not os.path.exists(csv_file):
-            print(f"GFMS_fix_duration: missing {csv_file}, skipping")
-            logging.warning(f"GFMS_fix_duration: missing {csv_file}, skipping")
-            continue
         df = pd.read_csv(csv_file)
 
         df["GFMS_Duration0"] = df["pfaf_id"].map(
