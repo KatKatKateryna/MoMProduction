@@ -523,7 +523,7 @@ def GFMS_data_extractor(bin_file):
     vrt_file = GFMS_download(bin_file)
 
     # extract data by watershed
-    logging.info("processing: " + vrt_file)
+    logging.info(f"processing: {vrt_file}")
     GFMS_extract_by_watershed(vrt_file)
 
     if not vrt_file:
