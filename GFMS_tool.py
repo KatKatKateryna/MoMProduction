@@ -305,6 +305,8 @@ def GFMS_download(bin_file):
 
     # check if .bin is already downloaded
     binfile_local = os.path.join(settings.GFMS_PROC_DIR, bin_file)
+    vrt_file = binfile_local.replace(".bin", ".vrt")
+
     # check if the size is ok
     if os.path.exists(binfile_local):
         binsize = os.path.getsize(binfile_local)
@@ -319,11 +321,13 @@ def GFMS_download(bin_file):
 
         except requests.exceptions.RequestException as e:
             logging.error(f"Downlaod failed: {e.strerror}")
-            # sys.exit() - too dramatic
-            return
+            print(f"Downlaod failed: {e.strerror}")
+            # sys.exit()
+            return vrt_file
 
         open(binfile_local, "wb").write(r.content)
-        logging.info("Download: " + bin_file)
+        logging.info(f"Download: {bin_file}")
+        print(f"Download: {bin_file}")
 
     # generate header file
     hdr_header = """NCOLS 2458
@@ -379,7 +383,6 @@ def GFMS_download(bin_file):
 </VRTDataset>"""
 
     # generate VRT file
-    vrt_file = binfile_local.replace(".bin", ".vrt")
     with open(vrt_file, "w") as f:
         f.write(vrt_template.format(bin_file))
 
@@ -392,21 +395,21 @@ def GFMS_extract_by_mask(vrt_file, mask_json):
     # print(vrt_file)
     # print(mask_json['features'][0]['geometry'])
 
-    with rasterio.open(vrt_file) as src:
-        try:
+    try:
+        with rasterio.open(vrt_file) as src:
             out_image, out_transform = mask(
                 src, [mask_json["features"][0]["geometry"]], crop=True
             )
-        except rasterio.errors.RasterioIOError as er:
-            logging.warning("RasterioIOError:" + vrt_file)
-            src = None
-            return pd.DataFrame()
-        except ValueError as e:
-            #'Input shapes do not overlap raster.'
-            # print(e)
-            src = None
-            # return empty dataframe    print(lastest_csv)
-            return pd.DataFrame()
+    except rasterio.errors.RasterioIOError as er: # e.g. if file doesn't exist
+        logging.warning("RasterioIOError:" + vrt_file)
+        src = None
+        return pd.DataFrame()
+    except ValueError as e:
+        #'Input shapes do not overlap raster.'
+        # print(e)
+        src = None
+        # return empty dataframe    print(lastest_csv)
+        return pd.DataFrame()
 
     # extract data
     no_data = src.nodata
@@ -527,7 +530,7 @@ def GFMS_data_extractor(bin_file):
     GFMS_extract_by_watershed(vrt_file)
 
     if not vrt_file:
-        print("VRT not found: " + bin_file)
+        print(f"VRT not found: {bin_file}")
         return
 
     # generate tiff from bin file
@@ -552,10 +555,10 @@ def GFMS_fix_duration(csv0, csvlist):
         df0 = pd.read_csv(basecsv)
         start_in = 0
     else:
-        df0 = pd.read_csv(os.path.join(GFMS_PROC_DIR, csvlist[0]))
+        df0 = pd.read_csv(os.path.join(settings.GFMS_PROC_DIR, csvlist[0]))
         start_in = 1
         # also write out to SUM folder
-        df0.to_csv(os.path.join(GFMS_SUM_DIR, csvlist[0]), index=False)
+        df0.to_csv(os.path.join(settings.GFMS_SUM_DIR, csvlist[0]), index=False)
 
     for name in csvlist[start_in:]:
         csv_file = os.path.join(settings.GFMS_PROC_DIR, name)

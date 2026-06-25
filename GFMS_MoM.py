@@ -386,6 +386,16 @@ def flood_severity(GFMS_Table, GloFas_Table, adate):
     # Final_Attributes = Final_Attributes.assign(
     # Severity=lambda x: scipy.stats.norm(np.log(100 - Final_Attributes['Scaled_Riverine_Risk']), 1).cdf(
     # np.log(Final_Attributes['Hazard_Score'])))
+    cols = [
+        "Scaled_Riverine_Risk",
+        "Scaled_Coastal_Risk",
+        "Hazard_Score",
+    ]
+
+    Final_Attributes[cols] = Final_Attributes[cols].apply(
+        pd.to_numeric, errors="coerce"
+    )
+
     Final_Attributes = Final_Attributes.assign(
         Severity=lambda x: scipy.stats.norm(
             np.log(
