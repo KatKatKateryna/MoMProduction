@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 import rasterio
 import requests
+import shutil
 import zipfile
 from rasterio import Affine  # or from affine import Affine
 from rasterio.mask import mask
@@ -36,6 +37,7 @@ import settings
 from utilities import findLatest, hwrf_today, watersheds_gdb_reader
 
 load_dotenv()
+WATERSHEDS = None
 
 # no need for cron-job
 # from progressbar import progress
@@ -99,7 +101,10 @@ def GloFAS_process():
         sys.exit()
 
     # load watersheds data
-    watersheds = watersheds_gdb_reader()
+    global WATERSHEDS # declare global before potential Write
+    if WATERSHEDS is None:
+        WATERSHEDS = watersheds_gdb_reader()
+
     for data_date in processing_dates:
 
         # final file names
@@ -232,7 +237,7 @@ def GloFAS_process():
         gdf.sindex
 
         # sjoin
-        gdf_watersheds = geopandas.sjoin(gdf, watersheds, predicate="within")
+        gdf_watersheds = geopandas.sjoin(gdf, WATERSHEDS, predicate="within")
         gdf_watersheds.rename(columns={"index_right": "pfaf_id"}, inplace=True)
 
         forcast_time = (fixed_sites.split("_")[1]).replace("00.txt", "")
@@ -446,8 +451,11 @@ def GFMS_extract_by_watershed(vrt_file):
     """extract and summary"""
 
     # load watersheds data
-    watersheds = watersheds_gdb_reader()
-    pfaf_id_list = watersheds.index.tolist()
+    global WATERSHEDS # declare global before potential Write
+    if WATERSHEDS is None:
+        WATERSHEDS = watersheds_gdb_reader()
+
+    pfaf_id_list = WATERSHEDS.index.tolist()
 
     # setup output file
     headers_list = [
@@ -462,7 +470,7 @@ def GFMS_extract_by_watershed(vrt_file):
     summary_file = os.path.join(
         settings.GFMS_PROC_DIR, os.path.basename(vrt_file)[:-4] + ".csv"
     )
-    if not os.path.exists(summary_file):
+    if not os.path.exists(summary_file) or os.path.getsize(summary_file) == 0: # ignores corrupted files
         with open(summary_file, "w") as f:
             writer = csv.writer(f)
             writer.writerow(headers_list)
@@ -481,10 +489,13 @@ def GFMS_extract_by_watershed(vrt_file):
             # progress(count,  len(pfaf_id_list), status='pfaf_id')
 
             test_json = json.loads(
-                geopandas.GeoSeries([watersheds.loc[pfaf_id, "geometry"]]).to_json()
+                geopandas.GeoSeries([WATERSHEDS.loc[pfaf_id, "geometry"]]).to_json()
             )
             # plot check
-            data_points = GFMS_extract_by_mask(vrt_file, test_json)
+            if not os.path.exists(vrt_file):
+                data_points = pd.DataFrame()
+            else:
+                data_points = GFMS_extract_by_mask(vrt_file, test_json)
 
             # write summary to a csv file
             GFMS_Duration = 0
@@ -493,7 +504,7 @@ def GFMS_extract_by_watershed(vrt_file):
                 if GFMS_TotalArea > 100.0:
                     GFMS_Duration = 3
                 GFMS_Area_percent = (
-                    GFMS_TotalArea / watersheds.loc[pfaf_id]["area_km2"] * 100
+                    GFMS_TotalArea / WATERSHEDS.loc[pfaf_id]["area_km2"] * 100
                 )
                 GFMS_MeanDepth = data_points["intensity"].mean()
                 GFMS_MaxDepth = data_points["intensity"].max()
@@ -529,14 +540,16 @@ def GFMS_data_extractor(bin_file):
     logging.info(f"processing: {vrt_file}")
     GFMS_extract_by_watershed(vrt_file)
 
-    if not vrt_file:
+    if not os.path.exists(vrt_file):
         print(f"VRT not found: {bin_file}")
         return
 
     # generate tiff from bin file
     tiff_name = os.path.basename(vrt_file).replace(".vrt", ".tiff")
     tiff_file = os.path.join(settings.GFMS_IMG_DIR, tiff_name)
-    gdalcmd = f"gdal_translate -co TILED=YES -co COMPRESS=LZW -of GTiff {vrt_file} {tiff_file}"
+
+    gdal_translate = shutil.which("gdal_translate")
+    gdalcmd = f'"{gdal_translate}" -co TILED=YES -co COMPRESS=LZW -of GTiff "{vrt_file}" "{tiff_file}"'
     os.system(gdalcmd)
     logging.info("generated: " + tiff_file)
 
@@ -588,8 +601,10 @@ def GFMS_processing(proc_dates_list):
     binhours = ["00", "03", "06", "09", "12", "15", "18", "21"]
     for data_date in proc_dates_list:
         real_date = data_date[:-2]
+        fix_list = []
         for binhour in binhours:
             bin_file = "Flood_byStor_" + real_date + binhour + ".bin"
+            fix_list.append("Flood_byStor_" + real_date + binhour + ".csv")
             # process bin file, generate .csv - some might be missing
             GFMS_data_extractor(bin_file)
 
@@ -597,7 +612,7 @@ def GFMS_processing(proc_dates_list):
         # find the previous one, previous day 21 hour
         previous_date = datetime.strptime(real_date, "%Y%m%d") - timedelta(days=1)
         base0 = "Flood_byStor_" + previous_date.strftime("%Y%m%d") + "21.csv"
-        fix_list = ["Flood_byStor_" + real_date + x + ".csv" for x in binhours]
+        # fix_list = ["Flood_byStor_" + real_date + x + ".csv" for x in binhours]
         # call fix duration
         GFMS_fix_duration(base0, fix_list)
 
