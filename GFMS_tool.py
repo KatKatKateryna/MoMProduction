@@ -482,10 +482,12 @@ def GFMS_extract_by_watershed(vrt_file):
     # count = 0
 
     # plot check
-    if not os.path.exists(vrt_file):
-        data_points = pd.DataFrame()
-    else:
-        data_points = GFMS_extract_by_mask(vrt_file, test_json)
+    data_points = pd.DataFrame()
+    GFMS_TotalArea = 0.0
+    GFMS_Area_percent = 0.0
+    GFMS_MeanDepth = 0.0
+    GFMS_MaxDepth = 0.0
+    GFMS_Duration = 0
 
     with open(summary_file, "a") as f:
         writer = csv.writer(f)
@@ -495,9 +497,13 @@ def GFMS_extract_by_watershed(vrt_file):
             # count += 1
             # progress(count,  len(pfaf_id_list), status='pfaf_id')
 
-            test_json = json.loads(
-                geopandas.GeoSeries([WATERSHEDS.loc[pfaf_id, "geometry"]]).to_json()
-            )
+            # plot check
+            if os.path.exists(vrt_file):
+                watershed_json = json.loads(
+                    geopandas.GeoSeries([WATERSHEDS.loc[pfaf_id, "geometry"]]).to_json()
+                )
+                data_points = GFMS_extract_by_mask(vrt_file, watershed_json)
+
             # write summary to a csv file
             GFMS_Duration = 0
             if not data_points.empty:
@@ -509,12 +515,6 @@ def GFMS_extract_by_watershed(vrt_file):
                 )
                 GFMS_MeanDepth = data_points["intensity"].mean()
                 GFMS_MaxDepth = data_points["intensity"].max()
-            else:
-                GFMS_TotalArea = 0.0
-                GFMS_Area_percent = 0.0
-                GFMS_MeanDepth = 0.0
-                GFMS_MaxDepth = 0.0
-                GFMS_Duration = 0
 
             results_list = [
                 pfaf_id,
