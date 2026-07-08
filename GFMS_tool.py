@@ -325,8 +325,8 @@ def GFMS_download(bin_file):
             r.raise_for_status()
 
         except requests.exceptions.RequestException as e:
-            logging.error(f"Downlaod failed: {e.strerror}")
-            print(f"Downlaod failed: {e.strerror}")
+            logging.error(f"Download failed: {e.strerror}")
+            print(f"Download failed: {e.strerror}")
             # sys.exit()
             return vrt_file
 
@@ -480,6 +480,13 @@ def GFMS_extract_by_watershed(vrt_file):
 
     # write out the summary
     # count = 0
+
+    # plot check
+    if not os.path.exists(vrt_file):
+        data_points = pd.DataFrame()
+    else:
+        data_points = GFMS_extract_by_mask(vrt_file, test_json)
+
     with open(summary_file, "a") as f:
         writer = csv.writer(f)
 
@@ -491,12 +498,6 @@ def GFMS_extract_by_watershed(vrt_file):
             test_json = json.loads(
                 geopandas.GeoSeries([WATERSHEDS.loc[pfaf_id, "geometry"]]).to_json()
             )
-            # plot check
-            if not os.path.exists(vrt_file):
-                data_points = pd.DataFrame()
-            else:
-                data_points = GFMS_extract_by_mask(vrt_file, test_json)
-
             # write summary to a csv file
             GFMS_Duration = 0
             if not data_points.empty:
