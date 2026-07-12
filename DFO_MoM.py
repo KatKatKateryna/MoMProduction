@@ -37,7 +37,7 @@ def update_DFO_MoM(adate):
     # not need to run the other part of code if no summary
     DFOsummary = os.path.join(settings.DFO_SUM_DIR, "DFO_{}.csv".format(adate))
     if not os.path.exists(DFOsummary):
-        logging.info(DFOsummary + " is not generated yet!")
+        logging.info(f"{DFOsummary} is not generated yet!")
         return
 
     hh = 18
@@ -65,7 +65,7 @@ def update_DFO_MoM(adate):
             "Final_Attributes_{}{}HWRFUpdated.csv".format(adate, hh0),
         )
         if not os.path.exists(MOMOutput):
-            logging.info("force generate HWRF :" + MOMOutput)
+            logging.info(f"force generate HWRF : {MOMOutput}")
             hwrf_workflow(adate + hh0)
     MOMOutput = os.path.join(
         settings.HWRF_MOM_DIR, "Final_Attributes_{}{}HWRFUpdated.csv".format(adate, hh)
@@ -291,7 +291,7 @@ def update_DFO_MoM(adate):
         how="right",
     )
     Attributes_Clean_DFO_Updated.to_csv(Attributes_Clean_csv, encoding="utf-8-sig")
-    logging.info("generated: " + Final_Attributes_csv)
+    logging.info(f"generated: {Final_Attributes_csv}")
 
     os.remove(DFO_w_score_csv)
 

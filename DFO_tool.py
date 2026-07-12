@@ -244,7 +244,7 @@ def DFO_process(folder, adate):
 
     hdffolder = os.path.join(settings.DFO_PROC_DIR, folder)
     if os.path.isfile(hdffolder):
-        logging.warning("Not downloaded properly: " + folder)
+        logging.warning(f"Not downloaded properly: {folder}")
         return
     os.makedirs(hdffolder, exist_ok=True)
 
@@ -291,7 +291,7 @@ def DFO_process(folder, adate):
     # for the previous day, just process what ever it has
     if ddays >= 0:
         if len(hdffiles) < DFO_TOTAL_TILES:
-            logging.warning("Not enough files: " + folder)
+            logging.warning(f"Not enough files: {folder}")
             return
 
     # one step one image operation
@@ -361,7 +361,7 @@ def DFO_process(folder, adate):
     # save output
     summary_csv = os.path.join(settings.DFO_SUM_DIR, "DFO_{}.csv".format(adate))
     merged.to_csv(summary_csv)
-    logging.info("generated: " + summary_csv)
+    logging.info(f"generated: {summary_csv}")
 
     # zip the original folder
     if settings.config["storage"].getboolean("dfo_save"):
@@ -379,7 +379,7 @@ def DFO_process(folder, adate):
                     arcname = os.path.relpath(path, ".")
                     z.write(path, arcname)
 
-        logging.info("generated: " + zipped)
+        logging.info(f"generated: {zipped}")
 
     # remove all hdf file in the folder
     for entry in os.listdir():
@@ -402,17 +402,17 @@ def DFO_cron():
         sys.exit(0)
 
     for key in datelist:
-        logging.info("download: " + key)
+        logging.info(f"download: {key}")
         dfo_download(key)
         logging.info("download finished!")
-        logging.info("processing: " + key)
+        logging.info(f"processing: {key}")
         # process data
         # key: folder name
         # datelist[key]: real date
         DFO_process(key, datelist[key])
         # run DFO_MoM
         update_DFO_MoM(datelist[key])
-        logging.info("processing finished: " + key)
+        logging.info(f"processing finished: {key}")
 
     return
 

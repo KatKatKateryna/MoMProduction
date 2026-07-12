@@ -268,7 +268,7 @@ def build_tiff(adate):
         dest_file = os.path.join(settings.VIIRS_IMG_DIR, tiff_file)
         shutil.copy(tiff_file, dest_file)
 
-        logging.info("generated: " + tiff_file)
+        logging.info(f"generated: {tiff_file}")
 
         if settings.config["storage"].getboolean("viirs_save"):
             print("zip downloaded file")
@@ -281,7 +281,7 @@ def build_tiff(adate):
                 for f in glob.glob("*.tif"):
                     z.write(f, arcname=os.path.basename(f))  # match shell zip behavior
 
-            logging.info("generated: " + zipped)
+            logging.info(f"generated: {zipped}")
 
         # remove vrt from file and from memory
         if vrt and vrt_file:
@@ -369,7 +369,7 @@ def VIIRS_extract_by_watershed(adate, tiffs):
         settings.VIIRS_SUM_DIR, "VIIRS_Flood_{}.csv".format(adate)
     )
     merge.to_csv(merged_csv)
-    logging.info("generated: " + merged_csv)
+    logging.info(f"generated: {merged_csv}")
 
     # need clean up
     os.remove(csv_dict["oneday"])
@@ -387,14 +387,14 @@ def VIIRS_run_adate(adate):
     -- this part of code is moved from VIIRS_cron"""
 
     if check_status(adate):
-        logging.info("already processed: " + adate)
+        logging.info(f"already processed: {adate}")
         return
 
     if not check_data_online(adate):
-        logging.info("no data online: " + adate)
+        logging.info(f"no data online: {adate}")
         return
 
-    logging.info("Processing: " + adate)
+    logging.info(f"Processing: {adate}")
     # change dir to VIIRSraw
     os.chdir(settings.VIIRS_PROC_DIR)
 

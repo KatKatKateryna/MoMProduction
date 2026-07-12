@@ -77,7 +77,7 @@ def _getParser():
 
 def run_job(cronjob):
     """run various cron job"""
-    logging.info("run " + cronjob)
+    logging.info(f"run {cronjob}")
     print("Main PID:", os.getpid())
     if cronjob == "GFMS":
         GFMS_cron()
@@ -96,7 +96,7 @@ def run_job(cronjob):
 
 def run_fixdate(cronjob, adate):
     """run fixdate funtion"""
-    logging.info("run fixdate {} {}".format(cronjob, adate))
+    logging.info(f"run fixdate {cronjob} {adate}")
     if cronjob == "GFMS":
         GFMS_fixdate(adate)
     elif cronjob == "VIIRS":

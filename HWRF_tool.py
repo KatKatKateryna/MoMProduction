@@ -332,7 +332,7 @@ def HWRF_extract_by_watershed(raintiff):
         os.remove(raintiff)
         os.remove(output_csv)
         os.remove(raintiff.replace(".tiff", ".vrt"))
-        logging.info("no data: " + output_csv)
+        logging.info(f"no data: {output_csv}")
 
     return [output_csv, has_data]
 
@@ -356,7 +356,7 @@ def HWRF_cron():
         print(curdatestr)
         # check if there is the hwrf data for this hour
         if not hwrf_today(adate=curdatestr[:8], ahour=curdatestr[-2:]):
-            logging.info("no HRWRF data, run " + curdatestr)
+            logging.info(f"no HRWRF data, run {curdatestr}")
             hwrf_workflow(curdatestr)
 
         return
@@ -366,20 +366,20 @@ def HWRF_cron():
 
     # download - process ascii
     for key in datelist:
-        logging.info("check: " + key)
+        logging.info(f"check: {key}")
         a_list = HWRF_download(datelist[key])
         if len(a_list) == 0:
-            logging.info("no rainfall data " + key)
+            logging.info(f"no rainfall data {key}")
             continue
-        logging.info("processing " + key)
+        logging.info(f"processing {key}")
         newtiff = process_rain(key, a_list)
-        logging.info("processing " + newtiff)
+        logging.info(f"processing {newtiff}")
         [hwrfcsv, dataflag] = HWRF_extract_by_watershed(newtiff)
         if not dataflag:
-            logging.info("no data, not generated: " + hwrfcsv)
+            logging.info(f"no data, not generated: {hwrfcsv}")
             # if no csv produced, it shall just conitune to produce MoM output
             # continue
-        logging.info("generated: " + hwrfcsv)
+        logging.info(f"generated: {hwrfcsv}")
 
         # run MoM update
         testdate = key
