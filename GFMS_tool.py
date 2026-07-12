@@ -115,7 +115,7 @@ def GloFAS_process():
         if os.path.exists(out_csv) and os.path.exists(out_geojson):
             continue
 
-        logging.info("processing GLoFAS: " + data_date)
+        logging.info(f"processing GLoFAS: {data_date}")
         fixed_sites = os.path.join(
             settings.GLOFAS_PROC_DIR, "threspoints_" + data_date + ".txt"
         )
@@ -285,7 +285,7 @@ def GloFAS_process():
         gdf_watersheds.to_csv(
             out_csv, index=False, columns=out_columns, float_format="%.3f"
         )
-        logging.info("generated: " + out_csv)
+        logging.info(f"generated: {out_csv}")
 
         # write to excel
         # out_excel = glofasdata + "threspoints_" + data_date + ".xlsx"
@@ -293,7 +293,7 @@ def GloFAS_process():
 
         # to geojson
         gdf_watersheds.to_file(out_geojson, driver="GeoJSON")
-        logging.info("generated: " + out_geojson)
+        logging.info(f"generated: {out_geojson}")
 
     # return a list date to be processed with GFMS
     return processing_dates
@@ -406,7 +406,7 @@ def GFMS_extract_by_mask(vrt_file, mask_json):
                 src, [mask_json["features"][0]["geometry"]], crop=True
             )
     except rasterio.errors.RasterioIOError as er: # e.g. if file doesn't exist
-        logging.warning("RasterioIOError:" + vrt_file)
+        logging.warning(f"RasterioIOError: {vrt_file}")
         src = None
         return pd.DataFrame()
     except ValueError as e:
@@ -526,7 +526,7 @@ def GFMS_extract_by_watershed(vrt_file):
             ]
             writer.writerow(results_list)
 
-    logging.info("generated: " + summary_file)
+    logging.info(f"generated: {summary_file}")
 
     return
 
@@ -552,7 +552,7 @@ def GFMS_data_extractor(bin_file):
     gdal_translate = shutil.which("gdal_translate")
     gdalcmd = f'"{gdal_translate}" -co TILED=YES -co COMPRESS=LZW -of GTiff "{vrt_file}" "{tiff_file}"'
     os.system(gdalcmd)
-    logging.info("generated: " + tiff_file)
+    logging.info(f"generated: {tiff_file}")
 
     return
 
@@ -590,7 +590,7 @@ def GFMS_fix_duration(csv0, csvlist):
         del df["GFMS_Duration0"]
         fix_csv = os.path.join(settings.GFMS_SUM_DIR, name)
         df.to_csv(fix_csv, index=False)
-        logging.info("generated: " + fix_csv)
+        logging.info(f"generated: {fix_csv}")
         df0 = None
         df0 = df
         df = None
@@ -647,14 +647,14 @@ def GFMS_processing(proc_dates_list):
             for f in glob.glob(f"Flood_byStor_{real_date}*.*"):
                 z.write(f, arcname=os.path.basename(f))  # match shell zip behavior
 
-        logging.info("generated: " + zipped)
+        logging.info(f"generated: {zipped}")
 
         # remove all the files
         for filePath in glob.glob(f"Flood_byStor_{real_date}*.*"):
             try:
                 os.remove(filePath)
             except:
-                logging.warning("Error while deleting file : ", filePath)
+                logging.warning(f"Error while deleting file : {filePath}")
 
         curdir = os.getcwd()
         os.chdir(curdir)
@@ -683,7 +683,7 @@ def GFMS_cron():
     gfmscsv = os.path.join(settings.GFMS_SUM_DIR, "Flood_byStor_" + tstr + ".csv")
     glofascsv = os.path.join(settings.GLOFAS_DIR, "threspoints_" + tstr + ".csv")
     if os.path.exists(gfmscsv) and os.path.exists(glofascsv):
-        logging.info("no hwrf: " + tstr + " generating ...")
+        logging.info(f"no hwrf: {tstr}, generating ...")
         # update_HWRF_MoM(tstr)
         # update_HWRFMoM_DFO_VIIRS(tstr)
         # final_alert_pdc(tstr)
