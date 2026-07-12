@@ -134,7 +134,13 @@ conda install -c conda-forge libgdal-hdf4=3.12.2 --no-update-deps -y
 # RUN INITIALIZE.PY
 ############################
 
-python initialize.py
+python initialize.py # make sure MoM folder is created
+
+############################
+# Run NGINX server for MoM data
+############################
+
+sudo bash ./first_setup/install_nginx_mom_prod.sh
 
 ############################
 # TODO: replace env vars
