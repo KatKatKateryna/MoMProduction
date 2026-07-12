@@ -415,7 +415,7 @@ def update_HWRF_MoM(adate):
     ## Read HWRF rainfall processed data and calculate separate hazard Score
     try:
         with open(hwrf_sum, "r", encoding="UTF-8") as HWRF_file:
-            logging.info("using: " + hwrf_sum)
+            logging.info(f"using: {hwrf_sum}")
             HWRF_reader = csv.reader(HWRF_file)
             HWRF_w_score_csv = "HWRF_w_score_{}.csv".format(adate)
             HWRF_w_score_csv = os.path.join(settings.HWRF_PROC_DIR, HWRF_w_score_csv)
@@ -606,6 +606,7 @@ def update_HWRF_MoM(adate):
         ).cdf(np.log(Final_Attributes["Hazard_Score"]))
     )
     Final_Attributes["Alert"] = Final_Attributes.apply(mofunc_hwrf, axis=1)
+    Final_Attributes["Flag"] = Final_Attributes["Flag"].astype(object)
     Final_Attributes.loc[Final_Attributes["Alert"] == "Information", "Flag"] = ""
     Final_Attributes.loc[Final_Attributes["Alert"] == "Advisory", "Flag"] = ""
     Final_Attributes.to_csv(Final_Attributes_csv, encoding="utf-8-sig")
@@ -617,7 +618,7 @@ def update_HWRF_MoM(adate):
         how="right",
     )
     Attributes_Clean.to_csv(Attributes_Clean_csv, encoding="utf-8-sig")
-    logging.info("generated: " + Final_Attributes_csv)
+    logging.info(f"generated: {Final_Attributes_csv}")
 
     # delete temp files
     os.remove(GloFas_w_score_csv)
@@ -901,6 +902,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
         ).cdf(np.log(Final_Output["Hazard_Score"]))
     )
     Final_Output["Alert"] = Final_Output.apply(mofunc_dfo, axis=1)
+    Final_Output["Flag"] = Final_Output["Flag"].astype(object)
     Final_Output.loc[Final_Output["Alert"] == "Information", "Flag"] = ""
     Final_Output.loc[Final_Output["Alert"] == "Advisory", "Flag"] = ""
     Final_Output.to_csv(DFO_Final_Attributes_csv, encoding="utf-8-sig")
@@ -1099,6 +1101,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
         ).cdf(np.log(Final_Output["Hazard_Score"]))
     )
     Final_Output["Alert"] = Final_Output.apply(mofunc_viirs, axis=1)
+    Final_Output["Flag"] = Final_Output["Flag"].astype(object)
     Final_Output.loc[Final_Output["Alert"] == "Information", "Flag"] = ""
     Final_Output.loc[Final_Output["Alert"] == "Advisory", "Flag"] = ""
     Final_Output.to_csv(Final_Attributes_csv, encoding="utf-8-sig")
@@ -1115,7 +1118,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
         how="right",
     )
     Attributes_Clean_VIIRS_Updated.to_csv(Attributes_Clean_csv, encoding="utf-8-sig")
-    logging.info("generated: " + Attributes_Clean_csv)
+    logging.info(f"generated: {Attributes_Clean_csv}")
 
     os.remove(VIIRS_w_score_csv)
 
@@ -1264,7 +1267,7 @@ def final_alert_pdc(adate):
         PDC_Alert = PDC_Alert.drop(FIDcolumns, axis=1)
 
     PDC_Alert.to_csv(fAlert, encoding="Windows-1252")
-    logging.info("generated final alert:" + fAlert)
+    logging.info(f"generated final alert: {fAlert}")
 
     return
 
