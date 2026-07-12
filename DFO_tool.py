@@ -309,8 +309,9 @@ def DFO_process(folder, adate):
             tiff_list.append(outputtiff)
             if not os.path.exists(outputtiff):
                 # gdal cmd
+                gdal_translate = shutil.which("gdal_translate")
                 gdalcmd = (
-                    f"gdal_translate -of GTiff -co Tiled=Yes {inputlayer} {outputtiff}"
+                    f'"{gdal_translate}" -of GTiff -co Tiled=Yes {inputlayer} {outputtiff}'
                 )
                 # convert geotiff
                 os.system(gdalcmd)
@@ -333,8 +334,9 @@ def DFO_process(folder, adate):
             tiff = os.path.join(settings.DFO_IMG_DIR, tiff)
             # gdal_translate -co TILED=YES -co COMPRESS=PACKBITS -of GTiff Flood_1-Day_250m.vrt Flood_1-Day_250m.tiff
             # gdaladdo -r average Flood_1-Day_250m.tiff 2 4 8 16 32
+            gdal_translate = shutil.which("gdal_translate")
             gdalcmd = (
-                f"gdal_translate -co TILED=YES -co COMPRESS=LZW -of GTiff {vrt} {tiff}"
+                f'"{gdal_translate}" -co TILED=YES -co COMPRESS=LZW -of GTiff {vrt} {tiff}'
             )
             os.system(gdalcmd)
             # build overview
