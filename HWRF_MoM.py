@@ -1171,6 +1171,7 @@ def final_alert_pdc(adate):
     fAlert = os.path.join(settings.FINAL_MOM, fAlert)
     # check if final alert is already generatated
     if os.path.exists(fAlert):
+        logging.info(f"mathing HWRF output already exists: {adate}")
         return
 
     [aAlert, pAlert] = find_pair_HWRFoutput(adate)
