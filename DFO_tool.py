@@ -303,6 +303,10 @@ def DFO_process(folder, adate):
     vrt_list = []
     for flood in floodlayer:
         subfolder = flood.replace(" ", "_")
+        vrt = f"{subfolder}.vrt"
+        if os.path.exists(vrt):
+            continue
+
         subdataset = floodsubdataset[flood]
         tiff_list = []
         # geotiff convert
@@ -323,7 +327,6 @@ def DFO_process(folder, adate):
         # print(gdalcmd)
         # os.system(gdalcmd)
 
-        vrt = f"{subfolder}.vrt"
         gdal.BuildVRT(vrt, tiff_list)
         vrt_list.append(vrt)
         # extract flood data
