@@ -15,6 +15,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from datetime import date, datetime, timezone
 import zipfile
 
@@ -106,6 +107,7 @@ def dfo_download(subfolder):
     # check if there is unfinished download
     d_dir = os.path.join(settings.DFO_PROC_DIR, subfolder)
     if os.path.exists(d_dir):
+        return
         # is file cases
         if os.path.isfile(d_dir):
             os.remove(d_dir)
@@ -146,20 +148,27 @@ def dfo_download(subfolder):
     return
 
 
-def dfo_extract_by_mask(vrt_file, mask_json):
+def dfo_extract_by_mask(vrt_file, mask_json, attempt:int=0, attempts:int=3):
     """extract data for a single watershed"""
-
-    with rasterio.open(vrt_file) as src:
-        try:
-            out_image, out_transform = mask(
-                src, [mask_json["features"][0]["geometry"]], crop=True
-            )
-        except ValueError as e:
-            #'Input shapes do not overlap raster.'
-            # print(e)
-            src = None
-            # return empty dataframe
-            return 0
+    
+    try:
+        with rasterio.open(vrt_file) as src:
+            try:
+                out_image, out_transform = mask(
+                    src, [mask_json["features"][0]["geometry"]], crop=True
+                )
+            except ValueError as e:
+                #'Input shapes do not overlap raster.'
+                # print(e)
+                src = None
+                return 0 # return empty dataframe
+    except rasterio.errors.RasterioIOError as e:
+        attempt += 1
+        if attempt < attempts:
+            time.sleep(20*attempt) # wait until VRT is generated
+            return dfo_extract_by_mask(vrt_file, mask_json, attempt, attempts)
+        
+        raise e
 
     # extract data
     no_data = src.nodata
@@ -330,7 +339,7 @@ def DFO_process(folder, adate):
         if "3-Day" in vrt:
             # tiff =  outputfolder + os.path.sep + "DFO_image/DFO_" + datestr + "_" + vrt.replace(".vrt",".tiff")
             # DFO_20210603_Flood_3-Day_250m.tiff
-            tiff = "DFO_{datestr}_{layer}.tiff".format(datestr=adate, layer=subfolder)
+            tiff = f"DFO_{adate}_{subfolder}.tiff"
             tiff = os.path.join(settings.DFO_IMG_DIR, tiff)
             # gdal_translate -co TILED=YES -co COMPRESS=PACKBITS -of GTiff Flood_1-Day_250m.vrt Flood_1-Day_250m.tiff
             # gdaladdo -r average Flood_1-Day_250m.tiff 2 4 8 16 32

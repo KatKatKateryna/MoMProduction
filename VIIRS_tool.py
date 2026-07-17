@@ -317,6 +317,15 @@ def VIIRS_extract_by_mask(mask_json, tiff):
 def VIIRS_extract_by_watershed(adate, tiffs):
     """extract data by wastershed"""
 
+    # VIIRS_Flood_yyyymmdd.csv
+    merged_csv = os.path.join(
+        settings.VIIRS_SUM_DIR, "VIIRS_Flood_{}.csv".format(adate)
+    )
+    if os.path.exists(merged_csv):
+        print(f"already exists: {merged_csv}")
+        logging.info(f"already exists: {merged_csv}")
+        return
+
     watersheds = watersheds_gdb_reader()
     pfafid_list = watersheds.index.tolist()
 
@@ -364,10 +373,6 @@ def VIIRS_extract_by_watershed(adate, tiffs):
     )
     merge.fillna(0, inplace=True)
 
-    # VIIRS_Flood_yyyymmdd.csv
-    merged_csv = os.path.join(
-        settings.VIIRS_SUM_DIR, "VIIRS_Flood_{}.csv".format(adate)
-    )
     merge.to_csv(merged_csv)
     logging.info(f"generated: {merged_csv}")
 

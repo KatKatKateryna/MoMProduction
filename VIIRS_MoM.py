@@ -89,61 +89,61 @@ def update_VIIRS_MoM(adate):
                     row.append(x)
                 row_count = row_count + 1
             else:
-                if float(row[1]) / float(weightage.VIIRS_Area_wt) > float(
-                    weightage.VIIRS_Area_max_pt
+                if float(row[1]) / float(weightage.VIIRS_Area_wt[0]) > float(
+                    weightage.VIIRS_Area_max_pt[0]
                 ):
                     VIIRS_area_1day_score = str(
-                        float(weightage.VIIRS_Area_max_pt)
-                        * float(weightage.one_Day_Multiplier)
+                        float(weightage.VIIRS_Area_max_pt[0])
+                        * float(weightage.one_Day_Multiplier[0])
                     )
                 else:
                     VIIRS_area_1day_score = str(
-                        float(weightage.VIIRS_Area_Min_pt)
-                        * float(weightage.one_Day_Multiplier)
+                        float(weightage.VIIRS_Area_Min_pt[0])
+                        * float(weightage.one_Day_Multiplier[0])
                         * float(row[1])
-                        / float(weightage.VIIRS_Area_wt)
+                        / float(weightage.VIIRS_Area_wt[0])
                     )
-                if float(row[2]) / float(weightage.VIIRS_percArea_wt) > float(
-                    weightage.VIIRS_percArea_Maxpt
+                if float(row[2]) / float(weightage.VIIRS_percArea_wt[0]) > float(
+                    weightage.VIIRS_percArea_Maxpt[0]
                 ):
                     VIIRS_perc_area_1day_score = str(
-                        float(weightage.VIIRS_percArea_Maxpt)
-                        * float(weightage.one_Day_Multiplier)
+                        float(weightage.VIIRS_percArea_Maxpt[0])
+                        * float(weightage.one_Day_Multiplier[0])
                     )
                 else:
                     VIIRS_perc_area_1day_score = str(
-                        float(weightage.VIIRS_percArea_Minpt)
-                        * float(weightage.one_Day_Multiplier)
+                        float(weightage.VIIRS_percArea_Minpt[0])
+                        * float(weightage.one_Day_Multiplier[0])
                         * float(row[2])
-                        / float(weightage.VIIRS_percArea_wt)
+                        / float(weightage.VIIRS_percArea_wt[0])
                     )
-                if float(row[3]) / float(weightage.VIIRS_Area_wt) > float(
-                    weightage.VIIRS_Area_max_pt
+                if float(row[3]) / float(weightage.VIIRS_Area_wt[0]) > float(
+                    weightage.VIIRS_Area_max_pt[0]
                 ):
                     VIIRS_area_5day_score = str(
-                        float(weightage.VIIRS_Area_max_pt)
-                        * float(weightage.five_Day_Multiplier)
+                        float(weightage.VIIRS_Area_max_pt[0])
+                        * float(weightage.five_Day_Multiplier[0])
                     )
                 else:
                     VIIRS_area_5day_score = str(
-                        float(weightage.VIIRS_Area_Min_pt)
-                        * float(weightage.five_Day_Multiplier)
+                        float(weightage.VIIRS_Area_Min_pt[0])
+                        * float(weightage.five_Day_Multiplier[0])
                         * float(row[3])
-                        / float(weightage.VIIRS_Area_wt)
+                        / float(weightage.VIIRS_Area_wt[0])
                     )
-                if float(row[4]) / float(weightage.VIIRS_percArea_wt) > float(
-                    weightage.VIIRS_percArea_Maxpt
+                if float(row[4]) / float(weightage.VIIRS_percArea_wt[0]) > float(
+                    weightage.VIIRS_percArea_Maxpt[0]
                 ):
                     VIIRS_perc_area_5day_score = str(
-                        float(weightage.VIIRS_percArea_Maxpt)
-                        * float(weightage.five_Day_Multiplier)
+                        float(weightage.VIIRS_percArea_Maxpt[0])
+                        * float(weightage.five_Day_Multiplier[0])
                     )
                 else:
                     VIIRS_perc_area_5day_score = str(
-                        float(weightage.VIIRS_percArea_Minpt)
-                        * float(weightage.five_Day_Multiplier)
+                        float(weightage.VIIRS_percArea_Minpt[0])
+                        * float(weightage.five_Day_Multiplier[0])
                         * float(row[4])
-                        / float(weightage.VIIRS_percArea_wt)
+                        / float(weightage.VIIRS_percArea_wt[0])
                     )
                 Sum_Score = str(
                     (
@@ -215,6 +215,15 @@ def update_VIIRS_MoM(adate):
     Final_Output = Final_Output.assign(
         Scaled_Coastal_Risk=lambda x: Final_Output["cfr_score"] * 20
     )
+    
+    ################# TypeError: loop of ufunc does not support argument 0 of type float which has no callable log method
+    cols = [
+        "Scaled_Riverine_Risk",
+        "Scaled_Coastal_Risk",
+        "Hazard_Score",
+    ]
+    Final_Output[cols] = Final_Output[cols].apply(pd.to_numeric, errors="coerce")
+    
     Final_Output = Final_Output.assign(
         Severity=lambda x: scipy.stats.norm(
             np.log(

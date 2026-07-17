@@ -261,6 +261,15 @@ def update_DFO_MoM(adate):
     Final_Output = Final_Output.assign(
         Scaled_Coastal_Risk=lambda x: Final_Output["cfr_score"] * 20
     )
+
+    ################# TypeError: loop of ufunc does not support argument 0 of type float which has no callable log method
+    cols = [
+        "Scaled_Riverine_Risk",
+        "Scaled_Coastal_Risk",
+        "Hazard_Score",
+    ]
+    Final_Output[cols] = Final_Output[cols].apply(pd.to_numeric, errors="coerce")
+    
     Final_Output = Final_Output.assign(
         Severity=lambda x: scipy.stats.norm(
             np.log(

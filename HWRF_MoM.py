@@ -594,6 +594,15 @@ def update_HWRF_MoM(adate):
     Final_Attributes = Final_Attributes.assign(
         Scaled_Coastal_Risk=lambda x: Final_Attributes["cfr_score"] * 20
     )
+    
+    ################# TypeError: loop of ufunc does not support argument 0 of type float which has no callable log method
+    cols = [
+        "Scaled_Riverine_Risk",
+        "Scaled_Coastal_Risk",
+        "Hazard_Score",
+    ]
+    Final_Attributes[cols] = Final_Attributes[cols].apply(pd.to_numeric, errors="coerce")
+    
     Final_Attributes = Final_Attributes.assign(
         Severity=lambda x: scipy.stats.norm(
             np.log(
@@ -606,7 +615,7 @@ def update_HWRF_MoM(adate):
         ).cdf(np.log(Final_Attributes["Hazard_Score"]))
     )
     Final_Attributes["Alert"] = Final_Attributes.apply(mofunc_hwrf, axis=1)
-    Final_Attributes["Flag"] = Final_Attributes["Flag"].astype(object)
+    # Final_Attributes["Flag"] = Final_Attributes["Flag"].astype(object)
     Final_Attributes.loc[Final_Attributes["Alert"] == "Information", "Flag"] = ""
     Final_Attributes.loc[Final_Attributes["Alert"] == "Advisory", "Flag"] = ""
     Final_Attributes.to_csv(Final_Attributes_csv, encoding="utf-8-sig")
@@ -890,6 +899,15 @@ def update_HWRFMoM_DFO_VIIRS(adate):
     Final_Output = Final_Output.assign(
         Scaled_Coastal_Risk=lambda x: Final_Output["cfr_score"] * 20
     )
+    
+    ################# TypeError: loop of ufunc does not support argument 0 of type float which has no callable log method
+    cols = [
+        "Scaled_Riverine_Risk",
+        "Scaled_Coastal_Risk",
+        "Hazard_Score",
+    ]
+    Final_Output[cols] = Final_Output[cols].apply(pd.to_numeric, errors="coerce")
+    
     Final_Output = Final_Output.assign(
         Severity=lambda x: scipy.stats.norm(
             np.log(
@@ -1089,6 +1107,15 @@ def update_HWRFMoM_DFO_VIIRS(adate):
     Final_Output = Final_Output.assign(
         Scaled_Coastal_Risk=lambda x: Final_Output["cfr_score"] * 20
     )
+    
+    ################# TypeError: loop of ufunc does not support argument 0 of type float which has no callable log method
+    cols = [
+        "Scaled_Riverine_Risk",
+        "Scaled_Coastal_Risk",
+        "Hazard_Score",
+    ]
+    Final_Output[cols] = Final_Output[cols].apply(pd.to_numeric, errors="coerce")
+    
     Final_Output = Final_Output.assign(
         Severity=lambda x: scipy.stats.norm(
             np.log(
@@ -1308,17 +1335,20 @@ def batchrun_HWRF_MoM():
 
     # get current processing hour
     # this code is also in HWRF_cron(), no harm to keep it here
-    curdatestr = get_current_processing_datehour(time_delay=settings.HWRF_TIME_DELAY)
-    # check if there is the hwrf data for this hour
-    if not hwrf_today(adate=curdatestr[:8], ahour=curdatestr[-2:]):
-        datelist.append(curdatestr)
+    time_delay=settings.HWRF_TIME_DELAY
+    for offset in range(0, time_delay-6, 6):
+        curdatestr = get_current_processing_datehour(time_delay=time_delay-offset)
+        print(f"___projected date: {curdatestr}")
+        # check if there is the hwrf data for this hour
+        if not hwrf_today(adate=curdatestr[:8], ahour=curdatestr[-2:]):
+            datelist.append(curdatestr)
 
-    list_set = set(datelist)
-    unique_dates = list(list_set)
-    unique_dates.sort()
+        list_set = set(datelist)
+        unique_dates = list(list_set)
+        unique_dates.sort()
 
-    for testdate in unique_dates:
-        hwrf_workflow(testdate)
+        for testdate in unique_dates:
+            hwrf_workflow(testdate)
 
     return
 

@@ -383,6 +383,9 @@ def flood_severity(GFMS_Table, GloFas_Table, adate):
         Scaled_Coastal_Risk=lambda x: Final_Attributes["cfr_score"] * 20
     )
     Final_Attributes = Final_Attributes[Final_Attributes.Hazard_Score != 0]
+    
+    ################# TypeError: loop of ufunc does not support argument 0 of type float which has no callable log method
+    
     # Final_Attributes = Final_Attributes.assign(
     # Severity=lambda x: scipy.stats.norm(np.log(100 - Final_Attributes['Scaled_Riverine_Risk']), 1).cdf(
     # np.log(Final_Attributes['Hazard_Score'])))
@@ -391,10 +394,7 @@ def flood_severity(GFMS_Table, GloFas_Table, adate):
         "Scaled_Coastal_Risk",
         "Hazard_Score",
     ]
-
-    Final_Attributes[cols] = Final_Attributes[cols].apply(
-        pd.to_numeric, errors="coerce"
-    )
+    Final_Attributes[cols] = Final_Attributes[cols].apply(pd.to_numeric, errors="coerce")
 
     Final_Attributes = Final_Attributes.assign(
         Severity=lambda x: scipy.stats.norm(
