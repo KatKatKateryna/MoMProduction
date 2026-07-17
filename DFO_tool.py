@@ -15,7 +15,6 @@ import os
 import shutil
 import subprocess
 import sys
-import time
 from datetime import date, datetime, timezone
 import zipfile
 
@@ -107,7 +106,6 @@ def dfo_download(subfolder):
     # check if there is unfinished download
     d_dir = os.path.join(settings.DFO_PROC_DIR, subfolder)
     if os.path.exists(d_dir):
-        return
         # is file cases
         if os.path.isfile(d_dir):
             os.remove(d_dir)
@@ -115,7 +113,11 @@ def dfo_download(subfolder):
             # remove the subfolder
             shutil.rmtree(d_dir)
 
-    dfokey = settings.config.get("dfo", "TOKEN") if "???" not in settings.config.get("dfo", "TOKEN") else os.getenv("AUTH_DFO_TOKEN")
+    dfokey = (
+        settings.config.get("dfo", "TOKEN")
+        if "???" not in settings.config.get("dfo", "TOKEN")
+        else os.getenv("AUTH_DFO_TOKEN")
+    )
     dataurl = f"{get_hosturl().rstrip('/')}/{subfolder}"
 
     # os-agnostic process
@@ -148,27 +150,20 @@ def dfo_download(subfolder):
     return
 
 
-def dfo_extract_by_mask(vrt_file, mask_json, attempt:int=0, attempts:int=3):
+def dfo_extract_by_mask(vrt_file, mask_json):
     """extract data for a single watershed"""
-    
-    try:
-        with rasterio.open(vrt_file) as src:
-            try:
-                out_image, out_transform = mask(
-                    src, [mask_json["features"][0]["geometry"]], crop=True
-                )
-            except ValueError as e:
-                #'Input shapes do not overlap raster.'
-                # print(e)
-                src = None
-                return 0 # return empty dataframe
-    except rasterio.errors.RasterioIOError as e:
-        attempt += 1
-        if attempt < attempts:
-            time.sleep(20*attempt) # wait until VRT is generated
-            return dfo_extract_by_mask(vrt_file, mask_json, attempt, attempts)
-        
-        raise e
+
+    with rasterio.open(vrt_file) as src:
+        try:
+            out_image, out_transform = mask(
+                src, [mask_json["features"][0]["geometry"]], crop=True
+            )
+        except ValueError as e:
+            #'Input shapes do not overlap raster.'
+            # print(e)
+            src = None
+            # return empty dataframe
+            return 0
 
     # extract data
     no_data = src.nodata
@@ -319,9 +314,7 @@ def DFO_process(folder, adate):
             if not os.path.exists(outputtiff):
                 # gdal cmd
                 gdal_translate = shutil.which("gdal_translate")
-                gdalcmd = (
-                    f'"{gdal_translate}" -of GTiff -co Tiled=Yes {inputlayer} {outputtiff}'
-                )
+                gdalcmd = f'"{gdal_translate}" -of GTiff -co Tiled=Yes {inputlayer} {outputtiff}'
                 # convert geotiff
                 os.system(gdalcmd)
         # build vrt
@@ -344,9 +337,7 @@ def DFO_process(folder, adate):
             # gdal_translate -co TILED=YES -co COMPRESS=PACKBITS -of GTiff Flood_1-Day_250m.vrt Flood_1-Day_250m.tiff
             # gdaladdo -r average Flood_1-Day_250m.tiff 2 4 8 16 32
             gdal_translate = shutil.which("gdal_translate")
-            gdalcmd = (
-                f'"{gdal_translate}" -co TILED=YES -co COMPRESS=LZW -of GTiff {vrt} {tiff}'
-            )
+            gdalcmd = f'"{gdal_translate}" -co TILED=YES -co COMPRESS=LZW -of GTiff {vrt} {tiff}'
             os.system(gdalcmd)
             # build overview
             # gdalcmd = f'gdaladdo -r average {tiff} 2 4 8 16 32'
