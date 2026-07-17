@@ -415,7 +415,7 @@ def DFO_cron():
         logging.info(f"processing: {key}")
         # process data
         # key: folder name
-        # datelist[key]: real date
+        print(datelist[key]) #: real date
         DFO_process(key, datelist[key])
         # run DFO_MoM
         update_DFO_MoM(datelist[key])
