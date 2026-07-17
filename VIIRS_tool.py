@@ -339,6 +339,10 @@ def VIIRS_extract_by_watershed(adate, tiffs):
             field_prefix = "oneday"
         if "5day" in tiff:
             field_prefix = "fiveday"
+        else:
+            logging.warning(f"unknown VIIRS tiff: {tiff}")
+            sys.exit(1)
+
         csv_file = tiff.replace(".tiff", ".csv")
         headers_list = [
             "pfaf_id",
@@ -418,7 +422,9 @@ def VIIRS_cron(adate=""):
     # load_config()
 
     processes = 2
-    gdal.SetConfigOption("GDAL_NUM_THREADS", str(math.floor(os.cpu_count() / processes)))
+    gdal.SetConfigOption(
+        "GDAL_NUM_THREADS", str(math.floor(os.cpu_count() / processes))
+    )
 
     if adate == "":
         # check two days
