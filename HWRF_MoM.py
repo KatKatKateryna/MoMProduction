@@ -21,7 +21,7 @@ from utilities import (
     hour_diff,
     hwrf_today,
     read_data,
-    watersheds_gdb_reader
+    watersheds_gdb_reader,
 )
 
 
@@ -63,10 +63,12 @@ def HWRF_empty_csv(adate, watersheds):
     out_csv = os.path.join(settings.HWRF_SUM_DIR, f"hwrf.{adate}rainfall.csv")
     with open(out_csv, "w", newline="\n", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["pfaf_id", "Rain_TotalArea_km", "perc_Area", "MeanRain", "MaxRain"])
+        writer.writerow(
+            ["pfaf_id", "Rain_TotalArea_km", "perc_Area", "MeanRain", "MaxRain"]
+        )
         for pfaf_id in watersheds.index:
             writer.writerow([pfaf_id, 0.0, 0.0, 0.0, 0.0])
-            
+
     print(f"created empty HWRF CSV for {adate}: {out_csv}")
     logging.info(f"created empty HWRF CSV for {adate}: {out_csv}")
     return out_csv
@@ -99,7 +101,7 @@ def update_HWRF_MoM(adate):
     if not os.path.exists(hwrf_sum):
         watersheds = watersheds_gdb_reader()
         hwrf_sum = HWRF_empty_csv(adate, watersheds)
-        r'''
+        r"""
         hwrf_latest = findLatest(settings.HWRF_SUM_DIR, "csv")
         if hwrf_latest:
             ld_str = hwrf_latest.split(".")[1].replace("rainfall", "")
@@ -109,7 +111,7 @@ def update_HWRF_MoM(adate):
         if not os.path.exists(hwrf_sum):
             watersheds = watersheds_gdb_reader()
             hwrf_sum = HWRF_empty_csv(adate, watersheds)
-        '''
+        """
 
     # hwrf_sum may not have
     Final_Attributes_csv = os.path.join(
@@ -594,15 +596,17 @@ def update_HWRF_MoM(adate):
     Final_Attributes = Final_Attributes.assign(
         Scaled_Coastal_Risk=lambda x: Final_Attributes["cfr_score"] * 20
     )
-    
+
     ################# TypeError: loop of ufunc does not support argument 0 of type float which has no callable log method
     cols = [
         "Scaled_Riverine_Risk",
         "Scaled_Coastal_Risk",
         "Hazard_Score",
     ]
-    Final_Attributes[cols] = Final_Attributes[cols].apply(pd.to_numeric, errors="coerce")
-    
+    Final_Attributes[cols] = Final_Attributes[cols].apply(
+        pd.to_numeric, errors="coerce"
+    )
+
     Final_Attributes = Final_Attributes.assign(
         Severity=lambda x: scipy.stats.norm(
             np.log(
@@ -899,7 +903,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
     Final_Output = Final_Output.assign(
         Scaled_Coastal_Risk=lambda x: Final_Output["cfr_score"] * 20
     )
-    
+
     ################# TypeError: loop of ufunc does not support argument 0 of type float which has no callable log method
     cols = [
         "Scaled_Riverine_Risk",
@@ -907,7 +911,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
         "Hazard_Score",
     ]
     Final_Output[cols] = Final_Output[cols].apply(pd.to_numeric, errors="coerce")
-    
+
     Final_Output = Final_Output.assign(
         Severity=lambda x: scipy.stats.norm(
             np.log(
@@ -1107,7 +1111,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
     Final_Output = Final_Output.assign(
         Scaled_Coastal_Risk=lambda x: Final_Output["cfr_score"] * 20
     )
-    
+
     ################# TypeError: loop of ufunc does not support argument 0 of type float which has no callable log method
     cols = [
         "Scaled_Riverine_Risk",
@@ -1115,7 +1119,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
         "Hazard_Score",
     ]
     Final_Output[cols] = Final_Output[cols].apply(pd.to_numeric, errors="coerce")
-    
+
     Final_Output = Final_Output.assign(
         Severity=lambda x: scipy.stats.norm(
             np.log(
@@ -1335,20 +1339,17 @@ def batchrun_HWRF_MoM():
 
     # get current processing hour
     # this code is also in HWRF_cron(), no harm to keep it here
-    time_delay=settings.HWRF_TIME_DELAY
-    for offset in range(0, time_delay-6, 6):
-        curdatestr = get_current_processing_datehour(time_delay=time_delay-offset)
-        print(f"___projected date: {curdatestr}")
-        # check if there is the hwrf data for this hour
-        if not hwrf_today(adate=curdatestr[:8], ahour=curdatestr[-2:]):
-            datelist.append(curdatestr)
+    curdatestr = get_current_processing_datehour(time_delay=settings.HWRF_TIME_DELAY)
+    # check if there is the hwrf data for this hour
+    if not hwrf_today(adate=curdatestr[:8], ahour=curdatestr[-2:]):
+        datelist.append(curdatestr)
 
-        list_set = set(datelist)
-        unique_dates = list(list_set)
-        unique_dates.sort()
+    list_set = set(datelist)
+    unique_dates = list(list_set)
+    unique_dates.sort()
 
-        for testdate in unique_dates:
-            hwrf_workflow(testdate)
+    for testdate in unique_dates:
+        hwrf_workflow(testdate)
 
     return
 
