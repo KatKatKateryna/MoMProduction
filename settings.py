@@ -61,7 +61,7 @@ HWRF_SUM_DIR = os.path.join(HWRF_DIR, "HWRF_summary")
 HWRF_IMG_DIR = os.path.join(HWRF_DIR, "HWRF_image")
 HWRF_MOM_DIR = os.path.join(HWRF_DIR, "HWRF_MoM")
 # HWRF time_delay: 6 hours
-HWRF_TIME_DELAY = 6
+HWRF_TIME_DELAY = 144
 
 # final product
 FINAL_MOM = os.path.join(PRODUCT_DIR, config.get("products_dir", "FINAL"))

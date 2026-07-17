@@ -337,7 +337,7 @@ def VIIRS_extract_by_watershed(adate, tiffs):
     for tiff in tiffs:
         if "1day" in tiff:
             field_prefix = "oneday"
-        if "5day" in tiff:
+        elif "5day" in tiff:
             field_prefix = "fiveday"
         else:
             logging.warning(f"unknown VIIRS tiff: {tiff}")
