@@ -602,20 +602,31 @@ def GFMS_processing(proc_dates_list):
     binhours = ["00", "03", "06", "09", "12", "15", "18", "21"]
     for data_date in proc_dates_list:
         real_date = data_date[:-2]
+        
         fix_list = []
         for binhour in binhours:
             bin_file = "Flood_byStor_" + real_date + binhour + ".bin"
-            fix_list.append("Flood_byStor_" + real_date + binhour + ".csv")
-            # process bin file, generate .csv - some might be missing
-            GFMS_data_extractor(bin_file)
+            new_csv = "Flood_byStor_" + real_date + binhour + ".csv"
+
+            if not os.path.join(settings.GFMS_SUM_DIR, new_csv):
+                fix_list.append(new_csv)
+                # process bin file, generate .csv - some might be missing
+                GFMS_data_extractor(bin_file)
 
         # run duration caculation
         # find the previous one, previous day 21 hour
         previous_date = datetime.strptime(real_date, "%Y%m%d") - timedelta(days=1)
         base0 = "Flood_byStor_" + previous_date.strftime("%Y%m%d") + "21.csv"
         # fix_list = ["Flood_byStor_" + real_date + x + ".csv" for x in binhours]
-        # call fix duration
-        GFMS_fix_duration(base0, fix_list)
+
+        # check if the base0 exists(+any of the time bins), 
+        # if not, use the first one of the current day(+other time bins)
+        # if no missing time bins - summaries already exist
+        if (os.path.exists(os.path.join(settings.GFMS_SUM_DIR, base0)) and len(fix_list) > 0) or len(fix_list) > 1:
+            # call fix duration
+            GFMS_fix_duration(base0, fix_list)
+        else:
+            logging.info(f"GFMS summary already exists for: {real_date}")
 
         # flood severity calculation
         # take the first file of each day ("00" hour bin)
@@ -637,7 +648,7 @@ def GFMS_processing(proc_dates_list):
         # TODO: handle missing file
         # if os.path.exists(glofascsv) and os.path.exists(gfmscsv):
         # only proceed if valid data is present
-        flood_severity(gfmscsv, glofascsv, real_date)
+        flood_severity(gfmscsv, glofascsv, real_date) # if exists checked inside
 
         # zip GFMS data after processing
         zipped = f"gfms_{real_date}.zip"

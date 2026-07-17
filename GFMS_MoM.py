@@ -1,6 +1,7 @@
 import csv
 import os
 
+import logging
 import numpy as np
 import pandas as pd
 import scipy.stats
@@ -33,6 +34,7 @@ def flood_severity(GFMS_Table, GloFas_Table, adate):
     # already processed
     if os.path.exists(Final_Attributes_csv) and os.path.exists(Attributes_Clean_csv):
         # print('already processed: ',adate)
+        logging.info(f"GFMS MoM already processed: {adate}")
         return
 
     # GFMS_Weightage.csv
