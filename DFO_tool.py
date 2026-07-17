@@ -303,8 +303,11 @@ def DFO_process(folder, adate):
     vrt_list = []
     for flood in floodlayer:
         subfolder = flood.replace(" ", "_")
+        
         vrt = f"{subfolder}.vrt"
-        if os.path.exists(vrt):
+        # skip existing VRT except 3-days (needs tiff generation)
+        if os.path.exists(vrt) and "3-Day" not in vrt:
+            vrt_list.append(vrt)
             continue
 
         subdataset = floodsubdataset[flood]
