@@ -106,7 +106,7 @@ def dfo_download(subfolder):
     # check if there is unfinished download
     d_dir = os.path.join(settings.DFO_PROC_DIR, subfolder)
     if os.path.exists(d_dir):
-        return
+        # return
         # is file cases
         if os.path.isfile(d_dir):
             os.remove(d_dir)
