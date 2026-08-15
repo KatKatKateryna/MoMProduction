@@ -142,3 +142,4 @@ database_update/logs/*
 database_update/nginx_cog*
 nohup.out
 *.conf
+*Caddyfile*
