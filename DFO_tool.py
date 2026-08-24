@@ -42,6 +42,18 @@ DFO_TOTAL_TILES = 287
 DFO_MINIMUM_TILES = 280
 
 
+def _find_gdal_translate():
+    path = shutil.which("gdal_translate")
+    if path:
+        return path
+    # Fall back to the bin directory of the running Python (works in conda envs
+    # invoked directly without activating the environment, as in cron jobs)
+    candidate = os.path.join(os.path.dirname(sys.executable), "gdal_translate")
+    if os.path.exists(candidate):
+        return candidate
+    raise RuntimeError("gdal_translate not found next to Python executable or on PATH")
+
+
 def get_real_date(year, day_num):
     """get the real date"""
 
@@ -83,10 +95,9 @@ def generate_procesing_list():
     datelist = {}
     # get the today in str
     today_str = datetime.now(timezone.utc).strftime("%Y%m%d")
-    for link in soup.find_all("a"):
-        day_num = link.string
-        if not day_num.isdigit():
-            continue
+
+    days = [link.string for link in soup.find_all("a") if link.string.isdigit()]
+    for day_num in days:
         real_date = get_real_date(cur_year, day_num)
         # compare date in iso str
         # skip the later date, there is no data
@@ -106,7 +117,7 @@ def dfo_download(subfolder):
     # check if there is unfinished download
     d_dir = os.path.join(settings.DFO_PROC_DIR, subfolder)
     if os.path.exists(d_dir):
-        return
+        # return
         # is file cases
         if os.path.isfile(d_dir):
             os.remove(d_dir)
@@ -141,7 +152,7 @@ def dfo_download(subfolder):
         settings.DFO_PROC_DIR,
     ]
 
-    result = subprocess.run(cmd, check=True)
+    result = subprocess.run(cmd, check=False)
     if result.returncode != 0:
         # something wrong with downloading
         logging.warning(f"Download failed: {dataurl}, error: {result.returncode}")
@@ -321,7 +332,7 @@ def DFO_process(folder, adate):
             tiff_list.append(outputtiff)
             if not os.path.exists(outputtiff):
                 # gdal cmd
-                gdal_translate = shutil.which("gdal_translate")
+                gdal_translate = _find_gdal_translate()
                 gdalcmd = f'"{gdal_translate}" -of GTiff -co Tiled=Yes {inputlayer} {outputtiff}'
                 # convert geotiff
                 os.system(gdalcmd)
@@ -343,7 +354,7 @@ def DFO_process(folder, adate):
             tiff = os.path.join(settings.DFO_IMG_DIR, tiff)
             # gdal_translate -co TILED=YES -co COMPRESS=PACKBITS -of GTiff Flood_1-Day_250m.vrt Flood_1-Day_250m.tiff
             # gdaladdo -r average Flood_1-Day_250m.tiff 2 4 8 16 32
-            gdal_translate = shutil.which("gdal_translate")
+            gdal_translate = _find_gdal_translate()
             gdalcmd = f'"{gdal_translate}" -co TILED=YES -co COMPRESS=LZW -of GTiff {vrt} {tiff}'
             os.system(gdalcmd)
             # build overview

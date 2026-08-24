@@ -607,8 +607,8 @@ def GFMS_processing(proc_dates_list):
         for binhour in binhours:
             bin_file = "Flood_byStor_" + real_date + binhour + ".bin"
             new_csv = "Flood_byStor_" + real_date + binhour + ".csv"
-
-            if not os.path.join(settings.GFMS_SUM_DIR, new_csv):
+            # print(os.path.join(settings.GFMS_SUM_DIR, new_csv))
+            if not os.path.exists(os.path.join(settings.GFMS_SUM_DIR, new_csv)):
                 fix_list.append(new_csv)
                 # process bin file, generate .csv - some might be missing
                 GFMS_data_extractor(bin_file)
@@ -648,7 +648,11 @@ def GFMS_processing(proc_dates_list):
         # TODO: handle missing file
         # if os.path.exists(glofascsv) and os.path.exists(gfmscsv):
         # only proceed if valid data is present
-        flood_severity(gfmscsv, glofascsv, real_date) # if exists checked inside
+        try:
+            flood_severity(gfmscsv, glofascsv, real_date) # if exists checked inside
+        except Exception as e:
+            logging.error(f"Flood severity calculation (GFMS_MoM) failed for {real_date}: {e}")
+            sys.exit(1)
 
         # zip GFMS data after processing
         zipped = f"gfms_{real_date}.zip"
