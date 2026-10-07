@@ -1,0 +1,862 @@
+[
+ {
+  "id": "dfo_1_plain_vs_sudden",
+  "report": "DFO_report.md",
+  "title": "DFO sudden flood against river floodplains",
+  "claim": "Floodplain is 10.5% of land and holds 28% of the pixels ever flagged as sudden flood (risk ratio 3.3x) - so most sudden flood is off the floodplain.",
+  "png": "dfo_1_plain_vs_sudden.png",
+  "bounds": [
+   -105.45,
+   54.6,
+   -97.55,
+   57.0
+  ],
+  "stats": [
+   "window: 131,758 km2 of land",
+   "sudden flood on floodplain: 3,691 km2 (2.8% of this window)",
+   "sudden flood off floodplain: 9,318 km2 (7.1% of this window)",
+   "floodplain, never flagged: 29,349 km2 (22.3% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "sudden flood on floodplain",
+    "#e6191c"
+   ],
+   [
+    "sudden flood off floodplain",
+    "#ff7f00"
+   ],
+   [
+    "floodplain, never flagged",
+    "#3182bd"
+   ]
+  ],
+  "res_note": "native DFO grid, 1/480 degree (~230 m)"
+ },
+ {
+  "id": "dfo_2_recurrent_follows_plain",
+  "report": "DFO_report.md",
+  "title": "DFO recurrent flood hugs the floodplain twice as closely",
+  "claim": "A floodplain pixel is 7.2x more likely to be flagged as recurrent flood (class 2) than other land, against 3.3x for sudden flood.",
+  "png": "dfo_2_recurrent_follows_plain.png",
+  "bounds": [
+   87.76041666666669,
+   23.200000000000003,
+   92.63958333333335,
+   25.6
+  ],
+  "stats": [
+   "window: 131,840 km2 of land",
+   "recurrent flood on floodplain: 4,757 km2 (3.6% of this window)",
+   "recurrent flood off floodplain: 103 km2 (0.1% of this window)",
+   "floodplain, never flagged: 77,460 km2 (58.8% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "recurrent flood on floodplain",
+    "#e6191c"
+   ],
+   [
+    "recurrent flood off floodplain",
+    "#ff7f00"
+   ],
+   [
+    "floodplain, never flagged",
+    "#3182bd"
+   ]
+  ],
+  "res_note": "native DFO grid, 1/480 degree (~230 m)"
+ },
+ {
+  "id": "dfo_3_plain_mostly_dry",
+  "report": "DFO_report.md",
+  "title": "Inside a region that floods, almost all of the floodplain stays dry",
+  "claim": "Within flooded 1 degree regions the floodplain holds 38% of the sudden-flood pixels, yet 97-98% of floodplain pixels were never flagged in eight months.",
+  "png": "dfo_3_plain_mostly_dry.png",
+  "bounds": [
+   -62.72500000000001,
+   -4.200000000000003,
+   -58.275000000000006,
+   -1.7999999999999972
+  ],
+  "stats": [
+   "window: 131,861 km2 of land",
+   "sudden flood on floodplain: 807 km2 (0.6% of this window)",
+   "sudden flood off floodplain: 143 km2 (0.1% of this window)",
+   "floodplain, never flagged: 36,741 km2 (27.9% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "sudden flood on floodplain",
+    "#e6191c"
+   ],
+   [
+    "sudden flood off floodplain",
+    "#ff7f00"
+   ],
+   [
+    "floodplain, never flagged",
+    "#3182bd"
+   ]
+  ],
+  "res_note": "native DFO grid, 1/480 degree (~230 m)"
+ },
+ {
+  "id": "dfo_4_north_no_plain",
+  "report": "DFO_report.md",
+  "title": "North of 60N the floodplain map is empty but DFO still flags flood",
+  "claim": "52% of sudden-flood pixels are north of 50N, and GFPLAIN maps essentially no floodplain north of 60N, so there it cannot help at all.",
+  "png": "dfo_4_north_no_plain.png",
+  "bounds": [
+   62.554166666666674,
+   60.2,
+   73.44583333333333,
+   63.0
+  ],
+  "stats": [
+   "window: 179,326 km2 of land",
+   "sudden flood on floodplain: 0 km2 (0.0% of this window)",
+   "sudden flood, no floodplain mapped: 6,560 km2 (3.7% of this window)",
+   "floodplain, never flagged: 0 km2 (0.0% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "sudden flood on floodplain",
+    "#e6191c"
+   ],
+   [
+    "sudden flood, no floodplain mapped",
+    "#ff7f00"
+   ],
+   [
+    "floodplain, never flagged",
+    "#3182bd"
+   ]
+  ],
+  "res_note": "native DFO grid, 1/480 degree (~230 m)"
+ },
+ {
+  "id": "dfo_5_sudden_vs_recurrent",
+  "report": "DFO_report.md",
+  "title": "DFO sudden and recurrent flood are different places",
+  "claim": "Class 2 (recurrent) is water where water is expected seasonally; class 3 (sudden) is the unusual flood MoM actually scores.",
+  "png": "dfo_5_sudden_vs_recurrent.png",
+  "bounds": [
+   87.76041666666669,
+   23.200000000000003,
+   92.63958333333335,
+   25.6
+  ],
+  "stats": [
+   "window: 131,840 km2 of land",
+   "both classes: 461 km2 (0.3% of this window)",
+   "sudden only (class 3, scored by MoM): 1,116 km2 (0.8% of this window)",
+   "recurrent only (class 2, never used): 4,399 km2 (3.3% of this window)",
+   "floodplain: 76,591 km2 (58.1% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "both classes",
+    "#7a3fa0"
+   ],
+   [
+    "sudden only (class 3, scored by MoM)",
+    "#e6191c"
+   ],
+   [
+    "recurrent only (class 2, never used)",
+    "#1fa8a0"
+   ],
+   [
+    "floodplain",
+    "#3182bd"
+   ]
+  ],
+  "res_note": "native DFO grid, 1/480 degree (~230 m)"
+ },
+ {
+  "id": "viirs_1_vs_dfo_area",
+  "report": "VIIRS_report.md",
+  "title": "VIIRS flags about ten times more land than DFO",
+  "claim": "9.4% of the land domain was flagged by VIIRS at least once in eight months, against 0.97% for DFO sudden flood.",
+  "png": "viirs_1_vs_dfo_area.png",
+  "bounds": [
+   -93.24166666666667,
+   31.6,
+   -87.95833333333333,
+   34.0
+  ],
+  "stats": [
+   "window: 131,774 km2 of land",
+   "flagged by both: 723 km2 (0.5% of this window)",
+   "VIIRS only: 27,179 km2 (20.6% of this window)",
+   "DFO sudden only: 109 km2 (0.1% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "flagged by both",
+    "#7a3fa0"
+   ],
+   [
+    "VIIRS only",
+    "#e8c601"
+   ],
+   [
+    "DFO sudden only",
+    "#e6191c"
+   ]
+  ],
+  "res_note": "native DFO grid, 1/480 degree (~230 m)"
+ },
+ {
+  "id": "viirs_2_plain_enrichment",
+  "report": "VIIRS_report.md",
+  "title": "VIIRS flood against river floodplains",
+  "claim": "Floodplain is 10.5% of land and holds 27% of VIIRS-flagged pixels; a floodplain pixel is 3.2x more likely to be flagged than other land.",
+  "png": "viirs_2_plain_enrichment.png",
+  "bounds": [
+   103.91666666666669,
+   9.599999999999994,
+   107.68333333333334,
+   11.599999999999994
+  ],
+  "stats": [
+   "window: 72,129 km2 of land",
+   "VIIRS flood on floodplain: 20,679 km2 (28.7% of this window)",
+   "VIIRS flood off floodplain: 5,012 km2 (6.9% of this window)",
+   "floodplain, never flagged: 20,109 km2 (27.9% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "VIIRS flood on floodplain",
+    "#e6191c"
+   ],
+   [
+    "VIIRS flood off floodplain",
+    "#e8c601"
+   ],
+   [
+    "floodplain, never flagged",
+    "#3182bd"
+   ]
+  ],
+  "res_note": "native DFO grid, 1/480 degree (~230 m)"
+ },
+ {
+  "id": "viirs_3_plain_unflagged",
+  "report": "VIIRS_report.md",
+  "title": "Three quarters of the floodplain is never flagged, even where VIIRS floods",
+  "claim": "Within flooded 1 degree regions the floodplain holds 33% of VIIRS flood pixels, but 75% of floodplain pixels there were never flagged.",
+  "png": "viirs_3_plain_unflagged.png",
+  "bounds": [
+   -62.72500000000001,
+   -4.200000000000003,
+   -58.275000000000006,
+   -1.7999999999999972
+  ],
+  "stats": [
+   "window: 131,861 km2 of land",
+   "VIIRS flood on floodplain: 18,238 km2 (13.8% of this window)",
+   "VIIRS flood off floodplain: 14,075 km2 (10.7% of this window)",
+   "floodplain, never flagged: 19,310 km2 (14.6% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "VIIRS flood on floodplain",
+    "#e6191c"
+   ],
+   [
+    "VIIRS flood off floodplain",
+    "#e8c601"
+   ],
+   [
+    "floodplain, never flagged",
+    "#3182bd"
+   ]
+  ],
+  "res_note": "native DFO grid, 1/480 degree (~230 m)"
+ },
+ {
+  "id": "viirs_4_patagonia",
+  "report": "VIIRS_report.md",
+  "title": "Where VIIRS flags the most, the floodplain means nothing",
+  "claim": "At 40-50S VIIRS flagged 27% of all land at least once with no floodplain preference (risk ratio 1.1x); 45% of its flood pixels are north of 50N.",
+  "png": "viirs_4_patagonia.png",
+  "bounds": [
+   -73.98125,
+   -50.5,
+   -65.51875,
+   -47.5
+  ],
+  "stats": [
+   "window: 164,359 km2 of land",
+   "VIIRS flood on floodplain: 8,548 km2 (5.2% of this window)",
+   "VIIRS flood off floodplain: 63,732 km2 (38.8% of this window)",
+   "floodplain, never flagged: 12,432 km2 (7.6% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "VIIRS flood on floodplain",
+    "#e6191c"
+   ],
+   [
+    "VIIRS flood off floodplain",
+    "#e8c601"
+   ],
+   [
+    "floodplain, never flagged",
+    "#3182bd"
+   ]
+  ],
+  "res_note": "native DFO grid, 1/480 degree (~230 m)"
+ },
+ {
+  "id": "viirs_5_one_vs_five_day",
+  "report": "VIIRS_report.md",
+  "title": "The 5-day composite flags more land than the 1-day one",
+  "claim": "12.4% of the land domain ever flagged by the 5-day composite against 9.4% by the 1-day one, and the extra area is less floodplain-bound.",
+  "png": "viirs_5_one_vs_five_day.png",
+  "bounds": [
+   103.91666666666669,
+   9.599999999999994,
+   107.68333333333334,
+   11.599999999999994
+  ],
+  "stats": [
+   "window: 72,129 km2 of land",
+   "flagged by both: 25,671 km2 (35.6% of this window)",
+   "5-day only: 8,789 km2 (12.2% of this window)",
+   "1-day only: 21 km2 (0.0% of this window)",
+   "floodplain: 13,696 km2 (19.0% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "flagged by both",
+    "#7a3fa0"
+   ],
+   [
+    "5-day only",
+    "#ff7f00"
+   ],
+   [
+    "1-day only",
+    "#e8c601"
+   ],
+   [
+    "floodplain",
+    "#3182bd"
+   ]
+  ],
+  "res_note": "native DFO grid, 1/480 degree (~230 m)"
+ },
+ {
+  "id": "x_1_dfo_subset_of_viirs",
+  "report": "DFO_vs_VIIRS_report.md",
+  "title": "DFO is mostly a subset of VIIRS, and a small one",
+  "claim": "68% of the pixels DFO ever flagged were also flagged by VIIRS, VIIRS's ever-flagged area is 7.2x DFO's, and the pixel Jaccard is only 0.09.",
+  "png": "x_1_dfo_subset_of_viirs.png",
+  "bounds": [
+   87.76041666666669,
+   23.200000000000003,
+   92.63958333333335,
+   25.6
+  ],
+  "stats": [
+   "window: 131,840 km2 of land",
+   "DFO flood confirmed by VIIRS: 5,718 km2 (4.3% of this window)",
+   "DFO flood not flagged by VIIRS: 259 km2 (0.2% of this window)",
+   "VIIRS only: 53,598 km2 (40.7% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "DFO flood confirmed by VIIRS",
+    "#7a3fa0"
+   ],
+   [
+    "DFO flood not flagged by VIIRS",
+    "#e6191c"
+   ],
+   [
+    "VIIRS only",
+    "#e8c601"
+   ]
+  ],
+  "res_note": "native DFO grid, 1/480 degree (~230 m)"
+ },
+ {
+  "id": "x_2_persistence_confirms",
+  "report": "DFO_vs_VIIRS_report.md",
+  "title": "The longer DFO sees water, the more often VIIRS agrees",
+  "claim": "A DFO pixel flagged once is confirmed by VIIRS 53% of the time; one flagged on 5 or more days, 76-85%.",
+  "png": "x_2_persistence_confirms.png",
+  "bounds": [
+   -105.45,
+   54.6,
+   -97.55,
+   57.0
+  ],
+  "stats": [
+   "window: 131,758 km2 of land",
+   "DFO 5+ days, confirmed: 1,384 km2 (1.1% of this window)",
+   "DFO 5+ days, not confirmed: 148 km2 (0.1% of this window)",
+   "DFO 1-4 days, confirmed: 9,312 km2 (7.1% of this window)",
+   "DFO 1-4 days, not confirmed: 2,165 km2 (1.6% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "DFO 5+ days, confirmed",
+    "#2ca25f"
+   ],
+   [
+    "DFO 5+ days, not confirmed",
+    "#e6191c"
+   ],
+   [
+    "DFO 1-4 days, confirmed",
+    "#1fa8a0"
+   ],
+   [
+    "DFO 1-4 days, not confirmed",
+    "#ff7f00"
+   ]
+  ],
+  "res_note": "native DFO grid, 1/480 degree (~230 m)"
+ },
+ {
+  "id": "x_3_coarse_agreement_artefact",
+  "report": "DFO_vs_VIIRS_report.md",
+  "title": "At 1 degree almost every cell is flagged by VIIRS, so coarse agreement says little",
+  "claim": "Over eight months 96% of 1 degree cells and 94% of watersheds were flagged by VIIRS at least once, which is why their Jaccard reaches 0.91-0.95.",
+  "png": "x_3_coarse_agreement_artefact.png",
+  "bounds": [
+   -75.26041666666667,
+   52.6,
+   -67.73958333333333,
+   55.0
+  ],
+  "stats": [
+   "window: 131,800 km2 of land",
+   "flagged by both: 5,003 km2 (3.8% of this window)",
+   "VIIRS only: 51,496 km2 (39.1% of this window)",
+   "DFO sudden only: 1,418 km2 (1.1% of this window)"
+  ],
+  "grid_lines": 1.0,
+  "legend": [
+   [
+    "flagged by both",
+    "#7a3fa0"
+   ],
+   [
+    "VIIRS only",
+    "#e8c601"
+   ],
+   [
+    "DFO sudden only",
+    "#e6191c"
+   ]
+  ],
+  "res_note": "native DFO grid, 1/480 degree (~230 m)"
+ },
+ {
+  "id": "x_4_viirs_beats_plain",
+  "report": "DFO_vs_VIIRS_report.md",
+  "title": "The other satellite locates the water better than the floodplain does",
+  "claim": "Within regions where both flooded, VIIRS contains 69% of the DFO flood pixels (lift 6.5x) against 26% for the floodplain (lift 2.4x) - about 2.7x better.",
+  "png": "x_4_viirs_beats_plain.png",
+  "bounds": [
+   -105.45,
+   54.6,
+   -97.55,
+   57.0
+  ],
+  "stats": [
+   "window: 131,758 km2 of land",
+   "DFO flood inside VIIRS and floodplain: 3,145 km2 (2.4% of this window)",
+   "DFO flood inside VIIRS only: 7,550 km2 (5.7% of this window)",
+   "DFO flood inside floodplain only: 546 km2 (0.4% of this window)",
+   "DFO flood in neither: 1,767 km2 (1.3% of this window)",
+   "floodplain: 29,349 km2 (22.3% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "DFO flood inside VIIRS and floodplain",
+    "#2ca25f"
+   ],
+   [
+    "DFO flood inside VIIRS only",
+    "#7a3fa0"
+   ],
+   [
+    "DFO flood inside floodplain only",
+    "#e6191c"
+   ],
+   [
+    "DFO flood in neither",
+    "#ff7f00"
+   ],
+   [
+    "floodplain",
+    "#3182bd"
+   ]
+  ],
+  "res_note": "native DFO grid, 1/480 degree (~230 m)"
+ },
+ {
+  "id": "x_5_five_day_further",
+  "report": "DFO_vs_VIIRS_report.md",
+  "title": "The 5-day composite is even further from DFO",
+  "claim": "Its ever-flagged area is 9.5x DFO's (1-day: 7.2x) and the pixel Jaccard falls to 0.074 from 0.090.",
+  "png": "x_5_five_day_further.png",
+  "bounds": [
+   87.76041666666669,
+   23.200000000000003,
+   92.63958333333335,
+   25.6
+  ],
+  "stats": [
+   "window: 131,840 km2 of land",
+   "DFO flood confirmed by VIIRS 5-day: 1,467 km2 (1.1% of this window)",
+   "DFO flood not confirmed: 111 km2 (0.1% of this window)",
+   "VIIRS 5-day only: 69,397 km2 (52.6% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "DFO flood confirmed by VIIRS 5-day",
+    "#7a3fa0"
+   ],
+   [
+    "DFO flood not confirmed",
+    "#e6191c"
+   ],
+   [
+    "VIIRS 5-day only",
+    "#ff7f00"
+   ]
+  ],
+  "res_note": "native DFO grid, 1/480 degree (~230 m)"
+ },
+ {
+  "id": "a_1_plain_vs_model_extent",
+  "report": "AI4G_and_model_extents_report.md",
+  "title": "Floodplains against the merged model extent",
+  "claim": "73% of the floodplain lies inside the merged Aqueduct/GloFAS extent, but only 39% of that extent is floodplain; it covers 20.6% of land against 10.9%.",
+  "png": "a_1_plain_vs_model_extent.png",
+  "bounds": [
+   -59.34166666666667,
+   -19.200000000000003,
+   -54.65833333333333,
+   -16.799999999999997
+  ],
+  "stats": [
+   "window: 132,164 km2 of land",
+   "both: 42,161 km2 (31.9% of this window)",
+   "model extent only: 19,878 km2 (15.0% of this window)",
+   "floodplain only: 11,593 km2 (8.8% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "both",
+    "#7a3fa0"
+   ],
+   [
+    "model extent only",
+    "#e8c601"
+   ],
+   [
+    "floodplain only",
+    "#3182bd"
+   ]
+  ],
+  "res_note": "30 arcsec cells (~1 km)"
+ },
+ {
+  "id": "a_2_depth_follows_plain",
+  "report": "AI4G_and_model_extents_report.md",
+  "title": "The models put their deep water on the floodplain, their shallow water everywhere",
+  "claim": "Of model cells shallower than 0.1 m only 11% are floodplain; at 8-16 m it is 43%.",
+  "png": "a_2_depth_follows_plain.png",
+  "bounds": [
+   -59.34166666666667,
+   -19.200000000000003,
+   -54.65833333333333,
+   -16.799999999999997
+  ],
+  "stats": [
+   "window: 132,164 km2 of land",
+   "deep model flood (>=4 m) on floodplain: 896 km2 (0.7% of this window)",
+   "deep model flood off floodplain: 189 km2 (0.1% of this window)",
+   "shallow model flood (<0.5 m) on floodplain: 10,828 km2 (8.2% of this window)",
+   "shallow model flood off floodplain: 7,642 km2 (5.8% of this window)",
+   "floodplain: 42,030 km2 (31.8% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "deep model flood (>=4 m) on floodplain",
+    "#e6191c"
+   ],
+   [
+    "deep model flood off floodplain",
+    "#ff7f00"
+   ],
+   [
+    "shallow model flood (<0.5 m) on floodplain",
+    "#1fa8a0"
+   ],
+   [
+    "shallow model flood off floodplain",
+    "#e8c601"
+   ],
+   [
+    "floodplain",
+    "#3182bd"
+   ]
+  ],
+  "res_note": "30 arcsec cells (~1 km)"
+ },
+ {
+  "id": "a_3_north_models_only",
+  "report": "AI4G_and_model_extents_report.md",
+  "title": "North of 60N the models flood a quarter of the land and the floodplain map is blank",
+  "claim": "North of 60N GFPLAIN maps essentially no floodplain while the merged model extent covers 26% of the land.",
+  "png": "a_3_north_models_only.png",
+  "bounds": [
+   62.54999999999998,
+   60.2,
+   73.44999999999999,
+   63.0
+  ],
+  "stats": [
+   "window: 179,464 km2 of land",
+   "both: 0 km2 (0.0% of this window)",
+   "model extent only: 55,985 km2 (31.2% of this window)",
+   "floodplain only: 0 km2 (0.0% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "both",
+    "#7a3fa0"
+   ],
+   [
+    "model extent only",
+    "#e8c601"
+   ],
+   [
+    "floodplain only",
+    "#3182bd"
+   ]
+  ],
+  "res_note": "30 arcsec cells (~1 km)"
+ },
+ {
+  "id": "a_4_dfo_inside_ai4g",
+  "report": "AI4G_and_model_extents_report.md",
+  "title": "DFO sudden flood against ten years of Sentinel-1 flood (AI4G)",
+  "claim": "On land AI4G assessed, 68% of the DFO sudden-flood area is inside AI4G-flooded and 32% is on land AI4G judged never flooded; in reverse DFO covers only 10.5% of the AI4G flooded area.",
+  "png": "a_4_dfo_inside_ai4g.png",
+  "bounds": [
+   87.75833333333333,
+   23.200000000000003,
+   92.64166666666665,
+   25.599999999999994
+  ],
+  "stats": [
+   "window: 131,954 km2 of land",
+   "DFO flood confirmed by AI4G: 8,059 km2 (6.1% of this window)",
+   "DFO flood where AI4G saw none: 4 km2 (0.0% of this window)",
+   "DFO flood under AI4G exclusion mask: 62 km2 (0.0% of this window)",
+   "AI4G flood only: 88,610 km2 (67.2% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "DFO flood confirmed by AI4G",
+    "#2ca25f"
+   ],
+   [
+    "DFO flood where AI4G saw none",
+    "#e6191c"
+   ],
+   [
+    "DFO flood under AI4G exclusion mask",
+    "#9e9e9e"
+   ],
+   [
+    "AI4G flood only",
+    "#1fa8a0"
+   ]
+  ],
+  "res_note": "30 arcsec cells (~1 km)"
+ },
+ {
+  "id": "a_5_exclusion_mask",
+  "report": "AI4G_and_model_extents_report.md",
+  "title": "AI4G's exclusion mask covers most of the land it tiles",
+  "claim": "AI4G tiles 97.5% of the land domain but 73% of that is its exclusion mask (rough terrain, arid, urban), so it returns a verdict on only 25.9% of land.",
+  "png": "a_5_exclusion_mask.png",
+  "bounds": [
+   66.6,
+   25.200000000000003,
+   72.4,
+   28.0
+  ],
+  "stats": [
+   "window: 179,423 km2 of land",
+   "AI4G flooded: 65,822 km2 (36.7% of this window)",
+   "AI4G assessed, never flooded: 426 km2 (0.2% of this window)",
+   "AI4G exclusion mask (no verdict): 113,175 km2 (63.1% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "AI4G flooded",
+    "#1fa8a0"
+   ],
+   [
+    "AI4G assessed, never flooded",
+    "#2ca25f"
+   ],
+   [
+    "AI4G exclusion mask (no verdict)",
+    "#9e9e9e"
+   ]
+  ],
+  "res_note": "30 arcsec cells (~1 km)"
+ },
+ {
+  "id": "a_6_pmtiles_inflated",
+  "report": "AI4G_and_model_extents_report.md",
+  "title": "The floodplain PMTiles layer is drawn about 1.5x too large",
+  "claim": "Decoding river_plains_30s.pmtiles gives 21.25 million km2 against 13.49 million in the 250 m raster (1.58x); ai4g_flood_1km.pmtiles is 1.52x too large. Both are tiled with resample=max.",
+  "png": "a_6_pmtiles_inflated.png",
+  "bounds": [
+   103.91666666666669,
+   9.599999999999994,
+   107.68333333333334,
+   11.599999999999994
+  ],
+  "stats": [
+   "window: 72,178 km2 of land",
+   "floodplain in both: 40,948 km2 (56.7% of this window)",
+   "added by the PMTiles tiling only: 5,313 km2 (7.4% of this window)",
+   "in the raster only: 0 km2 (0.0% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "floodplain in both",
+    "#3182bd"
+   ],
+   [
+    "added by the PMTiles tiling only",
+    "#f768a1"
+   ],
+   [
+    "in the raster only",
+    "#e6191c"
+   ]
+  ],
+  "res_note": "30 arcsec cells (~1 km)"
+ },
+ {
+  "id": "x_1b_dfo_not_confirmed",
+  "report": "DFO_vs_VIIRS_report.md",
+  "title": "Where DFO flags flood and VIIRS does not: the salt lakes of SW Australia",
+  "claim": "32% of DFO's ever-flagged pixels were never flagged by VIIRS. The two products disagree most over shallow saline and ephemeral water, not over river flood.",
+  "png": "x_1b_dfo_not_confirmed.png",
+  "bounds": [
+   120.875,
+   -33.39999999999999,
+   126.125,
+   -31.0
+  ],
+  "stats": [
+   "window: 116,917 km2 of land",
+   "DFO flood confirmed by VIIRS: 512 km2 (0.4% of this window)",
+   "DFO flood not flagged by VIIRS: 10,199 km2 (8.7% of this window)",
+   "VIIRS only: 2,850 km2 (2.4% of this window)",
+   "floodplain: 17,048 km2 (14.6% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "DFO flood confirmed by VIIRS",
+    "#7a3fa0"
+   ],
+   [
+    "DFO flood not flagged by VIIRS",
+    "#e6191c"
+   ],
+   [
+    "VIIRS only",
+    "#e8c601"
+   ],
+   [
+    "floodplain",
+    "#3182bd"
+   ]
+  ],
+  "res_note": "native DFO grid, 1/480 degree (~230 m)"
+ },
+ {
+  "id": "a_4b_observed_but_no_sar",
+  "report": "AI4G_and_model_extents_report.md",
+  "title": "Where the optical products flood and ten years of SAR saw nothing",
+  "claim": "32% of the DFO sudden-flood area on AI4G-assessed land sits where AI4G judged the land never flooded (VIIRS 1-day: 33%). Lake-rich terrain is where the two sensor types part company.",
+  "png": "a_4b_observed_but_no_sar.png",
+  "bounds": [
+   -105.45,
+   54.6,
+   -97.55,
+   57.0
+  ],
+  "stats": [
+   "window: 131,758 km2 of land",
+   "DFO flood confirmed by AI4G: 3,198 km2 (2.4% of this window)",
+   "DFO flood where AI4G saw none: 3,281 km2 (2.5% of this window)",
+   "DFO flood under AI4G exclusion mask: 38,985 km2 (29.6% of this window)",
+   "VIIRS flood where AI4G saw none: 8,793 km2 (6.7% of this window)",
+   "AI4G flood only: 3,874 km2 (2.9% of this window)"
+  ],
+  "grid_lines": null,
+  "legend": [
+   [
+    "DFO flood confirmed by AI4G",
+    "#2ca25f"
+   ],
+   [
+    "DFO flood where AI4G saw none",
+    "#e6191c"
+   ],
+   [
+    "DFO flood under AI4G exclusion mask",
+    "#9e9e9e"
+   ],
+   [
+    "VIIRS flood where AI4G saw none",
+    "#ff7f00"
+   ],
+   [
+    "AI4G flood only",
+    "#1fa8a0"
+   ]
+  ],
+  "res_note": "30 arcsec cells (~1 km)"
+ }
+]

@@ -308,3 +308,104 @@ The partial-mosaic versions of the two AI4G files are kept beside them as
 `ai4g_30s_partial_20261007.tif` and `ai4g_flood_1km_partial_20261007.pmtiles` in
 `/root/validation_external/`, and the joint table of this run is
 `report/data/joint_30s.npz`.
+
+
+## Figures
+
+One map per conclusion above, each on a small sample window, rendered in the same stack
+as the MoM map itself (MapLibre GL with the OpenFreeMap positron basemap) and
+screenshotted with Playwright. The classes are mutually exclusive and come from the very
+rasters the report is computed from, so a figure can be read as a picture of one row of
+one table. Every figure repeats its statistic for its own window, which is why those
+numbers differ from the global ones: a window is chosen to show the effect, not to be
+representative. Code: `figures_src/make_figures.py`, `figures_src/web/fig_page.html`,
+`figures_src/shoot.js`.
+
+### Floodplains against the merged model extent
+
+![Floodplains against the merged model extent](figures/a_1_plain_vs_model_extent.png)
+
+73% of the floodplain lies inside the merged Aqueduct/GloFAS extent, but only 39% of that extent is floodplain; it covers 20.6% of land against 10.9%.
+
+Window 19.2S-16.8S, 59.3W-54.7W, 30 arcsec cells (~1 km). window: 132,164 km2 of land:
+
+- both: 42,161 km2 (31.9% of this window)
+- model extent only: 19,878 km2 (15.0% of this window)
+- floodplain only: 11,593 km2 (8.8% of this window)
+
+### The models put their deep water on the floodplain, their shallow water everywhere
+
+![The models put their deep water on the floodplain, their shallow water everywhere](figures/a_2_depth_follows_plain.png)
+
+Of model cells shallower than 0.1 m only 11% are floodplain; at 8-16 m it is 43%.
+
+Window 19.2S-16.8S, 59.3W-54.7W, 30 arcsec cells (~1 km). window: 132,164 km2 of land:
+
+- deep model flood (>=4 m) on floodplain: 896 km2 (0.7% of this window)
+- deep model flood off floodplain: 189 km2 (0.1% of this window)
+- shallow model flood (<0.5 m) on floodplain: 10,828 km2 (8.2% of this window)
+- shallow model flood off floodplain: 7,642 km2 (5.8% of this window)
+- floodplain: 42,030 km2 (31.8% of this window)
+
+### North of 60N the models flood a quarter of the land and the floodplain map is blank
+
+![North of 60N the models flood a quarter of the land and the floodplain map is blank](figures/a_3_north_models_only.png)
+
+North of 60N GFPLAIN maps essentially no floodplain while the merged model extent covers 26% of the land.
+
+Window 60.2N-63.0N, 62.5E-73.4E, 30 arcsec cells (~1 km). window: 179,464 km2 of land:
+
+- both: 0 km2 (0.0% of this window)
+- model extent only: 55,985 km2 (31.2% of this window)
+- floodplain only: 0 km2 (0.0% of this window)
+
+### DFO sudden flood against ten years of Sentinel-1 flood (AI4G)
+
+![DFO sudden flood against ten years of Sentinel-1 flood (AI4G)](figures/a_4_dfo_inside_ai4g.png)
+
+On land AI4G assessed, 68% of the DFO sudden-flood area is inside AI4G-flooded and 32% is on land AI4G judged never flooded; in reverse DFO covers only 10.5% of the AI4G flooded area.
+
+Window 23.2N-25.6N, 87.8E-92.6E, 30 arcsec cells (~1 km). window: 131,954 km2 of land:
+
+- DFO flood confirmed by AI4G: 8,059 km2 (6.1% of this window)
+- DFO flood where AI4G saw none: 4 km2 (0.0% of this window)
+- DFO flood under AI4G exclusion mask: 62 km2 (0.0% of this window)
+- AI4G flood only: 88,610 km2 (67.2% of this window)
+
+### AI4G's exclusion mask covers most of the land it tiles
+
+![AI4G's exclusion mask covers most of the land it tiles](figures/a_5_exclusion_mask.png)
+
+AI4G tiles 97.5% of the land domain but 73% of that is its exclusion mask (rough terrain, arid, urban), so it returns a verdict on only 25.9% of land.
+
+Window 25.2N-28.0N, 66.6E-72.4E, 30 arcsec cells (~1 km). window: 179,423 km2 of land:
+
+- AI4G flooded: 65,822 km2 (36.7% of this window)
+- AI4G assessed, never flooded: 426 km2 (0.2% of this window)
+- AI4G exclusion mask (no verdict): 113,175 km2 (63.1% of this window)
+
+### The floodplain PMTiles layer is drawn about 1.5x too large
+
+![The floodplain PMTiles layer is drawn about 1.5x too large](figures/a_6_pmtiles_inflated.png)
+
+Decoding river_plains_30s.pmtiles gives 21.25 million km2 against 13.49 million in the 250 m raster (1.58x); ai4g_flood_1km.pmtiles is 1.52x too large. Both are tiled with resample=max.
+
+Window 9.6N-11.6N, 103.9E-107.7E, 30 arcsec cells (~1 km). window: 72,178 km2 of land:
+
+- floodplain in both: 40,948 km2 (56.7% of this window)
+- added by the PMTiles tiling only: 5,313 km2 (7.4% of this window)
+- in the raster only: 0 km2 (0.0% of this window)
+
+### Where the optical products flood and ten years of SAR saw nothing
+
+![Where the optical products flood and ten years of SAR saw nothing](figures/a_4b_observed_but_no_sar.png)
+
+32% of the DFO sudden-flood area on AI4G-assessed land sits where AI4G judged the land never flooded (VIIRS 1-day: 33%). Lake-rich terrain is where the two sensor types part company.
+
+Window 54.6N-57.0N, 105.5W-97.5W, 30 arcsec cells (~1 km). window: 131,758 km2 of land:
+
+- DFO flood confirmed by AI4G: 3,198 km2 (2.4% of this window)
+- DFO flood where AI4G saw none: 3,281 km2 (2.5% of this window)
+- DFO flood under AI4G exclusion mask: 38,985 km2 (29.6% of this window)
+- VIIRS flood where AI4G saw none: 8,793 km2 (6.7% of this window)
+- AI4G flood only: 3,874 km2 (2.9% of this window)

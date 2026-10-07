@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>figure</title>
+<link rel="icon" href="data:,">
+<link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+<style>
+ html,body{margin:0;height:100%;font:13px/1.45 system-ui,sans-serif;color:#1b1b1b}
+ #map{position:absolute;inset:0}
+ .card{position:absolute;background:rgba(255,255,255,.94);border:1px solid #c9c9c9;
+       border-radius:6px;padding:9px 12px;box-shadow:0 1px 4px rgba(0,0,0,.18);z-index:5}
+ #head{top:10px;left:10px;right:10px}
+ #head h1{margin:0 0 3px;font-size:16px}
+ #head p{margin:0;color:#333}
+ #legend{bottom:12px;left:10px;max-width:440px}
+ #stats{bottom:12px;right:10px;max-width:400px;font-variant-numeric:tabular-nums}
+ .row{display:flex;align-items:center;gap:7px;margin:2px 0}
+ .sw{width:15px;height:15px;border:1px solid #555;flex:none}
+ .ttl{font-weight:600;margin-bottom:3px}
+ .meta{color:#666;font-size:11.5px;margin-top:4px}
+</style></head><body>
+<div id="map"></div>
+<div class="card" id="head"><h1></h1><p></p></div>
+<div class="card" id="legend"></div>
+<div class="card" id="stats"></div>
+<script>
+// Same stack as MoM-map's index.html: MapLibre GL + the OpenFreeMap positron basemap.
+const id = new URLSearchParams(location.search).get('fig');
+fetch('manifest.json').then(r=>r.json()).then(all=>{
+  const f = all.find(x=>x.id===id);
+  document.querySelector('#head h1').textContent = f.title;
+  document.querySelector('#head p').textContent = f.claim;
+  document.getElementById('legend').innerHTML = '<div class="ttl">Legend</div>' +
+    f.legend.map(([l,c])=>`<div class="row"><span class="sw" style="background:${c}"></span><span>${l}</span></div>`).join('') +
+    `<div class="meta">${f.res_note} &middot; ${f.report}</div>`;
+  document.getElementById('stats').innerHTML = '<div class="ttl">In this window</div>' +
+    f.stats.map(s=>`<div>${s}</div>`).join('');
+  const [w,s,e,n] = f.bounds;
+  const map = new maplibregl.Map({container:'map',
+      style:'https://tiles.openfreemap.org/styles/positron',
+      bounds:[[w,s],[e,n]], fitBoundsOptions:{padding:{top:78,bottom:96,left:16,right:16}, animate:false},
+      attributionControl:false, fadeDuration:0});
+  map.addControl(new maplibregl.ScaleControl({maxWidth:150,unit:'metric'}),'top-right');
+  map.on('load',()=>{
+    map.addSource('fig',{type:'image',url:f.png,coordinates:[[w,n],[e,n],[e,s],[w,s]]});
+    map.addLayer({id:'fig',type:'raster',source:'fig',
+       paint:{'raster-opacity':0.88,'raster-resampling':'nearest','raster-fade-duration':0}});
+    if (f.grid_lines){
+      const step=f.grid_lines, fc={type:'FeatureCollection',features:[]};
+      for(let x=Math.ceil(w/step)*step;x<=e;x+=step)
+        fc.features.push({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:[[x,s],[x,n]]}});
+      for(let y=Math.ceil(s/step)*step;y<=n;y+=step)
+        fc.features.push({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:[[w,y],[e,y]]}});
+      map.addSource('grid',{type:'geojson',data:fc});
+      map.addLayer({id:'grid',type:'line',source:'grid',
+        paint:{'line-color':'#111','line-width':1.1,'line-dasharray':[3,2],'line-opacity':0.8}});
+    }
+    map.once('idle',()=>{window.FIG_READY=true;});
+  });
+});
+</script></body></html>

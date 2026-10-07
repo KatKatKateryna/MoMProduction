@@ -249,3 +249,76 @@ Inputs:
 - `viirs_accumulation/viirs_accumulater.tiff`: 236 daily VIIRS 1-day composites, 2026-01-07 to 2026-08-31.
 - `viirs5day_merged/viirs5day_janaug.tiff`: 236 daily VIIRS 5-day composites, 2026-01-07 to 2026-08-31 without 2026-05-05, merged from parts A, B, R1–R4 and E.
 - The GFPLAIN250m `river_plains_mask.tiff` on each grid.
+
+
+## Figures
+
+One map per conclusion above, each on a small sample window, rendered in the same stack
+as the MoM map itself (MapLibre GL with the OpenFreeMap positron basemap) and
+screenshotted with Playwright. The classes are mutually exclusive and come from the very
+rasters the report is computed from, so a figure can be read as a picture of one row of
+one table. Every figure repeats its statistic for its own window, which is why those
+numbers differ from the global ones: a window is chosen to show the effect, not to be
+representative. Code: `figures_src/make_figures.py`, `figures_src/web/fig_page.html`,
+`figures_src/shoot.js`.
+
+### DFO sudden flood against river floodplains
+
+![DFO sudden flood against river floodplains](figures/dfo_1_plain_vs_sudden.png)
+
+Floodplain is 10.5% of land and holds 28% of the pixels ever flagged as sudden flood (risk ratio 3.3x) - so most sudden flood is off the floodplain.
+
+Window 54.6N-57.0N, 105.5W-97.5W, native DFO grid, 1/480 degree (~230 m). window: 131,758 km2 of land:
+
+- sudden flood on floodplain: 3,691 km2 (2.8% of this window)
+- sudden flood off floodplain: 9,318 km2 (7.1% of this window)
+- floodplain, never flagged: 29,349 km2 (22.3% of this window)
+
+### DFO recurrent flood hugs the floodplain twice as closely
+
+![DFO recurrent flood hugs the floodplain twice as closely](figures/dfo_2_recurrent_follows_plain.png)
+
+A floodplain pixel is 7.2x more likely to be flagged as recurrent flood (class 2) than other land, against 3.3x for sudden flood.
+
+Window 23.2N-25.6N, 87.8E-92.6E, native DFO grid, 1/480 degree (~230 m). window: 131,840 km2 of land:
+
+- recurrent flood on floodplain: 4,757 km2 (3.6% of this window)
+- recurrent flood off floodplain: 103 km2 (0.1% of this window)
+- floodplain, never flagged: 77,460 km2 (58.8% of this window)
+
+### Inside a region that floods, almost all of the floodplain stays dry
+
+![Inside a region that floods, almost all of the floodplain stays dry](figures/dfo_3_plain_mostly_dry.png)
+
+Within flooded 1 degree regions the floodplain holds 38% of the sudden-flood pixels, yet 97-98% of floodplain pixels were never flagged in eight months.
+
+Window 4.2S-1.8S, 62.7W-58.3W, native DFO grid, 1/480 degree (~230 m). window: 131,861 km2 of land:
+
+- sudden flood on floodplain: 807 km2 (0.6% of this window)
+- sudden flood off floodplain: 143 km2 (0.1% of this window)
+- floodplain, never flagged: 36,741 km2 (27.9% of this window)
+
+### North of 60N the floodplain map is empty but DFO still flags flood
+
+![North of 60N the floodplain map is empty but DFO still flags flood](figures/dfo_4_north_no_plain.png)
+
+52% of sudden-flood pixels are north of 50N, and GFPLAIN maps essentially no floodplain north of 60N, so there it cannot help at all.
+
+Window 60.2N-63.0N, 62.6E-73.4E, native DFO grid, 1/480 degree (~230 m). window: 179,326 km2 of land:
+
+- sudden flood on floodplain: 0 km2 (0.0% of this window)
+- sudden flood, no floodplain mapped: 6,560 km2 (3.7% of this window)
+- floodplain, never flagged: 0 km2 (0.0% of this window)
+
+### DFO sudden and recurrent flood are different places
+
+![DFO sudden and recurrent flood are different places](figures/dfo_5_sudden_vs_recurrent.png)
+
+Class 2 (recurrent) is water where water is expected seasonally; class 3 (sudden) is the unusual flood MoM actually scores.
+
+Window 23.2N-25.6N, 87.8E-92.6E, native DFO grid, 1/480 degree (~230 m). window: 131,840 km2 of land:
+
+- both classes: 461 km2 (0.3% of this window)
+- sudden only (class 3, scored by MoM): 1,116 km2 (0.8% of this window)
+- recurrent only (class 2, never used): 4,399 km2 (3.3% of this window)
+- floodplain: 76,591 km2 (58.1% of this window)
