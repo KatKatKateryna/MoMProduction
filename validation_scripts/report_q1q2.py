@@ -114,13 +114,17 @@ P("The merged model extent only exists as PMTiles, so its area carries the same 
 P("")
 
 # ── AI4G coverage ────────────────────────────────────────────────────────────
-P("## AI4G coverage first, because it limits everything else")
+P("## AI4G coverage, and what actually limits the test")
 P("")
 P(f"- AI4G has a tile over {pct(A(cov), land)} of the land domain ({fmt(A(cov))} km2).")
 P(f"- Of the covered land, {pct(A(cov & BIT['ai4g_mask']), A(cov))} is the exclusion mask "
   "(rough terrain, arid or urban: Sentinel-1 was not trusted there), and")
 P(f"  {pct(A(cov & BIT['ai4g_flood']), A(cov))} was seen flooded at least once in 2014-2024.")
-P(f"- {pct(land - A(cov), land)} of the land domain has no AI4G tile at all, so nothing can be said there.")
+P(f"- {pct(land - A(cov), land)} of the land domain has no AI4G tile at all.")
+P(f"- So the layer has a usable verdict (flooded or never flooded) on only "
+  f"{pct(A(cov & ~BIT['ai4g_mask']), land)} of the land domain. That, not missing tiles, is")
+P("  what limits the comparison: the exclusion mask is where Sentinel-1 flood detection was")
+P("  not trusted (rough terrain, arid, urban), not where nothing flooded.")
 P("")
 
 # ── Q1 ───────────────────────────────────────────────────────────────────────
@@ -229,8 +233,8 @@ for pr in ["plain_maj", "plain_any", "extent_any", "extent_maj", "ai4g_flood"]:
         lifts.append(f"{p/base:.1f}x" if base else "n/a")
     P(f"| {pr} | {pct(cells_pr, land)} | " + " | ".join(lifts) + " |")
 P("")
-P("AI4G only covers a third of the land, which flatters the other rows. The same table")
-P("on the land AI4G actually assessed, where all three maps can be compared fairly:")
+P("AI4G does not judge the land under its exclusion mask, so the row above mixes land it")
+P("assessed with land it skipped. The same table on the land it did assess:")
 P("")
 P("| predictor | share of that land | " + " | ".join(f"lift, {n}" for n in ["dfo_sudden", "dfo_recur", "viirs1d", "viirs5d"]) + " |")
 P("|---|---|" + "---|" * 4)
