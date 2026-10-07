@@ -643,6 +643,7 @@ def GFMS_processing(proc_dates_list):
             glofascsv = os.path.join(settings.GLOFAS_DIR, glofas_latest)
 
         # set directory for adding/removing files
+        curdir = os.getcwd()
         os.chdir(settings.GFMS_PROC_DIR)
 
         # TODO: handle missing file
@@ -655,23 +656,49 @@ def GFMS_processing(proc_dates_list):
             sys.exit(1)
 
         # zip GFMS data after processing
-        zipped = f"gfms_{real_date}.zip"
+        zipped = os.path.join(settings.GFMS_PROC_DIR, f"gfms_{real_date}.zip")
 
-        # os-agnostic process
-        with zipfile.ZipFile(zipped, "w") as z:
-            for f in glob.glob(f"Flood_byStor_{real_date}*.*"):
-                z.write(f, arcname=os.path.basename(f))  # match shell zip behavior
+        # Only touch the archive when there is something to add. Opening it in
+        # "w" mode unconditionally truncated a good archive to an empty 22-byte
+        # one on every rerun, because the source files had already been deleted
+        # by the first run of the day. "a" is not an option either: it appends
+        # without checking names, so reruns stacked duplicate entries.
+        files = glob.glob(
+            os.path.join(settings.GFMS_PROC_DIR, f"Flood_byStor_{real_date}*.*")
+        )
+        if not files:
+            logging.info(f"nothing to archive for {real_date}")
+        else:
+            # Rebuild into a temp archive carrying over anything already stored
+            # (a run may only cover part of the day), then swap it in
+            # atomically so the archive is never left truncated.
+            tmp_zip = f"{zipped}.tmp"
+            names = {os.path.basename(f) for f in files}
+            carried = 0
+            with zipfile.ZipFile(tmp_zip, "w", zipfile.ZIP_DEFLATED) as z:
+                if os.path.exists(zipped):
+                    try:
+                        with zipfile.ZipFile(zipped) as old_z:
+                            for item in old_z.infolist():
+                                if item.filename not in names:
+                                    z.writestr(item, old_z.read(item.filename))
+                                    carried += 1
+                    except zipfile.BadZipFile:
+                        logging.warning(f"ignoring corrupt archive: {zipped}")
+                for f in files:
+                    z.write(f, arcname=os.path.basename(f))
+            os.replace(tmp_zip, zipped)
+            logging.info(
+                f"archived {len(files)} new + {carried} existing: {zipped}"
+            )
 
-        logging.info(f"generated: {zipped}")
+            # remove only the files that were just archived
+            for filePath in files:
+                try:
+                    os.remove(filePath)
+                except OSError:
+                    logging.warning(f"Error while deleting file : {filePath}")
 
-        # remove all the files
-        for filePath in glob.glob(f"Flood_byStor_{real_date}*.*"):
-            try:
-                os.remove(filePath)
-            except:
-                logging.warning(f"Error while deleting file : {filePath}")
-
-        curdir = os.getcwd()
         os.chdir(curdir)
 
     return
