@@ -1,5 +1,27 @@
-0 4,11,14,21 * * * cd /home/tester/MoMProduction && /home/tester/miniconda3/envs/mom/bin/python MoM_run.py -j GFMS > /dev/null 2>&1
-0 2,7,13,19 * * * cd /home/tester/MoMProduction && /home/tester/miniconda3/envs/mom/bin/python MoM_run.py -j HWRF  >/dev/null 2>&1
-0 3,10,23 * * * cd /home/tester/MoMProduction && /home/tester/miniconda3/envs/mom/bin/python MoM_run.py -j DFO >/dev/null 2>&1
-0 5,12,17 * * * cd /home/tester/MoMProduction && /home/tester/miniconda3/envs/mom/bin/python MoM_run.py -j VIIRS  >/dev/null 2>&1
-30 12,20 * * * cd /home/tester/MoMProduction/monitor && /home/tester/miniconda3/envs/mom/bin/python monitor.py  >/dev/null 2>&1
+# MoMProduction cron setup.
+#
+# Jobs MUST be launched through run_mom_job.sh, which activates the conda
+# environment before calling MoM_run.py. Invoking the environment's python by
+# absolute path is not sufficient: without activation the env's bin/ is absent
+# from PATH and the GDAL/PROJ activate.d hooks never run, so console tools such
+# as gdal_translate cannot be resolved and image products are silently skipped.
+#
+# On the production host, install these with:
+#   ./first_setup/setup_crontab.sh
+#
+# The entries below are the equivalent for a non-root "tester" user; adjust the
+# three variables for your installation. run_mom_job.sh reads CONDA_SH,
+# CONDA_ENV and PROJECT_DIR from the environment.
+#
+# Keep at least a 1 hour interval between any two jobs. Each job checks for new
+# data and exits early if there is nothing to process.
+
+CONDA_SH=/home/tester/miniconda3/etc/profile.d/conda.sh
+CONDA_ENV=mom
+PROJECT_DIR=/home/tester/MoMProduction
+
+0 4,11,14,21 * * * /home/tester/MoMProduction/run_mom_job.sh -j GFMS >> /home/tester/MoMProduction/logs/gfms.log 2>&1
+0 2,7,13,19 * * * /home/tester/MoMProduction/run_mom_job.sh -j HWRF >> /home/tester/MoMProduction/logs/hwrf.log 2>&1
+0 3,10,23 * * * /home/tester/MoMProduction/run_mom_job.sh -j DFO >> /home/tester/MoMProduction/logs/dfo.log 2>&1
+0 5,12,17 * * * /home/tester/MoMProduction/run_mom_job.sh -j VIIRS >> /home/tester/MoMProduction/logs/viirs.log 2>&1
+30 12,20 * * * cd /home/tester/MoMProduction/monitor && /home/tester/miniconda3/envs/mom/bin/python monitor.py >/dev/null 2>&1

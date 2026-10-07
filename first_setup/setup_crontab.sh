@@ -6,23 +6,40 @@
 #   chmod +x first_setup/setup_crontab.sh   # make executable (only needed once)
 #   ./first_setup/setup_crontab.sh
 #
-# Safe to re-run — strips all existing MoM_run.py crontab entries first, then
-# appends the definitions below fresh. All other cron jobs are untouched.
+# Jobs are launched through run_mom_job.sh, which activates the conda
+# environment before calling MoM_run.py. Calling the env's python by absolute
+# path is NOT sufficient: without activation the env's bin/ is missing from
+# PATH and the GDAL/PROJ activate.d hooks never run, so console tools such as
+# gdal_translate cannot be resolved and image products are silently skipped.
+#
+# Safe to re-run — strips existing MoM entries (both the current
+# run_mom_job.sh form and the legacy direct MoM_run.py form) before appending
+# the definitions below fresh. All other cron jobs are untouched.
 
-set -e
+set -euo pipefail
 
-LOG_DIR="/root/MoMProduction/logs"
+PROJECT_DIR="${PROJECT_DIR:-/root/MoMProduction}"
+RUNNER="$PROJECT_DIR/run_mom_job.sh"
+LOG_DIR="$PROJECT_DIR/logs"
+
+if [ ! -f "$RUNNER" ]; then
+    echo "setup_crontab.sh: runner not found at $RUNNER" >&2
+    exit 1
+fi
+
+chmod +x "$RUNNER"
 mkdir -p "$LOG_DIR"
 
 CRON_JOBS=(
-    "0 4,11,14,21 * * * mkdir -p /root/MoMProduction/logs && cd /root/MoMProduction && /root/miniconda3/envs/myenv/bin/python MoM_run.py -j GFMS >> /root/MoMProduction/logs/gfms.log 2>&1"
-    "0 2,7,13,19 * * * mkdir -p /root/MoMProduction/logs && cd /root/MoMProduction && /root/miniconda3/envs/myenv/bin/python MoM_run.py -j HWRF >> /root/MoMProduction/logs/hwrf.log 2>&1"
-    "0 3,10,23 * * * mkdir -p /root/MoMProduction/logs && cd /root/MoMProduction && /root/miniconda3/envs/myenv/bin/python MoM_run.py -j DFO >> /root/MoMProduction/logs/dfo.log 2>&1"
-    "0 5,12,17 * * * mkdir -p /root/MoMProduction/logs && cd /root/MoMProduction && /root/miniconda3/envs/myenv/bin/python MoM_run.py -j VIIRS >> /root/MoMProduction/logs/viirs.log 2>&1"
+    "0 4,11,14,21 * * * $RUNNER -j GFMS >> $LOG_DIR/gfms.log 2>&1"
+    "0 2,7,13,19 * * * $RUNNER -j HWRF >> $LOG_DIR/hwrf.log 2>&1"
+    "0 3,10,23 * * * $RUNNER -j DFO >> $LOG_DIR/dfo.log 2>&1"
+    "0 5,12,17 * * * $RUNNER -j VIIRS >> $LOG_DIR/viirs.log 2>&1"
 )
 
-# Remove all existing MoM_run.py entries, then append the current definitions
-(crontab -l 2>/dev/null | grep -vF "MoM_run.py" || true; printf '%s\n' "${CRON_JOBS[@]}") | crontab -
+# Remove existing MoM entries (current and legacy forms), then append fresh.
+(crontab -l 2>/dev/null | grep -vE "MoM_run\.py|run_mom_job\.sh" || true; \
+ printf '%s\n' "${CRON_JOBS[@]}") | crontab -
 
-echo "Done. MoM_run.py cron jobs installed:"
+echo "Done. MoM cron jobs installed:"
 printf '  %s\n' "${CRON_JOBS[@]}"

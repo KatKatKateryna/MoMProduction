@@ -42,18 +42,6 @@ DFO_TOTAL_TILES = 287
 DFO_MINIMUM_TILES = 280
 
 
-def _find_gdal_translate():
-    path = shutil.which("gdal_translate")
-    if path:
-        return path
-    # Fall back to the bin directory of the running Python (works in conda envs
-    # invoked directly without activating the environment, as in cron jobs)
-    candidate = os.path.join(os.path.dirname(sys.executable), "gdal_translate")
-    if os.path.exists(candidate):
-        return candidate
-    raise RuntimeError("gdal_translate not found next to Python executable or on PATH")
-
-
 def get_real_date(year, day_num):
     """get the real date"""
 
@@ -332,8 +320,7 @@ def DFO_process(folder, adate):
             tiff_list.append(outputtiff)
             if not os.path.exists(outputtiff):
                 # gdal cmd
-                gdal_translate = _find_gdal_translate()
-                gdalcmd = f'"{gdal_translate}" -of GTiff -co Tiled=Yes {inputlayer} {outputtiff}'
+                gdalcmd = f"gdal_translate -of GTiff -co Tiled=Yes {inputlayer} {outputtiff}"
                 # convert geotiff
                 os.system(gdalcmd)
         # build vrt
@@ -354,8 +341,7 @@ def DFO_process(folder, adate):
             tiff = os.path.join(settings.DFO_IMG_DIR, tiff)
             # gdal_translate -co TILED=YES -co COMPRESS=PACKBITS -of GTiff Flood_1-Day_250m.vrt Flood_1-Day_250m.tiff
             # gdaladdo -r average Flood_1-Day_250m.tiff 2 4 8 16 32
-            gdal_translate = _find_gdal_translate()
-            gdalcmd = f'"{gdal_translate}" -co TILED=YES -co COMPRESS=LZW -of GTiff {vrt} {tiff}'
+            gdalcmd = f"gdal_translate -co TILED=YES -co COMPRESS=LZW -of GTiff {vrt} {tiff}"
             os.system(gdalcmd)
             # build overview
             # gdalcmd = f'gdaladdo -r average {tiff} 2 4 8 16 32'

@@ -24,7 +24,6 @@ import numpy as np
 import pandas as pd
 import rasterio
 import requests
-import shutil
 import zipfile
 from rasterio import Affine  # or from affine import Affine
 from rasterio.mask import mask
@@ -549,10 +548,11 @@ def GFMS_data_extractor(bin_file):
     tiff_name = os.path.basename(vrt_file).replace(".vrt", ".tiff")
     tiff_file = os.path.join(settings.GFMS_IMG_DIR, tiff_name)
 
-    gdal_translate = shutil.which("gdal_translate")
-    gdalcmd = f'"{gdal_translate}" -co TILED=YES -co COMPRESS=LZW -of GTiff "{vrt_file}" "{tiff_file}"'
-    os.system(gdalcmd)
-    logging.info(f"generated: {tiff_file}")
+    gdalcmd = f'gdal_translate -co TILED=YES -co COMPRESS=LZW -of GTiff "{vrt_file}" "{tiff_file}"'
+    if os.system(gdalcmd) != 0:
+        logging.error(f"gdal_translate failed: {tiff_file}")
+    else:
+        logging.info(f"generated: {tiff_file}")
 
     return
 
