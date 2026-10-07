@@ -1,0 +1,5 @@
+# Working copies and the sparse counting store are temporary and far
+# too large for git.
+*.part
+*.tmp
+.viirs_accumulater_store.*

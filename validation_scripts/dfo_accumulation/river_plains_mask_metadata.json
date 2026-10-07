@@ -1,0 +1,87 @@
+{
+  "result": "river_plains_mask.tiff",
+  "source_dataset": "GFPLAIN250m (Nardi & Annis)",
+  "source_doi": "https://doi.org/10.6084/m9.figshare.6665165.v1",
+  "source_licence": "CC BY 4.0",
+  "source_coding": {
+    "0": "river floodplain",
+    "255": "everything else"
+  },
+  "pixel_meaning": "1 = river floodplain, 0 = not",
+  "resampling": "nearest neighbour (source 1/432 deg -> target 1/480 deg)",
+  "target_grid": {
+    "crs": "EPSG:4326",
+    "left": -180.0,
+    "top": 80.0,
+    "res": 0.0020833333333333333,
+    "width": 172800,
+    "height": 67200
+  },
+  "floodplain_pixels": 302730953,
+  "grid_pixels": 11612160000,
+  "floodplain_fraction_of_grid": 0.026070167221257715,
+  "continent_footprints": [
+    {
+      "continent": "AF",
+      "width": 38387,
+      "height": 31176,
+      "res": 0.0023147920000000004,
+      "west": -25.361724533308575,
+      "north": 37.34235933664335,
+      "east": 63.496195970691446,
+      "south": -34.82359605535667
+    },
+    {
+      "continent": "AS",
+      "width": 66503,
+      "height": 32401,
+      "res": 0.0023147920000000004,
+      "west": 25.665550314691416,
+      "north": 64.07126256064333,
+      "east": 179.60616269069143,
+      "south": -10.930313031356675
+    },
+    {
+      "continent": "EU",
+      "width": 40166,
+      "height": 12589,
+      "res": 0.0023147920000000004,
+      "west": -31.28990684530858,
+      "north": 64.07126256064335,
+      "east": 61.68602862669144,
+      "south": 34.930346072643346
+    },
+    {
+      "continent": "NA",
+      "width": 137841,
+      "height": 24566,
+      "res": 0.002314792,
+      "west": -139.29578677330858,
+      "north": 64.07126256064333,
+      "east": 179.77745729869144,
+      "south": 7.206082288643337
+    },
+    {
+      "continent": "OC",
+      "width": 137884,
+      "height": 31993,
+      "res": 0.002314792,
+      "west": -139.1731027973086,
+      "north": 19.326333200643347,
+      "east": 179.9996773306914,
+      "south": -54.73080725535665
+    },
+    {
+      "continent": "SA",
+      "width": 24569,
+      "height": 29083,
+      "res": 0.0023147920000000017,
+      "west": -91.66431178930858,
+      "north": 12.590288480643338,
+      "east": -34.792187141308546,
+      "south": -54.73080725535671
+    }
+  ],
+  "domain_note": "GFPLAIN encodes only floodplain (0) against a single 'everything else' value (255), so non-floodplain land cannot be told from ocean or from outside the tile. continent_footprints give the boxes the dataset actually covers and should be used as the analysis domain.",
+  "built_at": "2026-10-06T08:50:37+00:00"
+}

@@ -1,0 +1,77 @@
+{
+  "result": "viirs5day_accumulater.tiff",
+  "product": "NOAA/CIMSS-GMU VIIRS flood composite (staged by MoM production)",
+  "pixel_meaning": "count of processed source rasters in which this pixel's value fell in the band's value set",
+  "dtype": "uint16",
+  "bands": [
+    {
+      "band": 1,
+      "values": "141-200",
+      "meaning": "flood (MoM production's VIIRS flood threshold, value > 140)"
+    },
+    {
+      "band": 2,
+      "values": "130-140",
+      "meaning": "lower floodwater-fraction codes below that threshold"
+    }
+  ],
+  "source_class_values": {
+    "0": "no data",
+    "1": "no data / outside swath",
+    "16,17,20,27,30,38": "classification flags (cloud, shadow, snow/ice, terrain)",
+    "99": "land, no water detected",
+    "130-200": "floodwater fraction codes, higher means more open water"
+  },
+  "target_grid": {
+    "left": -180.0,
+    "top": 75.0,
+    "res": 0.0033720001,
+    "width": 106761,
+    "height": 40035,
+    "crs": "EPSG:4326"
+  },
+  "rasters_processed": 2,
+  "processed": [
+    {
+      "file": "VIIRS_5day_composite20260107_flood.tiff",
+      "date": "2026-01-07",
+      "pixels_matched": {
+        "141-200": 10097222,
+        "130-140": 923949
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 71.5,
+      "processed_at": "2026-10-06T15:26:35+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260108_flood.tiff",
+      "date": "2026-01-08",
+      "pixels_matched": {
+        "141-200": 10068334,
+        "130-140": 932844
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 81.6,
+      "processed_at": "2026-10-06T15:27:57+00:00"
+    }
+  ],
+  "date_range_requested": {
+    "start": "202601",
+    "end": "202608"
+  },
+  "updated_at": "2026-10-06T15:27:57+00:00"
+}

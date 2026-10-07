@@ -1,0 +1,605 @@
+{
+  "result": "viirs5day_partD.tiff",
+  "product": "NOAA/CIMSS-GMU VIIRS flood composite (staged by MoM production)",
+  "pixel_meaning": "count of processed source rasters in which this pixel's value fell in the band's value set",
+  "dtype": "uint16",
+  "bands": [
+    {
+      "band": 1,
+      "values": "141-200",
+      "meaning": "flood (MoM production's VIIRS flood threshold, value > 140)"
+    },
+    {
+      "band": 2,
+      "values": "130-140",
+      "meaning": "lower floodwater-fraction codes below that threshold"
+    }
+  ],
+  "source_class_values": {
+    "0": "no data",
+    "1": "no data / outside swath",
+    "16,17,20,27,30,38": "classification flags (cloud, shadow, snow/ice, terrain)",
+    "99": "land, no water detected",
+    "130-200": "floodwater fraction codes, higher means more open water"
+  },
+  "target_grid": {
+    "left": -180.0,
+    "top": 75.0,
+    "res": 0.0033720001,
+    "width": 106761,
+    "height": 40035,
+    "crs": "EPSG:4326"
+  },
+  "rasters_processed": 31,
+  "processed": [
+    {
+      "file": "VIIRS_5day_composite20260701_flood.tiff",
+      "date": "2026-07-01",
+      "pixels_matched": {
+        "141-200": 26268021,
+        "130-140": 3942551
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 100.0,
+      "processed_at": "2026-10-06T15:46:12+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260702_flood.tiff",
+      "date": "2026-07-02",
+      "pixels_matched": {
+        "141-200": 25817338,
+        "130-140": 3820867
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 199.5,
+      "processed_at": "2026-10-06T15:49:33+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260703_flood.tiff",
+      "date": "2026-07-03",
+      "pixels_matched": {
+        "141-200": 25998726,
+        "130-140": 3776661
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 168.7,
+      "processed_at": "2026-10-06T15:52:22+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260704_flood.tiff",
+      "date": "2026-07-04",
+      "pixels_matched": {
+        "141-200": 24949122,
+        "130-140": 3905819
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 155.0,
+      "processed_at": "2026-10-06T15:54:58+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260705_flood.tiff",
+      "date": "2026-07-05",
+      "pixels_matched": {
+        "141-200": 25199077,
+        "130-140": 4091281
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 178.8,
+      "processed_at": "2026-10-06T15:57:57+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260706_flood.tiff",
+      "date": "2026-07-06",
+      "pixels_matched": {
+        "141-200": 26153902,
+        "130-140": 4247009
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 169.7,
+      "processed_at": "2026-10-06T16:00:48+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260707_flood.tiff",
+      "date": "2026-07-07",
+      "pixels_matched": {
+        "141-200": 26049557,
+        "130-140": 4298372
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 159.5,
+      "processed_at": "2026-10-06T16:03:28+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260708_flood.tiff",
+      "date": "2026-07-08",
+      "pixels_matched": {
+        "141-200": 25712420,
+        "130-140": 4235741
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 161.5,
+      "processed_at": "2026-10-06T16:06:10+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260709_flood.tiff",
+      "date": "2026-07-09",
+      "pixels_matched": {
+        "141-200": 1253493,
+        "130-140": 110540
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 26.2,
+      "processed_at": "2026-10-06T16:08:58+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260710_flood.tiff",
+      "date": "2026-07-10",
+      "pixels_matched": {
+        "141-200": 24277590,
+        "130-140": 4058158
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 168.1,
+      "processed_at": "2026-10-06T16:11:47+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260711_flood.tiff",
+      "date": "2026-07-11",
+      "pixels_matched": {
+        "141-200": 21547526,
+        "130-140": 3518315
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 178.7,
+      "processed_at": "2026-10-06T16:14:47+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260712_flood.tiff",
+      "date": "2026-07-12",
+      "pixels_matched": {
+        "141-200": 17831723,
+        "130-140": 2840889
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 174.9,
+      "processed_at": "2026-10-06T16:17:42+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260713_flood.tiff",
+      "date": "2026-07-13",
+      "pixels_matched": {
+        "141-200": 3236069,
+        "130-140": 334002
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 72.3,
+      "processed_at": "2026-10-06T16:21:13+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260714_flood.tiff",
+      "date": "2026-07-14",
+      "pixels_matched": {
+        "141-200": 22568628,
+        "130-140": 4101450
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 169.7,
+      "processed_at": "2026-10-06T16:24:04+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260715_flood.tiff",
+      "date": "2026-07-15",
+      "pixels_matched": {
+        "141-200": 22468976,
+        "130-140": 4230229
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 167.8,
+      "processed_at": "2026-10-06T16:27:22+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260716_flood.tiff",
+      "date": "2026-07-16",
+      "pixels_matched": {
+        "141-200": 22425620,
+        "130-140": 4095216
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 174.8,
+      "processed_at": "2026-10-06T16:30:17+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260717_flood.tiff",
+      "date": "2026-07-17",
+      "pixels_matched": {
+        "141-200": 22937306,
+        "130-140": 4176816
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 168.5,
+      "processed_at": "2026-10-06T16:33:06+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260718_flood.tiff",
+      "date": "2026-07-18",
+      "pixels_matched": {
+        "141-200": 22643339,
+        "130-140": 4113968
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 176.8,
+      "processed_at": "2026-10-06T16:36:04+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260719_flood.tiff",
+      "date": "2026-07-19",
+      "pixels_matched": {
+        "141-200": 22182590,
+        "130-140": 3994712
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 174.0,
+      "processed_at": "2026-10-06T16:38:58+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260720_flood.tiff",
+      "date": "2026-07-20",
+      "pixels_matched": {
+        "141-200": 21510345,
+        "130-140": 3795878
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 185.7,
+      "processed_at": "2026-10-06T16:42:05+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260721_flood.tiff",
+      "date": "2026-07-21",
+      "pixels_matched": {
+        "141-200": 21627810,
+        "130-140": 3661099
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 178.9,
+      "processed_at": "2026-10-06T16:45:04+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260722_flood.tiff",
+      "date": "2026-07-22",
+      "pixels_matched": {
+        "141-200": 21901534,
+        "130-140": 3582623
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 173.3,
+      "processed_at": "2026-10-06T16:47:58+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260723_flood.tiff",
+      "date": "2026-07-23",
+      "pixels_matched": {
+        "141-200": 22434973,
+        "130-140": 3577830
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 178.8,
+      "processed_at": "2026-10-06T16:50:57+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260724_flood.tiff",
+      "date": "2026-07-24",
+      "pixels_matched": {
+        "141-200": 23468208,
+        "130-140": 3971287
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 171.7,
+      "processed_at": "2026-10-06T16:53:50+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260725_flood.tiff",
+      "date": "2026-07-25",
+      "pixels_matched": {
+        "141-200": 25682340,
+        "130-140": 4325446
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 177.3,
+      "processed_at": "2026-10-06T16:56:48+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260726_flood.tiff",
+      "date": "2026-07-26",
+      "pixels_matched": {
+        "141-200": 25816470,
+        "130-140": 4381736
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 169.9,
+      "processed_at": "2026-10-06T16:59:38+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260727_flood.tiff",
+      "date": "2026-07-27",
+      "pixels_matched": {
+        "141-200": 26377594,
+        "130-140": 4450309
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 190.6,
+      "processed_at": "2026-10-06T17:17:20+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260728_flood.tiff",
+      "date": "2026-07-28",
+      "pixels_matched": {
+        "141-200": 26632631,
+        "130-140": 4603083
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 175.1,
+      "processed_at": "2026-10-06T17:20:15+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260729_flood.tiff",
+      "date": "2026-07-29",
+      "pixels_matched": {
+        "141-200": 26943163,
+        "130-140": 4826545
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 181.5,
+      "processed_at": "2026-10-06T17:23:18+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260730_flood.tiff",
+      "date": "2026-07-30",
+      "pixels_matched": {
+        "141-200": 27190988,
+        "130-140": 4975513
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 180.2,
+      "processed_at": "2026-10-06T17:26:19+00:00"
+    },
+    {
+      "file": "VIIRS_5day_composite20260731_flood.tiff",
+      "date": "2026-07-31",
+      "pixels_matched": {
+        "141-200": 26662223,
+        "130-140": 4993687
+      },
+      "source_geometry": {
+        "width": 106761,
+        "height": 40035,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 75.0
+      },
+      "unreadable_rows": 0,
+      "seconds": 172.2,
+      "processed_at": "2026-10-06T17:29:12+00:00"
+    }
+  ],
+  "date_range_requested": {
+    "start": "202607",
+    "end": "202607"
+  },
+  "updated_at": "2026-10-06T17:29:12+00:00",
+  "max_count": {
+    "141-200": 32,
+    "130-140": 31
+  },
+  "result_written_at": "2026-10-06T17:43:15+00:00",
+  "result_size_bytes": 869505213
+}

@@ -1,0 +1,5 @@
+# Working copies of source rasters and the sparse counting store are
+# temporary and far too large for git.
+*.part
+*.tmp
+.dfo_accumulater_store.*

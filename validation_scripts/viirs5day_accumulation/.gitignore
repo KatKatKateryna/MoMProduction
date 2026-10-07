@@ -1,0 +1,3 @@
+*.part
+*.tmp
+.viirs5day_accumulater_store.*

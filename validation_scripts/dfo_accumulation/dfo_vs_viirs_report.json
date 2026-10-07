@@ -1,0 +1,177 @@
+{
+  "products": {
+    "a": {
+      "label": "DFO",
+      "rasters": 242,
+      "date_range": {
+        "start": "202601",
+        "end": "202608"
+      },
+      "band": {
+        "band": 1,
+        "source_value": 3,
+        "source_class": "flood (unusual)"
+      }
+    },
+    "b": {
+      "label": "VIIRS",
+      "rasters": 236,
+      "date_range": {
+        "start": "202601",
+        "end": "202608"
+      },
+      "band": {
+        "band": 1,
+        "values": "141-200",
+        "meaning": "flood (MoM production's VIIRS flood threshold, value > 140)"
+      }
+    }
+  },
+  "grid": {
+    "width": 172800,
+    "height": 67200,
+    "res": 0.0020833333333333333,
+    "note": "the finer of the two grids; the other was upsampled by nearest neighbour"
+  },
+  "domain": {
+    "pixels": 8382597841,
+    "floodplain_pixels": 302505027,
+    "floodplain_fraction": 0.03608726468069626,
+    "lat_north": 64.0,
+    "lat_south": -54.7
+  },
+  "agreement": {
+    "DFO_ever": 27892509,
+    "VIIRS_ever": 271806395,
+    "both": 17269455,
+    "DFO_only": 10623054,
+    "VIIRS_only": 254536940,
+    "jaccard": 0.061146084663430404,
+    "share_of_DFO_also_in_VIIRS": 0.6191431183189723,
+    "share_of_VIIRS_also_in_DFO": 0.06353586713807818
+  },
+  "extent": {
+    "DFO_fraction_of_domain": 0.0033274301748767382,
+    "VIIRS_fraction_of_domain": 0.03242507873520686,
+    "DFO_mean_frequency": 5.688063655764193e-05,
+    "VIIRS_mean_frequency": 0.0009282487930950661
+  },
+  "floodplain_enrichment": {
+    "DFO": {
+      "frequency_on": 0.025971089068876862,
+      "frequency_off": 0.002479689832929189,
+      "enrichment": 10.473523230200906,
+      "share_on_floodplain": 0.2816664861522497
+    },
+    "VIIRS": {
+      "frequency_on": 0.24459687408764946,
+      "frequency_off": 0.024481725093213762,
+      "enrichment": 9.990998312265615,
+      "share_on_floodplain": 0.2722223809340468
+    }
+  },
+  "by_latitude": [
+    {
+      "lat_south": 60,
+      "lat_north": 70,
+      "pixels": 294059520,
+      "DFO_fraction": 0.01594406805805845,
+      "VIIRS_fraction": 0.11120589464337016,
+      "jaccard": 0.0916176947508794
+    },
+    {
+      "lat_south": 50,
+      "lat_north": 60,
+      "pixels": 735148800,
+      "DFO_fraction": 0.013160274491368277,
+      "VIIRS_fraction": 0.119709714550306,
+      "jaccard": 0.07413936089600659
+    },
+    {
+      "lat_south": 40,
+      "lat_north": 50,
+      "pixels": 735148800,
+      "DFO_fraction": 0.004402828379778352,
+      "VIIRS_fraction": 0.05117093845490872,
+      "jaccard": 0.052179951128152026
+    },
+    {
+      "lat_south": 30,
+      "lat_north": 40,
+      "pixels": 735148800,
+      "DFO_fraction": 0.0015914601234471172,
+      "VIIRS_fraction": 0.02597878551933976,
+      "jaccard": 0.04462903056056269
+    },
+    {
+      "lat_south": 20,
+      "lat_north": 30,
+      "pixels": 735148800,
+      "DFO_fraction": 0.0009418623821463083,
+      "VIIRS_fraction": 0.020454746032367868,
+      "jaccard": 0.03822437043622781
+    },
+    {
+      "lat_south": 10,
+      "lat_north": 20,
+      "pixels": 735618885,
+      "DFO_fraction": 0.0006899469417509585,
+      "VIIRS_fraction": 0.01314522261075448,
+      "jaccard": 0.04337857669731815
+    },
+    {
+      "lat_south": 0,
+      "lat_north": 10,
+      "pixels": 735452236,
+      "DFO_fraction": 0.000645276439135063,
+      "VIIRS_fraction": 0.018769965368627965,
+      "jaccard": 0.026699097713123725
+    },
+    {
+      "lat_south": -10,
+      "lat_north": 0,
+      "pixels": 735374400,
+      "DFO_fraction": 0.0008838395788594219,
+      "VIIRS_fraction": 0.02534084270543005,
+      "jaccard": 0.02537844837720564
+    },
+    {
+      "lat_south": -20,
+      "lat_north": -10,
+      "pixels": 735374400,
+      "DFO_fraction": 0.0014455724866136216,
+      "VIIRS_fraction": 0.017882991303477522,
+      "jaccard": 0.054284984840379684
+    },
+    {
+      "lat_south": -30,
+      "lat_north": -20,
+      "pixels": 735374400,
+      "DFO_fraction": 0.0032015202052179136,
+      "VIIRS_fraction": 0.013503197826848473,
+      "jaccard": 0.09392139242883651
+    },
+    {
+      "lat_south": -40,
+      "lat_north": -30,
+      "pixels": 735374400,
+      "DFO_fraction": 0.003381765805282316,
+      "VIIRS_fraction": 0.0096721819524857,
+      "jaccard": 0.050499038364206904
+    },
+    {
+      "lat_south": -50,
+      "lat_north": -40,
+      "pixels": 735374400,
+      "DFO_fraction": 0.0012155209645590057,
+      "VIIRS_fraction": 0.009579354407768342,
+      "jaccard": 0.052850382914970885
+    }
+  ],
+  "cell_0p1deg": {
+    "cells": 990936,
+    "pearson": 0.4482874627756355,
+    "spearman": 0.46319746827766384
+  },
+  "generated_at": "2026-10-06T14:44:12+00:00"
+}

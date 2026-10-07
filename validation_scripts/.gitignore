@@ -1,0 +1,13 @@
+# The repo root ignores *.tiff globally; the rasters in validation_scripts/
+# are results and should be tracked.
+!*.tiff
+!*.tif
+
+# Still over GitHub's 100 MiB file limit after recompression; kept out of git
+# for now (Git LFS or a release asset later).
+viirs5day_merged/viirs5day_janaug_on_dfo_grid.tiff
+viirs5day_merged/viirs5day_full.tiff
+viirs5day_merged/viirs5day_janaug.tiff
+viirs_accumulation/viirs_on_dfo_grid.tiff
+viirs1day_full_accumulation/viirs_accumulater.tiff
+viirs_accumulation/viirs_accumulater.tiff

@@ -1,0 +1,46 @@
+{
+  "result": "river_plains_coverage.tiff",
+  "source": "MoM-map data/persistent/river_plains/*.pmtiles",
+  "source_dataset": "GFPLAN250m river floodplains (Nardi et al.)",
+  "pixel_meaning": "floodplain coverage of the pixel, 0 = none, 255 = full",
+  "zoom_read": 10,
+  "target_grid": {
+    "crs": "EPSG:4326",
+    "left": -180.0,
+    "top": 80.0,
+    "res": 0.0020833333333333333,
+    "width": 172800,
+    "height": 67200
+  },
+  "pmtiles_lat_bounds": [
+    -54.7308073,
+    64.0712626
+  ],
+  "pmtiles_lon_bounds": [
+    -139.2957868,
+    179.9996773
+  ],
+  "caveat": "an absent tile means no floodplain, which is indistinguishable from outside the GFPLAN domain; restrict analysis to pmtiles_lat_bounds",
+  "tiles": {
+    "per_file": {
+      "river_plains_as_af_oc.pmtiles": {
+        "tiles": 41455,
+        "overlapping_tiles_merged": 0,
+        "seconds": 48.5
+      },
+      "river_plains_na_sa_eu.pmtiles": {
+        "tiles": 35648,
+        "overlapping_tiles_merged": 90,
+        "seconds": 78.1
+      }
+    },
+    "tiles_total": 77013,
+    "pmtiles_bounds": [
+      -139.2957868,
+      -54.7308073,
+      179.9996773,
+      64.0712626
+    ]
+  },
+  "built_at": "2026-10-06T00:58:30+00:00"
+}

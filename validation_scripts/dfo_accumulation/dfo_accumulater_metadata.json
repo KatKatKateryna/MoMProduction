@@ -1,0 +1,4161 @@
+{
+  "result": "dfo_accumulater.tiff",
+  "product": "NASA LANCE MCDWD_L3_NRT \"Flood 3-Day 250m\" (DFO staged by MoM production)",
+  "pixel_meaning": "count of processed source rasters in which this pixel carried the band's source value",
+  "dtype": "uint16",
+  "bands": [
+    {
+      "band": 1,
+      "source_value": 3,
+      "source_class": "flood (unusual)"
+    },
+    {
+      "band": 2,
+      "source_value": 2,
+      "source_class": "recurring flood (regular, seasonal inundation)"
+    }
+  ],
+  "source_class_values": {
+    "0": "no water",
+    "1": "surface water (normal / permanent water)",
+    "2": "recurring flood (regular, seasonal inundation)",
+    "3": "flood (unusual)",
+    "255": "insufficient data / fill"
+  },
+  "target_grid": {
+    "left": -180.0,
+    "top": 80.0,
+    "res": 0.0020833333333333333,
+    "width": 172800,
+    "height": 67200,
+    "crs": "EPSG:4326"
+  },
+  "rasters_processed": 242,
+  "processed": [
+    {
+      "file": "DFO_20260101_Flood_3-Day_250m.tiff",
+      "date": "2026-01-01",
+      "pixels_matched": {
+        "3": 416160,
+        "2": 356446
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 43.9,
+      "processed_at": "2026-10-06T00:19:25+00:00"
+    },
+    {
+      "file": "DFO_20260102_Flood_3-Day_250m.tiff",
+      "date": "2026-01-02",
+      "pixels_matched": {
+        "3": 396047,
+        "2": 308162
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 58.8,
+      "processed_at": "2026-10-06T00:27:23+00:00"
+    },
+    {
+      "file": "DFO_20260103_Flood_3-Day_250m.tiff",
+      "date": "2026-01-03",
+      "pixels_matched": {
+        "3": 484127,
+        "2": 308712
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 55.2,
+      "processed_at": "2026-10-06T00:28:48+00:00"
+    },
+    {
+      "file": "DFO_20260104_Flood_3-Day_250m.tiff",
+      "date": "2026-01-04",
+      "pixels_matched": {
+        "3": 12264,
+        "2": 3629
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 19.1,
+      "processed_at": "2026-10-06T00:29:38+00:00"
+    },
+    {
+      "file": "DFO_20260105_Flood_3-Day_250m.tiff",
+      "date": "2026-01-05",
+      "pixels_matched": {
+        "3": 244001,
+        "2": 149221
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 65.1,
+      "processed_at": "2026-10-06T00:30:58+00:00"
+    },
+    {
+      "file": "DFO_20260106_Flood_3-Day_250m.tiff",
+      "date": "2026-01-06",
+      "pixels_matched": {
+        "3": 614942,
+        "2": 415667
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 58.5,
+      "processed_at": "2026-10-06T00:32:27+00:00"
+    },
+    {
+      "file": "DFO_20260107_Flood_3-Day_250m.tiff",
+      "date": "2026-01-07",
+      "pixels_matched": {
+        "3": 584551,
+        "2": 449632
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 67.0,
+      "processed_at": "2026-10-06T00:34:04+00:00"
+    },
+    {
+      "file": "DFO_20260108_Flood_3-Day_250m.tiff",
+      "date": "2026-01-08",
+      "pixels_matched": {
+        "3": 539342,
+        "2": 479572
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 78.0,
+      "processed_at": "2026-10-06T00:35:37+00:00"
+    },
+    {
+      "file": "DFO_20260109_Flood_3-Day_250m.tiff",
+      "date": "2026-01-09",
+      "pixels_matched": {
+        "3": 506885,
+        "2": 474991
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 72.0,
+      "processed_at": "2026-10-06T00:37:20+00:00"
+    },
+    {
+      "file": "DFO_20260110_Flood_3-Day_250m.tiff",
+      "date": "2026-01-10",
+      "pixels_matched": {
+        "3": 444930,
+        "2": 444734
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 69.0,
+      "processed_at": "2026-10-06T00:38:44+00:00"
+    },
+    {
+      "file": "DFO_20260111_Flood_3-Day_250m.tiff",
+      "date": "2026-01-11",
+      "pixels_matched": {
+        "3": 528517,
+        "2": 442302
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 86.7,
+      "processed_at": "2026-10-06T00:40:26+00:00"
+    },
+    {
+      "file": "DFO_20260112_Flood_3-Day_250m.tiff",
+      "date": "2026-01-12",
+      "pixels_matched": {
+        "3": 497745,
+        "2": 430527
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 72.9,
+      "processed_at": "2026-10-06T00:41:54+00:00"
+    },
+    {
+      "file": "DFO_20260113_Flood_3-Day_250m.tiff",
+      "date": "2026-01-13",
+      "pixels_matched": {
+        "3": 331703,
+        "2": 339565
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 63.0,
+      "processed_at": "2026-10-06T00:43:27+00:00"
+    },
+    {
+      "file": "DFO_20260114_Flood_3-Day_250m.tiff",
+      "date": "2026-01-14",
+      "pixels_matched": {
+        "3": 474358,
+        "2": 422235
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 72.0,
+      "processed_at": "2026-10-06T00:44:54+00:00"
+    },
+    {
+      "file": "DFO_20260115_Flood_3-Day_250m.tiff",
+      "date": "2026-01-15",
+      "pixels_matched": {
+        "3": 426695,
+        "2": 426835
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 82.3,
+      "processed_at": "2026-10-06T00:46:33+00:00"
+    },
+    {
+      "file": "DFO_20260116_Flood_3-Day_250m.tiff",
+      "date": "2026-01-16",
+      "pixels_matched": {
+        "3": 541822,
+        "2": 425773
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 75.8,
+      "processed_at": "2026-10-06T00:48:20+00:00"
+    },
+    {
+      "file": "DFO_20260117_Flood_3-Day_250m.tiff",
+      "date": "2026-01-17",
+      "pixels_matched": {
+        "3": 556726,
+        "2": 416970
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 75.5,
+      "processed_at": "2026-10-06T00:50:06+00:00"
+    },
+    {
+      "file": "DFO_20260118_Flood_3-Day_250m.tiff",
+      "date": "2026-01-18",
+      "pixels_matched": {
+        "3": 312370,
+        "2": 269646
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 66.5,
+      "processed_at": "2026-10-06T00:51:42+00:00"
+    },
+    {
+      "file": "DFO_20260119_Flood_3-Day_250m.tiff",
+      "date": "2026-01-19",
+      "pixels_matched": {
+        "3": 588590,
+        "2": 393092
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 82.7,
+      "processed_at": "2026-10-06T00:53:20+00:00"
+    },
+    {
+      "file": "DFO_20260120_Flood_3-Day_250m.tiff",
+      "date": "2026-01-20",
+      "pixels_matched": {
+        "3": 429868,
+        "2": 305304
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 68.5,
+      "processed_at": "2026-10-06T00:54:59+00:00"
+    },
+    {
+      "file": "DFO_20260121_Flood_3-Day_250m.tiff",
+      "date": "2026-01-21",
+      "pixels_matched": {
+        "3": 455661,
+        "2": 359077
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 4800,
+        "col_offset": 0,
+        "top": 70.0
+      },
+      "seconds": 81.3,
+      "processed_at": "2026-10-06T00:56:36+00:00"
+    },
+    {
+      "file": "DFO_20260122_Flood_3-Day_250m.tiff",
+      "date": "2026-01-22",
+      "pixels_matched": {
+        "3": 428681,
+        "2": 321816
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 76.9,
+      "processed_at": "2026-10-06T00:58:09+00:00"
+    },
+    {
+      "file": "DFO_20260123_Flood_3-Day_250m.tiff",
+      "date": "2026-01-23",
+      "pixels_matched": {
+        "3": 408534,
+        "2": 262305
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 60.5,
+      "processed_at": "2026-10-06T00:59:39+00:00"
+    },
+    {
+      "file": "DFO_20260124_Flood_3-Day_250m.tiff",
+      "date": "2026-01-24",
+      "pixels_matched": {
+        "3": 550911,
+        "2": 297255
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 92.1,
+      "processed_at": "2026-10-06T01:01:43+00:00"
+    },
+    {
+      "file": "DFO_20260125_Flood_3-Day_250m.tiff",
+      "date": "2026-01-25",
+      "pixels_matched": {
+        "3": 376637,
+        "2": 229451
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 68.6,
+      "processed_at": "2026-10-06T01:03:22+00:00"
+    },
+    {
+      "file": "DFO_20260126_Flood_3-Day_250m.tiff",
+      "date": "2026-01-26",
+      "pixels_matched": {
+        "3": 305301,
+        "2": 178415
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 64.5,
+      "processed_at": "2026-10-06T01:04:42+00:00"
+    },
+    {
+      "file": "DFO_20260127_Flood_3-Day_250m.tiff",
+      "date": "2026-01-27",
+      "pixels_matched": {
+        "3": 283128,
+        "2": 166842
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 68.8,
+      "processed_at": "2026-10-06T01:06:21+00:00"
+    },
+    {
+      "file": "DFO_20260128_Flood_3-Day_250m.tiff",
+      "date": "2026-01-28",
+      "pixels_matched": {
+        "3": 335929,
+        "2": 262784
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 67.8,
+      "processed_at": "2026-10-06T01:07:44+00:00"
+    },
+    {
+      "file": "DFO_20260129_Flood_3-Day_250m.tiff",
+      "date": "2026-01-29",
+      "pixels_matched": {
+        "3": 417231,
+        "2": 355644
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 80.0,
+      "processed_at": "2026-10-06T01:09:19+00:00"
+    },
+    {
+      "file": "DFO_20260130_Flood_3-Day_250m.tiff",
+      "date": "2026-01-30",
+      "pixels_matched": {
+        "3": 400352,
+        "2": 309065
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 93.9,
+      "processed_at": "2026-10-06T01:11:23+00:00"
+    },
+    {
+      "file": "DFO_20260131_Flood_3-Day_250m.tiff",
+      "date": "2026-01-31",
+      "pixels_matched": {
+        "3": 354646,
+        "2": 219376
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 70.9,
+      "processed_at": "2026-10-06T01:12:50+00:00"
+    },
+    {
+      "file": "DFO_20260201_Flood_3-Day_250m.tiff",
+      "date": "2026-02-01",
+      "pixels_matched": {
+        "3": 358569,
+        "2": 295999
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 72.5,
+      "processed_at": "2026-10-06T01:14:17+00:00"
+    },
+    {
+      "file": "DFO_20260202_Flood_3-Day_250m.tiff",
+      "date": "2026-02-02",
+      "pixels_matched": {
+        "3": 379646,
+        "2": 357635
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 96.7,
+      "processed_at": "2026-10-06T01:16:24+00:00"
+    },
+    {
+      "file": "DFO_20260203_Flood_3-Day_250m.tiff",
+      "date": "2026-02-03",
+      "pixels_matched": {
+        "3": 340534,
+        "2": 369688
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 77.8,
+      "processed_at": "2026-10-06T01:17:57+00:00"
+    },
+    {
+      "file": "DFO_20260204_Flood_3-Day_250m.tiff",
+      "date": "2026-02-04",
+      "pixels_matched": {
+        "3": 333821,
+        "2": 346087
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 75.7,
+      "processed_at": "2026-10-06T01:19:43+00:00"
+    },
+    {
+      "file": "DFO_20260205_Flood_3-Day_250m.tiff",
+      "date": "2026-02-05",
+      "pixels_matched": {
+        "3": 296642,
+        "2": 234982
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 75.0,
+      "processed_at": "2026-10-06T01:21:29+00:00"
+    },
+    {
+      "file": "DFO_20260206_Flood_3-Day_250m.tiff",
+      "date": "2026-02-06",
+      "pixels_matched": {
+        "3": 317436,
+        "2": 318050
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 71.9,
+      "processed_at": "2026-10-06T01:23:11+00:00"
+    },
+    {
+      "file": "DFO_20260207_Flood_3-Day_250m.tiff",
+      "date": "2026-02-07",
+      "pixels_matched": {
+        "3": 266866,
+        "2": 247784
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 67.8,
+      "processed_at": "2026-10-06T01:24:49+00:00"
+    },
+    {
+      "file": "DFO_20260208_Flood_3-Day_250m.tiff",
+      "date": "2026-02-08",
+      "pixels_matched": {
+        "3": 402490,
+        "2": 368089
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 89.0,
+      "processed_at": "2026-10-06T01:26:34+00:00"
+    },
+    {
+      "file": "DFO_20260209_Flood_3-Day_250m.tiff",
+      "date": "2026-02-09",
+      "pixels_matched": {
+        "3": 388817,
+        "2": 370885
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 84.4,
+      "processed_at": "2026-10-06T01:28:13+00:00"
+    },
+    {
+      "file": "DFO_20260210_Flood_3-Day_250m.tiff",
+      "date": "2026-02-10",
+      "pixels_matched": {
+        "3": 339430,
+        "2": 288446
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 68.4,
+      "processed_at": "2026-10-06T01:29:52+00:00"
+    },
+    {
+      "file": "DFO_20260211_Flood_3-Day_250m.tiff",
+      "date": "2026-02-11",
+      "pixels_matched": {
+        "3": 359165,
+        "2": 307812
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 74.0,
+      "processed_at": "2026-10-06T01:31:36+00:00"
+    },
+    {
+      "file": "DFO_20260212_Flood_3-Day_250m.tiff",
+      "date": "2026-02-12",
+      "pixels_matched": {
+        "3": 295641,
+        "2": 257249
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 61.0,
+      "processed_at": "2026-10-06T01:32:52+00:00"
+    },
+    {
+      "file": "DFO_20260213_Flood_3-Day_250m.tiff",
+      "date": "2026-02-13",
+      "pixels_matched": {
+        "3": 470671,
+        "2": 393598
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 73.5,
+      "processed_at": "2026-10-06T01:34:36+00:00"
+    },
+    {
+      "file": "DFO_20260214_Flood_3-Day_250m.tiff",
+      "date": "2026-02-14",
+      "pixels_matched": {
+        "3": 473137,
+        "2": 398401
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 86.8,
+      "processed_at": "2026-10-06T01:36:34+00:00"
+    },
+    {
+      "file": "DFO_20260215_Flood_3-Day_250m.tiff",
+      "date": "2026-02-15",
+      "pixels_matched": {
+        "3": 457465,
+        "2": 369900
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 69.1,
+      "processed_at": "2026-10-06T01:37:58+00:00"
+    },
+    {
+      "file": "DFO_20260216_Flood_3-Day_250m.tiff",
+      "date": "2026-02-16",
+      "pixels_matched": {
+        "3": 358011,
+        "2": 328789
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 70.8,
+      "processed_at": "2026-10-06T01:39:39+00:00"
+    },
+    {
+      "file": "DFO_20260217_Flood_3-Day_250m.tiff",
+      "date": "2026-02-17",
+      "pixels_matched": {
+        "3": 347084,
+        "2": 325118
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 81.0,
+      "processed_at": "2026-10-06T01:41:31+00:00"
+    },
+    {
+      "file": "DFO_20260218_Flood_3-Day_250m.tiff",
+      "date": "2026-02-18",
+      "pixels_matched": {
+        "3": 315747,
+        "2": 340418
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 70.4,
+      "processed_at": "2026-10-06T01:43:12+00:00"
+    },
+    {
+      "file": "DFO_20260219_Flood_3-Day_250m.tiff",
+      "date": "2026-02-19",
+      "pixels_matched": {
+        "3": 241832,
+        "2": 338094
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 73.9,
+      "processed_at": "2026-10-06T01:44:56+00:00"
+    },
+    {
+      "file": "DFO_20260220_Flood_3-Day_250m.tiff",
+      "date": "2026-02-20",
+      "pixels_matched": {
+        "3": 287085,
+        "2": 380315
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 77.0,
+      "processed_at": "2026-10-06T01:46:43+00:00"
+    },
+    {
+      "file": "DFO_20260221_Flood_3-Day_250m.tiff",
+      "date": "2026-02-21",
+      "pixels_matched": {
+        "3": 298667,
+        "2": 387585
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 72.5,
+      "processed_at": "2026-10-06T01:48:26+00:00"
+    },
+    {
+      "file": "DFO_20260222_Flood_3-Day_250m.tiff",
+      "date": "2026-02-22",
+      "pixels_matched": {
+        "3": 303462,
+        "2": 390753
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 69.5,
+      "processed_at": "2026-10-06T01:49:51+00:00"
+    },
+    {
+      "file": "DFO_20260223_Flood_3-Day_250m.tiff",
+      "date": "2026-02-23",
+      "pixels_matched": {
+        "3": 246461,
+        "2": 326820
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 74.4,
+      "processed_at": "2026-10-06T01:51:21+00:00"
+    },
+    {
+      "file": "DFO_20260224_Flood_3-Day_250m.tiff",
+      "date": "2026-02-24",
+      "pixels_matched": {
+        "3": 236791,
+        "2": 358287
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 70.2,
+      "processed_at": "2026-10-06T01:52:47+00:00"
+    },
+    {
+      "file": "DFO_20260225_Flood_3-Day_250m.tiff",
+      "date": "2026-02-25",
+      "pixels_matched": {
+        "3": 255323,
+        "2": 369821
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 69.2,
+      "processed_at": "2026-10-06T01:54:11+00:00"
+    },
+    {
+      "file": "DFO_20260226_Flood_3-Day_250m.tiff",
+      "date": "2026-02-26",
+      "pixels_matched": {
+        "3": 250390,
+        "2": 367905
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 76.5,
+      "processed_at": "2026-10-06T01:55:43+00:00"
+    },
+    {
+      "file": "DFO_20260227_Flood_3-Day_250m.tiff",
+      "date": "2026-02-27",
+      "pixels_matched": {
+        "3": 296881,
+        "2": 430456
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 69.7,
+      "processed_at": "2026-10-06T01:57:23+00:00"
+    },
+    {
+      "file": "DFO_20260228_Flood_3-Day_250m.tiff",
+      "date": "2026-02-28",
+      "pixels_matched": {
+        "3": 268331,
+        "2": 383019
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 70.0,
+      "processed_at": "2026-10-06T01:58:48+00:00"
+    },
+    {
+      "file": "DFO_20260301_Flood_3-Day_250m.tiff",
+      "date": "2026-03-01",
+      "pixels_matched": {
+        "3": 224217,
+        "2": 331624
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 89.4,
+      "processed_at": "2026-10-06T02:00:33+00:00"
+    },
+    {
+      "file": "DFO_20260302_Flood_3-Day_250m.tiff",
+      "date": "2026-03-02",
+      "pixels_matched": {
+        "3": 249931,
+        "2": 332261
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 80.3,
+      "processed_at": "2026-10-06T02:09:19+00:00"
+    },
+    {
+      "file": "DFO_20260303_Flood_3-Day_250m.tiff",
+      "date": "2026-03-03",
+      "pixels_matched": {
+        "3": 266318,
+        "2": 300015
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 90.7,
+      "processed_at": "2026-10-06T02:11:05+00:00"
+    },
+    {
+      "file": "DFO_20260304_Flood_3-Day_250m.tiff",
+      "date": "2026-03-04",
+      "pixels_matched": {
+        "3": 389266,
+        "2": 336356
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 77.0,
+      "processed_at": "2026-10-06T02:12:37+00:00"
+    },
+    {
+      "file": "DFO_20260305_Flood_3-Day_250m.tiff",
+      "date": "2026-03-05",
+      "pixels_matched": {
+        "3": 399828,
+        "2": 316784
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 75.3,
+      "processed_at": "2026-10-06T02:14:08+00:00"
+    },
+    {
+      "file": "DFO_20260306_Flood_3-Day_250m.tiff",
+      "date": "2026-03-06",
+      "pixels_matched": {
+        "3": 448130,
+        "2": 348174
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 94.9,
+      "processed_at": "2026-10-06T02:16:13+00:00"
+    },
+    {
+      "file": "DFO_20260307_Flood_3-Day_250m.tiff",
+      "date": "2026-03-07",
+      "pixels_matched": {
+        "3": 507348,
+        "2": 333940
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 77.0,
+      "processed_at": "2026-10-06T02:17:45+00:00"
+    },
+    {
+      "file": "DFO_20260308_Flood_3-Day_250m.tiff",
+      "date": "2026-03-08",
+      "pixels_matched": {
+        "3": 262030,
+        "2": 216583
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 63.8,
+      "processed_at": "2026-10-06T02:19:19+00:00"
+    },
+    {
+      "file": "DFO_20260309_Flood_3-Day_250m.tiff",
+      "date": "2026-03-09",
+      "pixels_matched": {
+        "3": 584230,
+        "2": 346437
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 91.4,
+      "processed_at": "2026-10-06T02:21:06+00:00"
+    },
+    {
+      "file": "DFO_20260310_Flood_3-Day_250m.tiff",
+      "date": "2026-03-10",
+      "pixels_matched": {
+        "3": 516681,
+        "2": 401070
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 80.2,
+      "processed_at": "2026-10-06T02:22:56+00:00"
+    },
+    {
+      "file": "DFO_20260311_Flood_3-Day_250m.tiff",
+      "date": "2026-03-11",
+      "pixels_matched": {
+        "3": 545181,
+        "2": 444467
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 84.6,
+      "processed_at": "2026-10-06T02:24:36+00:00"
+    },
+    {
+      "file": "DFO_20260312_Flood_3-Day_250m.tiff",
+      "date": "2026-03-12",
+      "pixels_matched": {
+        "3": 551715,
+        "2": 476612
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 88.4,
+      "processed_at": "2026-10-06T02:26:36+00:00"
+    },
+    {
+      "file": "DFO_20260313_Flood_3-Day_250m.tiff",
+      "date": "2026-03-13",
+      "pixels_matched": {
+        "3": 306897,
+        "2": 438742
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 71.4,
+      "processed_at": "2026-10-06T02:28:03+00:00"
+    },
+    {
+      "file": "DFO_20260314_Flood_3-Day_250m.tiff",
+      "date": "2026-03-14",
+      "pixels_matched": {
+        "3": 481442,
+        "2": 545663
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 76.3,
+      "processed_at": "2026-10-06T02:29:34+00:00"
+    },
+    {
+      "file": "DFO_20260315_Flood_3-Day_250m.tiff",
+      "date": "2026-03-15",
+      "pixels_matched": {
+        "3": 416945,
+        "2": 495375
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 91.4,
+      "processed_at": "2026-10-06T02:31:37+00:00"
+    },
+    {
+      "file": "DFO_20260316_Flood_3-Day_250m.tiff",
+      "date": "2026-03-16",
+      "pixels_matched": {
+        "3": 394904,
+        "2": 487218
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 73.8,
+      "processed_at": "2026-10-06T02:33:06+00:00"
+    },
+    {
+      "file": "DFO_20260317_Flood_3-Day_250m.tiff",
+      "date": "2026-03-17",
+      "pixels_matched": {
+        "3": 191037,
+        "2": 361999
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 63.2,
+      "processed_at": "2026-10-06T02:34:25+00:00"
+    },
+    {
+      "file": "DFO_20260318_Flood_3-Day_250m.tiff",
+      "date": "2026-03-18",
+      "pixels_matched": {
+        "3": 187670,
+        "2": 462809
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 79.3,
+      "processed_at": "2026-10-06T02:35:59+00:00"
+    },
+    {
+      "file": "DFO_20260319_Flood_3-Day_250m.tiff",
+      "date": "2026-03-19",
+      "pixels_matched": {
+        "3": 254461,
+        "2": 358635
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 70.7,
+      "processed_at": "2026-10-06T02:37:25+00:00"
+    },
+    {
+      "file": "DFO_20260320_Flood_3-Day_250m.tiff",
+      "date": "2026-03-20",
+      "pixels_matched": {
+        "3": 261925,
+        "2": 336056
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 71.2,
+      "processed_at": "2026-10-06T02:38:52+00:00"
+    },
+    {
+      "file": "DFO_20260321_Flood_3-Day_250m.tiff",
+      "date": "2026-03-21",
+      "pixels_matched": {
+        "3": 377869,
+        "2": 311463
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 84.7,
+      "processed_at": "2026-10-06T02:40:32+00:00"
+    },
+    {
+      "file": "DFO_20260322_Flood_3-Day_250m.tiff",
+      "date": "2026-03-22",
+      "pixels_matched": {
+        "3": 490721,
+        "2": 377734
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 74.0,
+      "processed_at": "2026-10-06T02:42:01+00:00"
+    },
+    {
+      "file": "DFO_20260323_Flood_3-Day_250m.tiff",
+      "date": "2026-03-23",
+      "pixels_matched": {
+        "3": 540517,
+        "2": 476496
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 80.3,
+      "processed_at": "2026-10-06T02:43:36+00:00"
+    },
+    {
+      "file": "DFO_20260324_Flood_3-Day_250m.tiff",
+      "date": "2026-03-24",
+      "pixels_matched": {
+        "3": 694681,
+        "2": 500830
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 103.1,
+      "processed_at": "2026-10-06T02:45:50+00:00"
+    },
+    {
+      "file": "DFO_20260325_Flood_3-Day_250m.tiff",
+      "date": "2026-03-25",
+      "pixels_matched": {
+        "3": 537667,
+        "2": 516158
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 84.7,
+      "processed_at": "2026-10-06T02:47:45+00:00"
+    },
+    {
+      "file": "DFO_20260326_Flood_3-Day_250m.tiff",
+      "date": "2026-03-26",
+      "pixels_matched": {
+        "3": 430126,
+        "2": 467649
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 83.9,
+      "processed_at": "2026-10-06T02:49:24+00:00"
+    },
+    {
+      "file": "DFO_20260327_Flood_3-Day_250m.tiff",
+      "date": "2026-03-27",
+      "pixels_matched": {
+        "3": 428882,
+        "2": 471056
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 98.2,
+      "processed_at": "2026-10-06T02:51:32+00:00"
+    },
+    {
+      "file": "DFO_20260328_Flood_3-Day_250m.tiff",
+      "date": "2026-03-28",
+      "pixels_matched": {
+        "3": 515841,
+        "2": 551747
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 86.1,
+      "processed_at": "2026-10-06T02:53:29+00:00"
+    },
+    {
+      "file": "DFO_20260329_Flood_3-Day_250m.tiff",
+      "date": "2026-03-29",
+      "pixels_matched": {
+        "3": 638936,
+        "2": 619437
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 93.0,
+      "processed_at": "2026-10-06T02:55:17+00:00"
+    },
+    {
+      "file": "DFO_20260330_Flood_3-Day_250m.tiff",
+      "date": "2026-03-30",
+      "pixels_matched": {
+        "3": 712042,
+        "2": 676754
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 85.9,
+      "processed_at": "2026-10-06T02:56:58+00:00"
+    },
+    {
+      "file": "DFO_20260331_Flood_3-Day_250m.tiff",
+      "date": "2026-03-31",
+      "pixels_matched": {
+        "3": 662208,
+        "2": 561682
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 78.0,
+      "processed_at": "2026-10-06T02:58:47+00:00"
+    },
+    {
+      "file": "DFO_20260401_Flood_3-Day_250m.tiff",
+      "date": "2026-04-01",
+      "pixels_matched": {
+        "3": 916111,
+        "2": 544351
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 108.4,
+      "processed_at": "2026-10-06T03:01:05+00:00"
+    },
+    {
+      "file": "DFO_20260402_Flood_3-Day_250m.tiff",
+      "date": "2026-04-02",
+      "pixels_matched": {
+        "3": 1054321,
+        "2": 523134
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 86.1,
+      "processed_at": "2026-10-06T03:02:47+00:00"
+    },
+    {
+      "file": "DFO_20260403_Flood_3-Day_250m.tiff",
+      "date": "2026-04-03",
+      "pixels_matched": {
+        "3": 1136696,
+        "2": 562302
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 82.5,
+      "processed_at": "2026-10-06T03:04:39+00:00"
+    },
+    {
+      "file": "DFO_20260404_Flood_3-Day_250m.tiff",
+      "date": "2026-04-04",
+      "pixels_matched": {
+        "3": 882724,
+        "2": 565129
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 103.0,
+      "processed_at": "2026-10-06T03:06:38+00:00"
+    },
+    {
+      "file": "DFO_20260405_Flood_3-Day_250m.tiff",
+      "date": "2026-04-05",
+      "pixels_matched": {
+        "3": 588296,
+        "2": 559843
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 84.7,
+      "processed_at": "2026-10-06T03:08:32+00:00"
+    },
+    {
+      "file": "DFO_20260406_Flood_3-Day_250m.tiff",
+      "date": "2026-04-06",
+      "pixels_matched": {
+        "3": 518379,
+        "2": 549977
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 102.3,
+      "processed_at": "2026-10-06T03:10:30+00:00"
+    },
+    {
+      "file": "DFO_20260407_Flood_3-Day_250m.tiff",
+      "date": "2026-04-07",
+      "pixels_matched": {
+        "3": 426155,
+        "2": 555546
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 84.1,
+      "processed_at": "2026-10-06T03:12:09+00:00"
+    },
+    {
+      "file": "DFO_20260408_Flood_3-Day_250m.tiff",
+      "date": "2026-04-08",
+      "pixels_matched": {
+        "3": 486055,
+        "2": 553179
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 87.8,
+      "processed_at": "2026-10-06T03:13:52+00:00"
+    },
+    {
+      "file": "DFO_20260409_Flood_3-Day_250m.tiff",
+      "date": "2026-04-09",
+      "pixels_matched": {
+        "3": 494348,
+        "2": 646841
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 101.1,
+      "processed_at": "2026-10-06T03:16:04+00:00"
+    },
+    {
+      "file": "DFO_20260410_Flood_3-Day_250m.tiff",
+      "date": "2026-04-10",
+      "pixels_matched": {
+        "3": 476510,
+        "2": 711559
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 88.3,
+      "processed_at": "2026-10-06T03:18:02+00:00"
+    },
+    {
+      "file": "DFO_20260411_Flood_3-Day_250m.tiff",
+      "date": "2026-04-11",
+      "pixels_matched": {
+        "3": 566308,
+        "2": 743028
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 87.2,
+      "processed_at": "2026-10-06T03:19:45+00:00"
+    },
+    {
+      "file": "DFO_20260412_Flood_3-Day_250m.tiff",
+      "date": "2026-04-12",
+      "pixels_matched": {
+        "3": 542599,
+        "2": 842455
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 98.6,
+      "processed_at": "2026-10-06T03:21:39+00:00"
+    },
+    {
+      "file": "DFO_20260413_Flood_3-Day_250m.tiff",
+      "date": "2026-04-13",
+      "pixels_matched": {
+        "3": 559020,
+        "2": 801755
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 82.0,
+      "processed_at": "2026-10-06T03:23:31+00:00"
+    },
+    {
+      "file": "DFO_20260414_Flood_3-Day_250m.tiff",
+      "date": "2026-04-14",
+      "pixels_matched": {
+        "3": 614877,
+        "2": 850847
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 93.5,
+      "processed_at": "2026-10-06T03:25:35+00:00"
+    },
+    {
+      "file": "DFO_20260415_Flood_3-Day_250m.tiff",
+      "date": "2026-04-15",
+      "pixels_matched": {
+        "3": 460776,
+        "2": 725021
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 82.0,
+      "processed_at": "2026-10-06T03:27:12+00:00"
+    },
+    {
+      "file": "DFO_20260416_Flood_3-Day_250m.tiff",
+      "date": "2026-04-16",
+      "pixels_matched": {
+        "3": 298904,
+        "2": 610491
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 75.7,
+      "processed_at": "2026-10-06T03:28:43+00:00"
+    },
+    {
+      "file": "DFO_20260417_Flood_3-Day_250m.tiff",
+      "date": "2026-04-17",
+      "pixels_matched": {
+        "3": 356303,
+        "2": 683255
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 94.0,
+      "processed_at": "2026-10-06T03:30:32+00:00"
+    },
+    {
+      "file": "DFO_20260418_Flood_3-Day_250m.tiff",
+      "date": "2026-04-18",
+      "pixels_matched": {
+        "3": 562600,
+        "2": 737055
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 96.8,
+      "processed_at": "2026-10-06T03:32:24+00:00"
+    },
+    {
+      "file": "DFO_20260419_Flood_3-Day_250m.tiff",
+      "date": "2026-04-19",
+      "pixels_matched": {
+        "3": 552729,
+        "2": 744549
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 87.5,
+      "processed_at": "2026-10-06T03:34:07+00:00"
+    },
+    {
+      "file": "DFO_20260420_Flood_3-Day_250m.tiff",
+      "date": "2026-04-20",
+      "pixels_matched": {
+        "3": 323583,
+        "2": 695300
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 87.2,
+      "processed_at": "2026-10-06T03:35:49+00:00"
+    },
+    {
+      "file": "DFO_20260421_Flood_3-Day_250m.tiff",
+      "date": "2026-04-21",
+      "pixels_matched": {
+        "3": 463722,
+        "2": 757786
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 85.9,
+      "processed_at": "2026-10-06T03:37:46+00:00"
+    },
+    {
+      "file": "DFO_20260422_Flood_3-Day_250m.tiff",
+      "date": "2026-04-22",
+      "pixels_matched": {
+        "3": 444066,
+        "2": 728018
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 93.5,
+      "processed_at": "2026-10-06T03:39:34+00:00"
+    },
+    {
+      "file": "DFO_20260423_Flood_3-Day_250m.tiff",
+      "date": "2026-04-23",
+      "pixels_matched": {
+        "3": 423923,
+        "2": 737483
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 103.7,
+      "processed_at": "2026-10-06T03:41:33+00:00"
+    },
+    {
+      "file": "DFO_20260424_Flood_3-Day_250m.tiff",
+      "date": "2026-04-24",
+      "pixels_matched": {
+        "3": 492152,
+        "2": 750615
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 85.5,
+      "processed_at": "2026-10-06T03:43:29+00:00"
+    },
+    {
+      "file": "DFO_20260425_Flood_3-Day_250m.tiff",
+      "date": "2026-04-25",
+      "pixels_matched": {
+        "3": 446158,
+        "2": 707437
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 101.8,
+      "processed_at": "2026-10-06T03:45:26+00:00"
+    },
+    {
+      "file": "DFO_20260426_Flood_3-Day_250m.tiff",
+      "date": "2026-04-26",
+      "pixels_matched": {
+        "3": 562089,
+        "2": 692274
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 92.8,
+      "processed_at": "2026-10-06T03:47:29+00:00"
+    },
+    {
+      "file": "DFO_20260427_Flood_3-Day_250m.tiff",
+      "date": "2026-04-27",
+      "pixels_matched": {
+        "3": 543731,
+        "2": 671504
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 95.5,
+      "processed_at": "2026-10-06T03:49:20+00:00"
+    },
+    {
+      "file": "DFO_20260428_Flood_3-Day_250m.tiff",
+      "date": "2026-04-28",
+      "pixels_matched": {
+        "3": 64079,
+        "2": 128497
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 51.0,
+      "processed_at": "2026-10-06T03:50:41+00:00"
+    },
+    {
+      "file": "DFO_20260429_Flood_3-Day_250m.tiff",
+      "date": "2026-04-29",
+      "pixels_matched": {
+        "3": 453190,
+        "2": 666072
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 62.5,
+      "processed_at": "2026-10-06T03:51:59+00:00"
+    },
+    {
+      "file": "DFO_20260430_Flood_3-Day_250m.tiff",
+      "date": "2026-04-30",
+      "pixels_matched": {
+        "3": 756576,
+        "2": 987460
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 90.6,
+      "processed_at": "2026-10-06T03:53:45+00:00"
+    },
+    {
+      "file": "DFO_20260501_Flood_3-Day_250m.tiff",
+      "date": "2026-05-01",
+      "pixels_matched": {
+        "3": 772940,
+        "2": 949679
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 87.0,
+      "processed_at": "2026-10-06T04:02:56+00:00"
+    },
+    {
+      "file": "DFO_20260502_Flood_3-Day_250m.tiff",
+      "date": "2026-05-02",
+      "pixels_matched": {
+        "3": 685487,
+        "2": 916020
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 86.8,
+      "processed_at": "2026-10-06T04:04:38+00:00"
+    },
+    {
+      "file": "DFO_20260503_Flood_3-Day_250m.tiff",
+      "date": "2026-05-03",
+      "pixels_matched": {
+        "3": 760389,
+        "2": 1075359
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 95.9,
+      "processed_at": "2026-10-06T04:06:45+00:00"
+    },
+    {
+      "file": "DFO_20260504_Flood_3-Day_250m.tiff",
+      "date": "2026-05-04",
+      "pixels_matched": {
+        "3": 769962,
+        "2": 1194834
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 92.7,
+      "processed_at": "2026-10-06T04:08:48+00:00"
+    },
+    {
+      "file": "DFO_20260505_Flood_3-Day_250m.tiff",
+      "date": "2026-05-05",
+      "pixels_matched": {
+        "3": 509977,
+        "2": 782318
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 93.7,
+      "processed_at": "2026-10-06T04:10:52+00:00"
+    },
+    {
+      "file": "DFO_20260506_Flood_3-Day_250m.tiff",
+      "date": "2026-05-06",
+      "pixels_matched": {
+        "3": 173744,
+        "2": 208007
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 37.5,
+      "processed_at": "2026-10-06T04:11:44+00:00"
+    },
+    {
+      "file": "DFO_20260507_Flood_3-Day_250m.tiff",
+      "date": "2026-05-07",
+      "pixels_matched": {
+        "3": 841176,
+        "2": 1011144
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 92.0,
+      "processed_at": "2026-10-06T04:13:46+00:00"
+    },
+    {
+      "file": "DFO_20260508_Flood_3-Day_250m.tiff",
+      "date": "2026-05-08",
+      "pixels_matched": {
+        "3": 938496,
+        "2": 1340034
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 105.3,
+      "processed_at": "2026-10-06T04:15:47+00:00"
+    },
+    {
+      "file": "DFO_20260509_Flood_3-Day_250m.tiff",
+      "date": "2026-05-09",
+      "pixels_matched": {
+        "3": 875793,
+        "2": 1330314
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 101.5,
+      "processed_at": "2026-10-06T04:17:44+00:00"
+    },
+    {
+      "file": "DFO_20260510_Flood_3-Day_250m.tiff",
+      "date": "2026-05-10",
+      "pixels_matched": {
+        "3": 429436,
+        "2": 698054
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 78.9,
+      "processed_at": "2026-10-06T04:19:33+00:00"
+    },
+    {
+      "file": "DFO_20260511_Flood_3-Day_250m.tiff",
+      "date": "2026-05-11",
+      "pixels_matched": {
+        "3": 681443,
+        "2": 912873
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 103.6,
+      "processed_at": "2026-10-06T04:21:47+00:00"
+    },
+    {
+      "file": "DFO_20260512_Flood_3-Day_250m.tiff",
+      "date": "2026-05-12",
+      "pixels_matched": {
+        "3": 738432,
+        "2": 793798
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 89.6,
+      "processed_at": "2026-10-06T04:23:47+00:00"
+    },
+    {
+      "file": "DFO_20260513_Flood_3-Day_250m.tiff",
+      "date": "2026-05-13",
+      "pixels_matched": {
+        "3": 423766,
+        "2": 560989
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 91.8,
+      "processed_at": "2026-10-06T04:25:35+00:00"
+    },
+    {
+      "file": "DFO_20260514_Flood_3-Day_250m.tiff",
+      "date": "2026-05-14",
+      "pixels_matched": {
+        "3": 788886,
+        "2": 918722
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 99.1,
+      "processed_at": "2026-10-06T04:27:29+00:00"
+    },
+    {
+      "file": "DFO_20260515_Flood_3-Day_250m.tiff",
+      "date": "2026-05-15",
+      "pixels_matched": {
+        "3": 847136,
+        "2": 1001664
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 89.3,
+      "processed_at": "2026-10-06T04:29:28+00:00"
+    },
+    {
+      "file": "DFO_20260516_Flood_3-Day_250m.tiff",
+      "date": "2026-05-16",
+      "pixels_matched": {
+        "3": 903303,
+        "2": 1069271
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 108.7,
+      "processed_at": "2026-10-06T04:31:32+00:00"
+    },
+    {
+      "file": "DFO_20260517_Flood_3-Day_250m.tiff",
+      "date": "2026-05-17",
+      "pixels_matched": {
+        "3": 1079170,
+        "2": 1276737
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 89.2,
+      "processed_at": "2026-10-06T04:33:17+00:00"
+    },
+    {
+      "file": "DFO_20260518_Flood_3-Day_250m.tiff",
+      "date": "2026-05-18",
+      "pixels_matched": {
+        "3": 1369383,
+        "2": 1465404
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 102.0,
+      "processed_at": "2026-10-06T04:35:29+00:00"
+    },
+    {
+      "file": "DFO_20260519_Flood_3-Day_250m.tiff",
+      "date": "2026-05-19",
+      "pixels_matched": {
+        "3": 1408721,
+        "2": 1559261
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 94.6,
+      "processed_at": "2026-10-06T04:37:19+00:00"
+    },
+    {
+      "file": "DFO_20260520_Flood_3-Day_250m.tiff",
+      "date": "2026-05-20",
+      "pixels_matched": {
+        "3": 1249175,
+        "2": 1445583
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 97.5,
+      "processed_at": "2026-10-06T04:39:11+00:00"
+    },
+    {
+      "file": "DFO_20260521_Flood_3-Day_250m.tiff",
+      "date": "2026-05-21",
+      "pixels_matched": {
+        "3": 1165206,
+        "2": 1218076
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 109.3,
+      "processed_at": "2026-10-06T04:41:16+00:00"
+    },
+    {
+      "file": "DFO_20260522_Flood_3-Day_250m.tiff",
+      "date": "2026-05-22",
+      "pixels_matched": {
+        "3": 879955,
+        "2": 904030
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 83.5,
+      "processed_at": "2026-10-06T04:42:55+00:00"
+    },
+    {
+      "file": "DFO_20260523_Flood_3-Day_250m.tiff",
+      "date": "2026-05-23",
+      "pixels_matched": {
+        "3": 370329,
+        "2": 547939
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 73.7,
+      "processed_at": "2026-10-06T04:44:38+00:00"
+    },
+    {
+      "file": "DFO_20260524_Flood_3-Day_250m.tiff",
+      "date": "2026-05-24",
+      "pixels_matched": {
+        "3": 449689,
+        "2": 553821
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 81.7,
+      "processed_at": "2026-10-06T04:46:31+00:00"
+    },
+    {
+      "file": "DFO_20260525_Flood_3-Day_250m.tiff",
+      "date": "2026-05-25",
+      "pixels_matched": {
+        "3": 997017,
+        "2": 1003724
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 89.3,
+      "processed_at": "2026-10-06T04:48:30+00:00"
+    },
+    {
+      "file": "DFO_20260526_Flood_3-Day_250m.tiff",
+      "date": "2026-05-26",
+      "pixels_matched": {
+        "3": 588583,
+        "2": 822363
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 75.2,
+      "processed_at": "2026-10-06T04:50:00+00:00"
+    },
+    {
+      "file": "DFO_20260527_Flood_3-Day_250m.tiff",
+      "date": "2026-05-27",
+      "pixels_matched": {
+        "3": 389753,
+        "2": 711679
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 73.8,
+      "processed_at": "2026-10-06T04:51:44+00:00"
+    },
+    {
+      "file": "DFO_20260528_Flood_3-Day_250m.tiff",
+      "date": "2026-05-28",
+      "pixels_matched": {
+        "3": 1847101,
+        "2": 2361226
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 98.5,
+      "processed_at": "2026-10-06T04:53:38+00:00"
+    },
+    {
+      "file": "DFO_20260529_Flood_3-Day_250m.tiff",
+      "date": "2026-05-29",
+      "pixels_matched": {
+        "3": 420866,
+        "2": 495595
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 93.7,
+      "processed_at": "2026-10-06T04:55:42+00:00"
+    },
+    {
+      "file": "DFO_20260530_Flood_3-Day_250m.tiff",
+      "date": "2026-05-30",
+      "pixels_matched": {
+        "3": 2928452,
+        "2": 3173394
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 101.9,
+      "processed_at": "2026-10-06T04:57:54+00:00"
+    },
+    {
+      "file": "DFO_20260531_Flood_3-Day_250m.tiff",
+      "date": "2026-05-31",
+      "pixels_matched": {
+        "3": 2907316,
+        "2": 3326979
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 113.3,
+      "processed_at": "2026-10-06T05:00:18+00:00"
+    },
+    {
+      "file": "DFO_20260601_Flood_3-Day_250m.tiff",
+      "date": "2026-06-01",
+      "pixels_matched": {
+        "3": 2732515,
+        "2": 3294992
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 109.5,
+      "processed_at": "2026-10-06T05:02:23+00:00"
+    },
+    {
+      "file": "DFO_20260602_Flood_3-Day_250m.tiff",
+      "date": "2026-06-02",
+      "pixels_matched": {
+        "3": 3124332,
+        "2": 3233878
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 101.9,
+      "processed_at": "2026-10-06T05:04:20+00:00"
+    },
+    {
+      "file": "DFO_20260603_Flood_3-Day_250m.tiff",
+      "date": "2026-06-03",
+      "pixels_matched": {
+        "3": 3289979,
+        "2": 3103586
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 108.5,
+      "processed_at": "2026-10-06T05:06:38+00:00"
+    },
+    {
+      "file": "DFO_20260604_Flood_3-Day_250m.tiff",
+      "date": "2026-06-04",
+      "pixels_matched": {
+        "3": 3373349,
+        "2": 3063948
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 100.7,
+      "processed_at": "2026-10-06T05:08:34+00:00"
+    },
+    {
+      "file": "DFO_20260605_Flood_3-Day_250m.tiff",
+      "date": "2026-06-05",
+      "pixels_matched": {
+        "3": 2978433,
+        "2": 2985588
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 118.9,
+      "processed_at": "2026-10-06T05:11:04+00:00"
+    },
+    {
+      "file": "DFO_20260606_Flood_3-Day_250m.tiff",
+      "date": "2026-06-06",
+      "pixels_matched": {
+        "3": 2870430,
+        "2": 3013143
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 101.8,
+      "processed_at": "2026-10-06T05:13:16+00:00"
+    },
+    {
+      "file": "DFO_20260607_Flood_3-Day_250m.tiff",
+      "date": "2026-06-07",
+      "pixels_matched": {
+        "3": 2442994,
+        "2": 2970303
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 116.3,
+      "processed_at": "2026-10-06T05:15:42+00:00"
+    },
+    {
+      "file": "DFO_20260608_Flood_3-Day_250m.tiff",
+      "date": "2026-06-08",
+      "pixels_matched": {
+        "3": 1811803,
+        "2": 2571723
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 99.0,
+      "processed_at": "2026-10-06T05:17:51+00:00"
+    },
+    {
+      "file": "DFO_20260609_Flood_3-Day_250m.tiff",
+      "date": "2026-06-09",
+      "pixels_matched": {
+        "3": 2274482,
+        "2": 2636223
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 96.7,
+      "processed_at": "2026-10-06T05:19:43+00:00"
+    },
+    {
+      "file": "DFO_20260610_Flood_3-Day_250m.tiff",
+      "date": "2026-06-10",
+      "pixels_matched": {
+        "3": 2328065,
+        "2": 2652244
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 122.0,
+      "processed_at": "2026-10-06T05:22:17+00:00"
+    },
+    {
+      "file": "DFO_20260611_Flood_3-Day_250m.tiff",
+      "date": "2026-06-11",
+      "pixels_matched": {
+        "3": 260010,
+        "2": 465967
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 73.4,
+      "processed_at": "2026-10-06T05:23:45+00:00"
+    },
+    {
+      "file": "DFO_20260612_Flood_3-Day_250m.tiff",
+      "date": "2026-06-12",
+      "pixels_matched": {
+        "3": 1853851,
+        "2": 3003877
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 107.2,
+      "processed_at": "2026-10-06T05:26:03+00:00"
+    },
+    {
+      "file": "DFO_20260613_Flood_3-Day_250m.tiff",
+      "date": "2026-06-13",
+      "pixels_matched": {
+        "3": 2024008,
+        "2": 3387292
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 93.7,
+      "processed_at": "2026-10-06T05:28:07+00:00"
+    },
+    {
+      "file": "DFO_20260614_Flood_3-Day_250m.tiff",
+      "date": "2026-06-14",
+      "pixels_matched": {
+        "3": 225583,
+        "2": 470968
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 62.6,
+      "processed_at": "2026-10-06T05:29:39+00:00"
+    },
+    {
+      "file": "DFO_20260615_Flood_3-Day_250m.tiff",
+      "date": "2026-06-15",
+      "pixels_matched": {
+        "3": 2484823,
+        "2": 3344182
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 109.9,
+      "processed_at": "2026-10-06T05:32:01+00:00"
+    },
+    {
+      "file": "DFO_20260616_Flood_3-Day_250m.tiff",
+      "date": "2026-06-16",
+      "pixels_matched": {
+        "3": 2225317,
+        "2": 2737988
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 93.2,
+      "processed_at": "2026-10-06T05:34:05+00:00"
+    },
+    {
+      "file": "DFO_20260617_Flood_3-Day_250m.tiff",
+      "date": "2026-06-17",
+      "pixels_matched": {
+        "3": 488583,
+        "2": 806546
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 89.7,
+      "processed_at": "2026-10-06T05:35:50+00:00"
+    },
+    {
+      "file": "DFO_20260618_Flood_3-Day_250m.tiff",
+      "date": "2026-06-18",
+      "pixels_matched": {
+        "3": 2040394,
+        "2": 2283905
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 105.6,
+      "processed_at": "2026-10-06T05:37:51+00:00"
+    },
+    {
+      "file": "DFO_20260619_Flood_3-Day_250m.tiff",
+      "date": "2026-06-19",
+      "pixels_matched": {
+        "3": 235640,
+        "2": 197904
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 71.1,
+      "processed_at": "2026-10-06T05:39:32+00:00"
+    },
+    {
+      "file": "DFO_20260620_Flood_3-Day_250m.tiff",
+      "date": "2026-06-20",
+      "pixels_matched": {
+        "3": 3419030,
+        "2": 2945651
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 122.3,
+      "processed_at": "2026-10-06T05:41:50+00:00"
+    },
+    {
+      "file": "DFO_20260621_Flood_3-Day_250m.tiff",
+      "date": "2026-06-21",
+      "pixels_matched": {
+        "3": 338887,
+        "2": 368876
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 76.1,
+      "processed_at": "2026-10-06T05:43:36+00:00"
+    },
+    {
+      "file": "DFO_20260622_Flood_3-Day_250m.tiff",
+      "date": "2026-06-22",
+      "pixels_matched": {
+        "3": 4276482,
+        "2": 3356006
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 127.2,
+      "processed_at": "2026-10-06T05:46:14+00:00"
+    },
+    {
+      "file": "DFO_20260623_Flood_3-Day_250m.tiff",
+      "date": "2026-06-23",
+      "pixels_matched": {
+        "3": 3193737,
+        "2": 3052411
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 108.7,
+      "processed_at": "2026-10-06T05:48:18+00:00"
+    },
+    {
+      "file": "DFO_20260624_Flood_3-Day_250m.tiff",
+      "date": "2026-06-24",
+      "pixels_matched": {
+        "3": 2183622,
+        "2": 2421898
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 117.6,
+      "processed_at": "2026-10-06T05:50:45+00:00"
+    },
+    {
+      "file": "DFO_20260625_Flood_3-Day_250m.tiff",
+      "date": "2026-06-25",
+      "pixels_matched": {
+        "3": 1702002,
+        "2": 1956298
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 99.3,
+      "processed_at": "2026-10-06T05:52:55+00:00"
+    },
+    {
+      "file": "DFO_20260626_Flood_3-Day_250m.tiff",
+      "date": "2026-06-26",
+      "pixels_matched": {
+        "3": 290201,
+        "2": 302637
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 65.0,
+      "processed_at": "2026-10-06T05:54:30+00:00"
+    },
+    {
+      "file": "DFO_20260627_Flood_3-Day_250m.tiff",
+      "date": "2026-06-27",
+      "pixels_matched": {
+        "3": 371872,
+        "2": 376065
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 78.6,
+      "processed_at": "2026-10-06T05:56:04+00:00"
+    },
+    {
+      "file": "DFO_20260628_Flood_3-Day_250m.tiff",
+      "date": "2026-06-28",
+      "pixels_matched": {
+        "3": 2085802,
+        "2": 2349619
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 100.5,
+      "processed_at": "2026-10-06T05:58:15+00:00"
+    },
+    {
+      "file": "DFO_20260629_Flood_3-Day_250m.tiff",
+      "date": "2026-06-29",
+      "pixels_matched": {
+        "3": 358816,
+        "2": 369426
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 70.8,
+      "processed_at": "2026-10-06T05:59:55+00:00"
+    },
+    {
+      "file": "DFO_20260630_Flood_3-Day_250m.tiff",
+      "date": "2026-06-30",
+      "pixels_matched": {
+        "3": 2110856,
+        "2": 2174175
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 104.1,
+      "processed_at": "2026-10-06T06:09:53+00:00"
+    },
+    {
+      "file": "DFO_20260701_Flood_3-Day_250m.tiff",
+      "date": "2026-07-01",
+      "pixels_matched": {
+        "3": 1644691,
+        "2": 1934615
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 93.5,
+      "processed_at": "2026-10-06T08:54:09+00:00"
+    },
+    {
+      "file": "DFO_20260702_Flood_3-Day_250m.tiff",
+      "date": "2026-07-02",
+      "pixels_matched": {
+        "3": 372807,
+        "2": 392534
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 66.5,
+      "processed_at": "2026-10-06T08:55:15+00:00"
+    },
+    {
+      "file": "DFO_20260703_Flood_3-Day_250m.tiff",
+      "date": "2026-07-03",
+      "pixels_matched": {
+        "3": 1746468,
+        "2": 1830478
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 103.3,
+      "processed_at": "2026-10-06T08:56:59+00:00"
+    },
+    {
+      "file": "DFO_20260704_Flood_3-Day_250m.tiff",
+      "date": "2026-07-04",
+      "pixels_matched": {
+        "3": 1530750,
+        "2": 1761687
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 100.9,
+      "processed_at": "2026-10-06T08:58:41+00:00"
+    },
+    {
+      "file": "DFO_20260705_Flood_3-Day_250m.tiff",
+      "date": "2026-07-05",
+      "pixels_matched": {
+        "3": 1077955,
+        "2": 1538167
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 156.3,
+      "processed_at": "2026-10-06T09:01:17+00:00"
+    },
+    {
+      "file": "DFO_20260706_Flood_3-Day_250m.tiff",
+      "date": "2026-07-06",
+      "pixels_matched": {
+        "3": 363157,
+        "2": 452127
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 98.9,
+      "processed_at": "2026-10-06T09:02:57+00:00"
+    },
+    {
+      "file": "DFO_20260707_Flood_3-Day_250m.tiff",
+      "date": "2026-07-07",
+      "pixels_matched": {
+        "3": 318970,
+        "2": 330513
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 72.1,
+      "processed_at": "2026-10-06T09:04:09+00:00"
+    },
+    {
+      "file": "DFO_20260708_Flood_3-Day_250m.tiff",
+      "date": "2026-07-08",
+      "pixels_matched": {
+        "3": 1266103,
+        "2": 1419914
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 110.6,
+      "processed_at": "2026-10-06T09:06:00+00:00"
+    },
+    {
+      "file": "DFO_20260709_Flood_3-Day_250m.tiff",
+      "date": "2026-07-09",
+      "pixels_matched": {
+        "3": 237734,
+        "2": 163122
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 70.4,
+      "processed_at": "2026-10-06T09:07:11+00:00"
+    },
+    {
+      "file": "DFO_20260710_Flood_3-Day_250m.tiff",
+      "date": "2026-07-10",
+      "pixels_matched": {
+        "3": 1202964,
+        "2": 1125343
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 91.3,
+      "processed_at": "2026-10-06T09:08:42+00:00"
+    },
+    {
+      "file": "DFO_20260711_Flood_3-Day_250m.tiff",
+      "date": "2026-07-11",
+      "pixels_matched": {
+        "3": 1114651,
+        "2": 1066812
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 122.4,
+      "processed_at": "2026-10-06T09:10:45+00:00"
+    },
+    {
+      "file": "DFO_20260712_Flood_3-Day_250m.tiff",
+      "date": "2026-07-12",
+      "pixels_matched": {
+        "3": 972498,
+        "2": 1046671
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 129.2,
+      "processed_at": "2026-10-06T09:12:55+00:00"
+    },
+    {
+      "file": "DFO_20260713_Flood_3-Day_250m.tiff",
+      "date": "2026-07-13",
+      "pixels_matched": {
+        "3": 942931,
+        "2": 1100447
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 117.9,
+      "processed_at": "2026-10-06T09:14:53+00:00"
+    },
+    {
+      "file": "DFO_20260714_Flood_3-Day_250m.tiff",
+      "date": "2026-07-14",
+      "pixels_matched": {
+        "3": 997031,
+        "2": 1126110
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 144.7,
+      "processed_at": "2026-10-06T09:17:18+00:00"
+    },
+    {
+      "file": "DFO_20260715_Flood_3-Day_250m.tiff",
+      "date": "2026-07-15",
+      "pixels_matched": {
+        "3": 1059333,
+        "2": 1262282
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 130.5,
+      "processed_at": "2026-10-06T09:19:29+00:00"
+    },
+    {
+      "file": "DFO_20260716_Flood_3-Day_250m.tiff",
+      "date": "2026-07-16",
+      "pixels_matched": {
+        "3": 978960,
+        "2": 1299727
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 144.4,
+      "processed_at": "2026-10-06T09:21:54+00:00"
+    },
+    {
+      "file": "DFO_20260717_Flood_3-Day_250m.tiff",
+      "date": "2026-07-17",
+      "pixels_matched": {
+        "3": 591735,
+        "2": 1080427
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 114.7,
+      "processed_at": "2026-10-06T09:23:49+00:00"
+    },
+    {
+      "file": "DFO_20260718_Flood_3-Day_250m.tiff",
+      "date": "2026-07-18",
+      "pixels_matched": {
+        "3": 755668,
+        "2": 1226809
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 129.3,
+      "processed_at": "2026-10-06T09:25:59+00:00"
+    },
+    {
+      "file": "DFO_20260719_Flood_3-Day_250m.tiff",
+      "date": "2026-07-19",
+      "pixels_matched": {
+        "3": 1048245,
+        "2": 1448857
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 135.7,
+      "processed_at": "2026-10-06T09:28:15+00:00"
+    },
+    {
+      "file": "DFO_20260720_Flood_3-Day_250m.tiff",
+      "date": "2026-07-20",
+      "pixels_matched": {
+        "3": 955024,
+        "2": 1300667
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 145.8,
+      "processed_at": "2026-10-06T09:30:41+00:00"
+    },
+    {
+      "file": "DFO_20260721_Flood_3-Day_250m.tiff",
+      "date": "2026-07-21",
+      "pixels_matched": {
+        "3": 909029,
+        "2": 1284739
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 116.6,
+      "processed_at": "2026-10-06T09:32:38+00:00"
+    },
+    {
+      "file": "DFO_20260722_Flood_3-Day_250m.tiff",
+      "date": "2026-07-22",
+      "pixels_matched": {
+        "3": 805037,
+        "2": 1174803
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 113.4,
+      "processed_at": "2026-10-06T09:34:32+00:00"
+    },
+    {
+      "file": "DFO_20260723_Flood_3-Day_250m.tiff",
+      "date": "2026-07-23",
+      "pixels_matched": {
+        "3": 718283,
+        "2": 1176572
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 123.2,
+      "processed_at": "2026-10-06T09:36:36+00:00"
+    },
+    {
+      "file": "DFO_20260724_Flood_3-Day_250m.tiff",
+      "date": "2026-07-24",
+      "pixels_matched": {
+        "3": 802553,
+        "2": 1152835
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 109.1,
+      "processed_at": "2026-10-06T09:38:25+00:00"
+    },
+    {
+      "file": "DFO_20260725_Flood_3-Day_250m.tiff",
+      "date": "2026-07-25",
+      "pixels_matched": {
+        "3": 1051075,
+        "2": 1539549
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 141.8,
+      "processed_at": "2026-10-06T09:40:48+00:00"
+    },
+    {
+      "file": "DFO_20260726_Flood_3-Day_250m.tiff",
+      "date": "2026-07-26",
+      "pixels_matched": {
+        "3": 1125087,
+        "2": 1678466
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 126.7,
+      "processed_at": "2026-10-06T09:42:55+00:00"
+    },
+    {
+      "file": "DFO_20260727_Flood_3-Day_250m.tiff",
+      "date": "2026-07-27",
+      "pixels_matched": {
+        "3": 1115113,
+        "2": 1815867
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 123.0,
+      "processed_at": "2026-10-06T09:44:58+00:00"
+    },
+    {
+      "file": "DFO_20260728_Flood_3-Day_250m.tiff",
+      "date": "2026-07-28",
+      "pixels_matched": {
+        "3": 945934,
+        "2": 1627001
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 148.7,
+      "processed_at": "2026-10-06T09:47:28+00:00"
+    },
+    {
+      "file": "DFO_20260729_Flood_3-Day_250m.tiff",
+      "date": "2026-07-29",
+      "pixels_matched": {
+        "3": 860756,
+        "2": 1525754
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 122.2,
+      "processed_at": "2026-10-06T09:49:30+00:00"
+    },
+    {
+      "file": "DFO_20260730_Flood_3-Day_250m.tiff",
+      "date": "2026-07-30",
+      "pixels_matched": {
+        "3": 857185,
+        "2": 1444329
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 138.3,
+      "processed_at": "2026-10-06T09:51:49+00:00"
+    },
+    {
+      "file": "DFO_20260731_Flood_3-Day_250m.tiff",
+      "date": "2026-07-31",
+      "pixels_matched": {
+        "3": 579976,
+        "2": 1037374
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 98.4,
+      "processed_at": "2026-10-06T09:53:28+00:00"
+    },
+    {
+      "file": "DFO_20260802_Flood_3-Day_250m.tiff",
+      "date": "2026-08-02",
+      "pixels_matched": {
+        "3": 739492,
+        "2": 1080097
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 138.3,
+      "processed_at": "2026-10-06T09:55:47+00:00"
+    },
+    {
+      "file": "DFO_20260803_Flood_3-Day_250m.tiff",
+      "date": "2026-08-03",
+      "pixels_matched": {
+        "3": 820053,
+        "2": 1079671
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 130.2,
+      "processed_at": "2026-10-06T09:57:57+00:00"
+    },
+    {
+      "file": "DFO_20260804_Flood_3-Day_250m.tiff",
+      "date": "2026-08-04",
+      "pixels_matched": {
+        "3": 812488,
+        "2": 1271021
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 112.1,
+      "processed_at": "2026-10-06T09:59:50+00:00"
+    },
+    {
+      "file": "DFO_20260805_Flood_3-Day_250m.tiff",
+      "date": "2026-08-05",
+      "pixels_matched": {
+        "3": 764408,
+        "2": 1460672
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 144.0,
+      "processed_at": "2026-10-06T10:02:15+00:00"
+    },
+    {
+      "file": "DFO_20260806_Flood_3-Day_250m.tiff",
+      "date": "2026-08-06",
+      "pixels_matched": {
+        "3": 967285,
+        "2": 1510394
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 123.4,
+      "processed_at": "2026-10-06T10:04:18+00:00"
+    },
+    {
+      "file": "DFO_20260807_Flood_3-Day_250m.tiff",
+      "date": "2026-08-07",
+      "pixels_matched": {
+        "3": 1231582,
+        "2": 1495366
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 137.0,
+      "processed_at": "2026-10-06T10:06:36+00:00"
+    },
+    {
+      "file": "DFO_20260808_Flood_3-Day_250m.tiff",
+      "date": "2026-08-08",
+      "pixels_matched": {
+        "3": 1488526,
+        "2": 1599634
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 118.7,
+      "processed_at": "2026-10-06T10:08:35+00:00"
+    },
+    {
+      "file": "DFO_20260809_Flood_3-Day_250m.tiff",
+      "date": "2026-08-09",
+      "pixels_matched": {
+        "3": 1651852,
+        "2": 1754846
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 141.4,
+      "processed_at": "2026-10-06T10:10:57+00:00"
+    },
+    {
+      "file": "DFO_20260810_Flood_3-Day_250m.tiff",
+      "date": "2026-08-10",
+      "pixels_matched": {
+        "3": 1413591,
+        "2": 1971616
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 132.9,
+      "processed_at": "2026-10-06T10:13:10+00:00"
+    },
+    {
+      "file": "DFO_20260811_Flood_3-Day_250m.tiff",
+      "date": "2026-08-11",
+      "pixels_matched": {
+        "3": 1160783,
+        "2": 1848209
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 149.7,
+      "processed_at": "2026-10-06T10:15:40+00:00"
+    },
+    {
+      "file": "DFO_20260812_Flood_3-Day_250m.tiff",
+      "date": "2026-08-12",
+      "pixels_matched": {
+        "3": 952896,
+        "2": 1618592
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 130.1,
+      "processed_at": "2026-10-06T10:17:51+00:00"
+    },
+    {
+      "file": "DFO_20260813_Flood_3-Day_250m.tiff",
+      "date": "2026-08-13",
+      "pixels_matched": {
+        "3": 782578,
+        "2": 1231054
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 125.3,
+      "processed_at": "2026-10-06T10:19:57+00:00"
+    },
+    {
+      "file": "DFO_20260814_Flood_3-Day_250m.tiff",
+      "date": "2026-08-14",
+      "pixels_matched": {
+        "3": 538703,
+        "2": 852339
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 108.9,
+      "processed_at": "2026-10-06T10:21:46+00:00"
+    },
+    {
+      "file": "DFO_20260815_Flood_3-Day_250m.tiff",
+      "date": "2026-08-15",
+      "pixels_matched": {
+        "3": 0,
+        "2": 0
+      },
+      "source_geometry": {
+        "width": 144000,
+        "height": 28800,
+        "row_offset": 28800,
+        "col_offset": 14400,
+        "top": 20.0
+      },
+      "seconds": 12.8,
+      "processed_at": "2026-10-06T10:21:59+00:00"
+    },
+    {
+      "file": "DFO_20260816_Flood_3-Day_250m.tiff",
+      "date": "2026-08-16",
+      "pixels_matched": {
+        "3": 0,
+        "2": 0
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 57600,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 31.9,
+      "processed_at": "2026-10-06T10:22:46+00:00"
+    },
+    {
+      "file": "DFO_20260817_Flood_3-Day_250m.tiff",
+      "date": "2026-08-17",
+      "pixels_matched": {
+        "3": 366566,
+        "2": 906457
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 97.8,
+      "processed_at": "2026-10-06T10:24:24+00:00"
+    },
+    {
+      "file": "DFO_20260818_Flood_3-Day_250m.tiff",
+      "date": "2026-08-18",
+      "pixels_matched": {
+        "3": 0,
+        "2": 0
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 57600,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 38.6,
+      "processed_at": "2026-10-06T10:25:03+00:00"
+    },
+    {
+      "file": "DFO_20260819_Flood_3-Day_250m.tiff",
+      "date": "2026-08-19",
+      "pixels_matched": {
+        "3": 3793,
+        "2": 2598
+      },
+      "source_geometry": {
+        "width": 9600,
+        "height": 19200,
+        "row_offset": 38400,
+        "col_offset": 139200,
+        "top": 0.0
+      },
+      "seconds": 8.1,
+      "processed_at": "2026-10-06T10:25:11+00:00"
+    },
+    {
+      "file": "DFO_20260820_Flood_3-Day_250m.tiff",
+      "date": "2026-08-20",
+      "pixels_matched": {
+        "3": 0,
+        "2": 0
+      },
+      "source_geometry": {
+        "width": 144000,
+        "height": 28800,
+        "row_offset": 28800,
+        "col_offset": 14400,
+        "top": 20.0
+      },
+      "seconds": 19.1,
+      "processed_at": "2026-10-06T10:25:31+00:00"
+    },
+    {
+      "file": "DFO_20260821_Flood_3-Day_250m.tiff",
+      "date": "2026-08-21",
+      "pixels_matched": {
+        "3": 0,
+        "2": 0
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 57600,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 32.3,
+      "processed_at": "2026-10-06T10:26:18+00:00"
+    },
+    {
+      "file": "DFO_20260822_Flood_3-Day_250m.tiff",
+      "date": "2026-08-22",
+      "pixels_matched": {
+        "3": 447862,
+        "2": 859179
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 99.2,
+      "processed_at": "2026-10-06T10:27:58+00:00"
+    },
+    {
+      "file": "DFO_20260823_Flood_3-Day_250m.tiff",
+      "date": "2026-08-23",
+      "pixels_matched": {
+        "3": 0,
+        "2": 0
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 57600,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 42.6,
+      "processed_at": "2026-10-06T10:28:40+00:00"
+    },
+    {
+      "file": "DFO_20260824_Flood_3-Day_250m.tiff",
+      "date": "2026-08-24",
+      "pixels_matched": {
+        "3": 545953,
+        "2": 1025559
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 62400,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 109.2,
+      "processed_at": "2026-10-06T10:30:30+00:00"
+    },
+    {
+      "file": "DFO_20260825_Flood_3-Day_250m.tiff",
+      "date": "2026-08-25",
+      "pixels_matched": {
+        "3": 0,
+        "2": 0
+      },
+      "source_geometry": {
+        "width": 144000,
+        "height": 24000,
+        "row_offset": 33600,
+        "col_offset": 14400,
+        "top": 10.0
+      },
+      "seconds": 11.2,
+      "processed_at": "2026-10-06T10:30:41+00:00"
+    },
+    {
+      "file": "DFO_20260826_Flood_3-Day_250m.tiff",
+      "date": "2026-08-26",
+      "pixels_matched": {
+        "3": 0,
+        "2": 0
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 57600,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 29.5,
+      "processed_at": "2026-10-06T10:31:26+00:00"
+    },
+    {
+      "file": "DFO_20260827_Flood_3-Day_250m.tiff",
+      "date": "2026-08-27",
+      "pixels_matched": {
+        "3": 654968,
+        "2": 1222107
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 67200,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 108.0,
+      "processed_at": "2026-10-06T10:33:14+00:00"
+    },
+    {
+      "file": "DFO_20260828_Flood_3-Day_250m.tiff",
+      "date": "2026-08-28",
+      "pixels_matched": {
+        "3": 0,
+        "2": 0
+      },
+      "source_geometry": {
+        "width": 158400,
+        "height": 57600,
+        "row_offset": 0,
+        "col_offset": 14400,
+        "top": 80.0
+      },
+      "seconds": 24.7,
+      "processed_at": "2026-10-06T10:33:39+00:00"
+    },
+    {
+      "file": "DFO_20260829_Flood_3-Day_250m.tiff",
+      "date": "2026-08-29",
+      "pixels_matched": {
+        "3": 174399,
+        "2": 341944
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 57600,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 52.8,
+      "processed_at": "2026-10-06T10:34:32+00:00"
+    },
+    {
+      "file": "DFO_20260830_Flood_3-Day_250m.tiff",
+      "date": "2026-08-30",
+      "pixels_matched": {
+        "3": 0,
+        "2": 0
+      },
+      "source_geometry": {
+        "width": 144000,
+        "height": 24000,
+        "row_offset": 33600,
+        "col_offset": 14400,
+        "top": 10.0
+      },
+      "seconds": 6.4,
+      "processed_at": "2026-10-06T10:34:39+00:00"
+    },
+    {
+      "file": "DFO_20260831_Flood_3-Day_250m.tiff",
+      "date": "2026-08-31",
+      "pixels_matched": {
+        "3": 0,
+        "2": 0
+      },
+      "source_geometry": {
+        "width": 172800,
+        "height": 57600,
+        "row_offset": 0,
+        "col_offset": 0,
+        "top": 80.0
+      },
+      "seconds": 46.5,
+      "processed_at": "2026-10-06T10:35:40+00:00"
+    }
+  ],
+  "date_range_requested": {
+    "start": "202601",
+    "end": "202608"
+  },
+  "updated_at": "2026-10-06T10:35:40+00:00",
+  "max_count": {
+    "3": 203,
+    "2": 196
+  },
+  "result_written_at": "2026-10-06T10:44:12+00:00",
+  "result_size_bytes": 266963381
+}

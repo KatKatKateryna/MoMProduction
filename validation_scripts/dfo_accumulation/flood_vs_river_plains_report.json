@@ -1,0 +1,497 @@
+{
+  "inputs": {
+    "accumulation": "dfo_accumulater.tiff",
+    "floodplain_mask": "river_plains_mask.tiff",
+    "floodplain_source": "GFPLAIN250m (Nardi & Annis)",
+    "floodplain_doi": "https://doi.org/10.6084/m9.figshare.6665165.v1",
+    "rasters_accumulated": 242,
+    "date_range": {
+      "start": "202601",
+      "end": "202608"
+    }
+  },
+  "domain": {
+    "rows": [
+      7680,
+      64656
+    ],
+    "lat_north": 64.0,
+    "lat_south": -54.7,
+    "pixels": 8382631118,
+    "note": "pixels inside the GFPLAIN continental footprints and inside the rows every source raster observed"
+  },
+  "floodplain": {
+    "definition": "GFPLAIN250m floodplain, binary",
+    "pixels": 302505027,
+    "fraction_of_domain": 0.03608712142306153
+  },
+  "bands": [
+    {
+      "band": 1,
+      "source_value": 3,
+      "source_class": "flood (unusual)",
+      "flood_pixels_in_domain": 27892509,
+      "flood_fraction_of_domain": 0.003327416965790907,
+      "flood_pixels_on_floodplain": 7856385,
+      "share_of_flood_on_floodplain": 0.2816664861522497,
+      "frequency_on_floodplain": 0.025971089068876862,
+      "frequency_off_floodplain": 0.0024796796206332863,
+      "enrichment_ratio": 10.473566364288663,
+      "odds_ratio": 10.726165474115556,
+      "jaccard_with_floodplain": 0.0243577756687549,
+      "mean_count_on_floodplain": 0.14846655424341096,
+      "mean_count_off_floodplain": 0.008508359798564931,
+      "mean_count_ratio": 17.449491765551826,
+      "mean_frequency_on_floodplain": 0.0006214155419547817,
+      "mean_frequency_off_floodplain": 3.574525603347348e-05,
+      "mean_frequency_ratio": 17.384559824466216,
+      "cell_response": [
+        {
+          "floodplain_fraction_bin": "0%",
+          "cells": 3261891,
+          "mean_flooded_fraction": 0.002071727765724063,
+          "cells_with_any_flood": 324988
+        },
+        {
+          "floodplain_fraction_bin": ">0-1%",
+          "cells": 66695,
+          "mean_flooded_fraction": 0.006033380050212145,
+          "cells_with_any_flood": 24841
+        },
+        {
+          "floodplain_fraction_bin": ">1-5%",
+          "cells": 55003,
+          "mean_flooded_fraction": 0.007356369402259588,
+          "cells_with_any_flood": 24474
+        },
+        {
+          "floodplain_fraction_bin": ">5-10%",
+          "cells": 86942,
+          "mean_flooded_fraction": 0.010487285442650318,
+          "cells_with_any_flood": 45886
+        },
+        {
+          "floodplain_fraction_bin": ">10-25%",
+          "cells": 62920,
+          "mean_flooded_fraction": 0.015588025562465191,
+          "cells_with_any_flood": 38087
+        },
+        {
+          "floodplain_fraction_bin": ">25-50%",
+          "cells": 34540,
+          "mean_flooded_fraction": 0.020618492737412453,
+          "cells_with_any_flood": 22712
+        },
+        {
+          "floodplain_fraction_bin": ">50-75%",
+          "cells": 70563,
+          "mean_flooded_fraction": 0.02744542621076107,
+          "cells_with_any_flood": 45764
+        },
+        {
+          "floodplain_fraction_bin": ">75-100%",
+          "cells": 0,
+          "mean_flooded_fraction": 0.0,
+          "cells_with_any_flood": 0
+        }
+      ],
+      "cell_0p1deg_correlation": {
+        "pearson": 0.06817786073863398,
+        "spearman": -0.2499276342011384,
+        "cells_considered": 725661,
+        "note": "floodplain fraction vs flooded fraction of each 0.1 degree cell, over in-domain cells where either occurs"
+      }
+    },
+    {
+      "band": 2,
+      "source_value": 2,
+      "source_class": "recurring flood (regular, seasonal inundation)",
+      "flood_pixels_in_domain": 11202131,
+      "flood_fraction_of_domain": 0.0013363502273105751,
+      "flood_pixels_on_floodplain": 5114550,
+      "share_of_flood_on_floodplain": 0.4565693795225212,
+      "frequency_on_floodplain": 0.01690732233682847,
+      "frequency_off_floodplain": 0.0007534017330225348,
+      "enrichment_ratio": 22.44131065241757,
+      "odds_ratio": 22.81006037333524,
+      "jaccard_with_floodplain": 0.016573792979512978,
+      "mean_count_on_floodplain": 0.17204265501346527,
+      "mean_count_off_floodplain": 0.007169974001337648,
+      "mean_count_ratio": 23.99487850044764,
+      "mean_frequency_on_floodplain": 0.0007217756937233415,
+      "mean_frequency_off_floodplain": 3.0187838410691063e-05,
+      "mean_frequency_ratio": 23.90948579702625,
+      "cell_response": [
+        {
+          "floodplain_fraction_bin": "0%",
+          "cells": 3261891,
+          "mean_flooded_fraction": 0.0006535238935612142,
+          "cells_with_any_flood": 158134
+        },
+        {
+          "floodplain_fraction_bin": ">0-1%",
+          "cells": 66695,
+          "mean_flooded_fraction": 0.0016718741971999407,
+          "cells_with_any_flood": 11517
+        },
+        {
+          "floodplain_fraction_bin": ">1-5%",
+          "cells": 55003,
+          "mean_flooded_fraction": 0.0022340717259794474,
+          "cells_with_any_flood": 11855
+        },
+        {
+          "floodplain_fraction_bin": ">5-10%",
+          "cells": 86942,
+          "mean_flooded_fraction": 0.003558017546311021,
+          "cells_with_any_flood": 23701
+        },
+        {
+          "floodplain_fraction_bin": ">10-25%",
+          "cells": 62920,
+          "mean_flooded_fraction": 0.006912740878760815,
+          "cells_with_any_flood": 21831
+        },
+        {
+          "floodplain_fraction_bin": ">25-50%",
+          "cells": 34540,
+          "mean_flooded_fraction": 0.011769779957830906,
+          "cells_with_any_flood": 14263
+        },
+        {
+          "floodplain_fraction_bin": ">50-75%",
+          "cells": 70563,
+          "mean_flooded_fraction": 0.019062554463744164,
+          "cells_with_any_flood": 29767
+        },
+        {
+          "floodplain_fraction_bin": ">75-100%",
+          "cells": 0,
+          "mean_flooded_fraction": 0.0,
+          "cells_with_any_flood": 0
+        }
+      ],
+      "cell_0p1deg_correlation": {
+        "pearson": 0.10056704253141545,
+        "spearman": -0.3174991539276625,
+        "cells_considered": 566045,
+        "note": "floodplain fraction vs flooded fraction of each 0.1 degree cell, over in-domain cells where either occurs"
+      }
+    }
+  ],
+  "by_latitude": [
+    {
+      "lat_south": 60,
+      "lat_north": 70,
+      "pixels": 294059520,
+      "floodplain_fraction": 3.162625035911097e-07,
+      "bands": [
+        {
+          "band": 1,
+          "flood_pixels": 4688505,
+          "share_of_global_flood": 0.1680919059665805,
+          "share_on_floodplain": 1.919588440238413e-06,
+          "frequency_on_floodplain": 0.0967741935483871,
+          "frequency_off_floodplain": 0.015944042494512513,
+          "enrichment_ratio": 6.0696146276387575
+        },
+        {
+          "band": 2,
+          "flood_pixels": 1514230,
+          "share_of_global_flood": 0.13517338799198117,
+          "share_on_floodplain": 1.981204968862062e-06,
+          "frequency_on_floodplain": 0.03225806451612903,
+          "frequency_off_floodplain": 0.005149391112701855,
+          "enrichment_ratio": 6.264442496232028
+        }
+      ]
+    },
+    {
+      "lat_south": 50,
+      "lat_north": 60,
+      "pixels": 735148800,
+      "floodplain_fraction": 0.08218482843201268,
+      "bands": [
+        {
+          "band": 1,
+          "flood_pixels": 9674760,
+          "share_of_global_flood": 0.3468587210996329,
+          "share_on_floodplain": 0.3271542653254448,
+          "frequency_on_floodplain": 0.05238728381925688,
+          "frequency_off_floodplain": 0.009647731736157702,
+          "enrichment_ratio": 5.430010416118867
+        },
+        {
+          "band": 2,
+          "flood_pixels": 3923548,
+          "share_of_global_flood": 0.35025014436985247,
+          "share_on_floodplain": 0.511141956209023,
+          "frequency_on_floodplain": 0.033193541840241925,
+          "frequency_off_floodplain": 0.0028427014473486507,
+          "enrichment_ratio": 11.676759749498524
+        }
+      ]
+    },
+    {
+      "lat_south": 40,
+      "lat_north": 50,
+      "pixels": 735148800,
+      "floodplain_fraction": 0.04696609312291607,
+      "bands": [
+        {
+          "band": 1,
+          "flood_pixels": 3236734,
+          "share_of_global_flood": 0.11604312828222087,
+          "share_on_floodplain": 0.3421050355080152,
+          "frequency_on_floodplain": 0.03207057813511933,
+          "frequency_off_floodplain": 0.0030393447700829456,
+          "enrichment_ratio": 10.551806577127511
+        },
+        {
+          "band": 2,
+          "flood_pixels": 1791529,
+          "share_of_global_flood": 0.15992751736254468,
+          "share_on_floodplain": 0.5181970261156811,
+          "frequency_on_floodplain": 0.02688803540711987,
+          "frequency_off_floodplain": 0.0012319971809952404,
+          "enrichment_ratio": 21.82475400260169
+        }
+      ]
+    },
+    {
+      "lat_south": 30,
+      "lat_north": 40,
+      "pixels": 735148800,
+      "floodplain_fraction": 0.04264699881166915,
+      "bands": [
+        {
+          "band": 1,
+          "flood_pixels": 1169960,
+          "share_of_global_flood": 0.04194531227004354,
+          "share_on_floodplain": 0.4121841772368286,
+          "frequency_on_floodplain": 0.015381496936867283,
+          "frequency_off_floodplain": 0.0009771583111951997,
+          "enrichment_ratio": 15.741049081446779
+        },
+        {
+          "band": 2,
+          "flood_pixels": 1039388,
+          "share_of_global_flood": 0.09278484602617126,
+          "share_on_floodplain": 0.4677723814398473,
+          "frequency_on_floodplain": 0.015507741319582328,
+          "frequency_off_floodplain": 0.0007860094185409254,
+          "enrichment_ratio": 19.7297143695421
+        }
+      ]
+    },
+    {
+      "lat_south": 20,
+      "lat_north": 30,
+      "pixels": 735148800,
+      "floodplain_fraction": 0.026551851815578016,
+      "bands": [
+        {
+          "band": 1,
+          "flood_pixels": 692409,
+          "share_of_global_flood": 0.0248241920438208,
+          "share_on_floodplain": 0.3739003970196806,
+          "frequency_on_floodplain": 0.013263207442871926,
+          "frequency_off_floodplain": 0.0006057843600850752,
+          "enrichment_ratio": 21.89427181812562
+        },
+        {
+          "band": 2,
+          "flood_pixels": 656349,
+          "share_of_global_flood": 0.05859144121774687,
+          "share_on_floodplain": 0.5006787547478552,
+          "frequency_on_floodplain": 0.016835418745564067,
+          "frequency_off_floodplain": 0.00045795920931894626,
+          "enrichment_ratio": 36.76183031803389
+        }
+      ]
+    },
+    {
+      "lat_south": 10,
+      "lat_north": 20,
+      "pixels": 735623362,
+      "floodplain_fraction": 0.055226023395379874,
+      "bands": [
+        {
+          "band": 1,
+          "flood_pixels": 507538,
+          "share_of_global_flood": 0.018196211749900305,
+          "share_on_floodplain": 0.5568883512170517,
+          "frequency_on_floodplain": 0.006957246834276939,
+          "frequency_off_floodplain": 0.00032359238703729494,
+          "enrichment_ratio": 21.500032488326422
+        },
+        {
+          "band": 2,
+          "flood_pixels": 344703,
+          "share_of_global_flood": 0.030771198801370917,
+          "share_on_floodplain": 0.5223859380394137,
+          "frequency_on_floodplain": 0.0044323827419653836,
+          "frequency_off_floodplain": 0.00023688563887256801,
+          "enrichment_ratio": 18.71106565624171
+        }
+      ]
+    },
+    {
+      "lat_south": 0,
+      "lat_north": 10,
+      "pixels": 735457036,
+      "floodplain_fraction": 0.04026061965637378,
+      "bands": [
+        {
+          "band": 1,
+          "flood_pixels": 474570,
+          "share_of_global_flood": 0.017014245652838187,
+          "share_on_floodplain": 0.6625302905788398,
+          "frequency_on_floodplain": 0.010618624357293879,
+          "frequency_off_floodplain": 0.0002268947545975539,
+          "enrichment_ratio": 46.79977893772056
+        },
+        {
+          "band": 2,
+          "flood_pixels": 242955,
+          "share_of_global_flood": 0.021688284130939015,
+          "share_on_floodplain": 0.6734621637751848,
+          "frequency_on_floodplain": 0.005525877850004235,
+          "frequency_off_floodplain": 0.00011239544973395653,
+          "enrichment_ratio": 49.16460464444207
+        }
+      ]
+    },
+    {
+      "lat_south": -10,
+      "lat_north": 0,
+      "pixels": 735379200,
+      "floodplain_fraction": 0.03536151416847254,
+      "bands": [
+        {
+          "band": 1,
+          "flood_pixels": 649953,
+          "share_of_global_flood": 0.023302062930229763,
+          "share_on_floodplain": 0.5209299749366493,
+          "frequency_on_floodplain": 0.01302024348293705,
+          "frequency_off_floodplain": 0.0004389398636302247,
+          "enrichment_ratio": 29.66293235536627
+        },
+        {
+          "band": 2,
+          "flood_pixels": 319746,
+          "share_of_global_flood": 0.02854331912383456,
+          "share_on_floodplain": 0.6905137202654608,
+          "frequency_on_floodplain": 0.008490538538467094,
+          "frequency_off_floodplain": 0.00013949883928682366,
+          "enrichment_ratio": 60.86458196981619
+        }
+      ]
+    },
+    {
+      "lat_south": -20,
+      "lat_north": -10,
+      "pixels": 735379200,
+      "floodplain_fraction": 0.03152768122894964,
+      "bands": [
+        {
+          "band": 1,
+          "flood_pixels": 1063037,
+          "share_of_global_flood": 0.03811191743274153,
+          "share_on_floodplain": 0.5554980682704365,
+          "frequency_on_floodplain": 0.025469918848990768,
+          "frequency_off_floodplain": 0.0006634733447264866,
+          "enrichment_ratio": 38.38875977676331
+        },
+        {
+          "band": 2,
+          "flood_pixels": 699088,
+          "share_of_global_flood": 0.06240669743997816,
+          "share_on_floodplain": 0.761984185109743,
+          "frequency_on_floodplain": 0.022976000527241962,
+          "frequency_off_floodplain": 0.00023363564812309062,
+          "enrichment_ratio": 98.34115945841059
+        }
+      ]
+    },
+    {
+      "lat_south": -30,
+      "lat_north": -20,
+      "pixels": 735379200,
+      "floodplain_fraction": 0.026498984469509063,
+      "bands": [
+        {
+          "band": 1,
+          "flood_pixels": 2354316,
+          "share_of_global_flood": 0.08440674877975302,
+          "share_on_floodplain": 0.25176144578722653,
+          "frequency_on_floodplain": 0.030416791836854504,
+          "frequency_off_floodplain": 0.0024606910269216187,
+          "enrichment_ratio": 12.36107723565222
+        },
+        {
+          "band": 2,
+          "flood_pixels": 287633,
+          "share_of_global_flood": 0.02567663241931379,
+          "share_on_floodplain": 0.5008083217155195,
+          "frequency_on_floodplain": 0.007392131351260202,
+          "frequency_off_floodplain": 0.00020056645440171304,
+          "enrichment_ratio": 36.85626977507693
+        }
+      ]
+    },
+    {
+      "lat_south": -40,
+      "lat_north": -30,
+      "pixels": 735379200,
+      "floodplain_fraction": 0.021161366815922997,
+      "bands": [
+        {
+          "band": 1,
+          "flood_pixels": 2486864,
+          "share_of_global_flood": 0.08915884906589078,
+          "share_on_floodplain": 0.22860518307394373,
+          "frequency_on_floodplain": 0.036532807715696086,
+          "frequency_off_floodplain": 0.002665055810370042,
+          "enrichment_ratio": 13.708083550649366
+        },
+        {
+          "band": 2,
+          "flood_pixels": 260799,
+          "share_of_global_flood": 0.023281195336851534,
+          "share_on_floodplain": 0.41102534902357757,
+          "frequency_on_floodplain": 0.006888417658588313,
+          "frequency_off_floodplain": 0.000213392957032998,
+          "enrichment_ratio": 32.280435841765495
+        }
+      ]
+    },
+    {
+      "lat_south": -50,
+      "lat_north": -40,
+      "pixels": 735379200,
+      "floodplain_fraction": 0.003012696034916408,
+      "bands": [
+        {
+          "band": 1,
+          "flood_pixels": 893863,
+          "share_of_global_flood": 0.03204670472634785,
+          "share_on_floodplain": 0.17386668874312955,
+          "frequency_on_floodplain": 0.07014887107679892,
+          "frequency_off_floodplain": 0.0010072102230545977,
+          "enrichment_ratio": 69.64670281448917
+        },
+        {
+          "band": 2,
+          "flood_pixels": 122163,
+          "share_of_global_flood": 0.010905335779415541,
+          "share_on_floodplain": 0.14291561274690373,
+          "frequency_on_floodplain": 0.007880480655606882,
+          "frequency_off_floodplain": 0.00014281121158468224,
+          "enrichment_ratio": 55.18110635826391
+        }
+      ]
+    }
+  ],
+  "generated_at": "2026-10-06T11:16:46+00:00"
+}
