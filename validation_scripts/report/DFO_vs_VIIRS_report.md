@@ -19,23 +19,53 @@ Companion reports: [DFO_report.md](DFO_report.md) and [VIIRS_report.md](VIIRS_re
 
 - **No, they are not interchangeable.**
   - **DFO is mostly a subset of VIIRS.** 68% of the pixels DFO ever flagged as flood were also flagged by VIIRS.
+
+    ![DFO is mostly a subset of VIIRS, and a small one](figures/x_1_dfo_subset_of_viirs.png)
+
+    *DFO is mostly a subset of VIIRS, and a small one. Window 23.2N–25.6N, 87.8E–92.6E, native DFO grid, 1/480 degree (~230 m): DFO flood confirmed by VIIRS 4.3%; DFO flood not flagged by VIIRS 0.2%; VIIRS only 40.7%.*
+
   - **VIIRS flags far more.** Its ever-flagged area is 7.2x DFO's, and on an average day it flags 8.2x the area. Only 9% of VIIRS pixels were ever DFO flood.
   - **Pixel overlap is low.** The Jaccard index (both ÷ either) is 0.09.
+
+    ![Where DFO flags flood and VIIRS does not: the salt lakes of SW Australia](figures/x_1b_dfo_not_confirmed.png)
+
+    *Where DFO flags flood and VIIRS does not: the salt lakes of SW Australia. Window 33.4S–31.0S, 120.9E–126.1E, native DFO grid, 1/480 degree (~230 m): DFO flood confirmed by VIIRS 0.4%; DFO flood not flagged by VIIRS 8.7%; VIIRS only 2.4%; floodplain 14.6%.*
+
 - **Coarse agreement is better, but much of it is an artefact.**
   - Over eight months nearly every 1° cell (96%) and watershed (94%) is flagged by VIIRS at least once. So "both flagged at some point" (Jaccard 0.91–0.95) says little.
+
+    ![At 1 degree almost every cell is flagged by VIIRS, so coarse agreement says little](figures/x_3_coarse_agreement_artefact.png)
+
+    *At 1 degree almost every cell is flagged by VIIRS, so coarse agreement says little. Window 52.6N–55.0N, 75.3W–67.7W, native DFO grid, 1/480 degree (~230 m): flagged by both 3.8%; VIIRS only 39.1%; DFO sudden only 1.1%.*
+
   - What is informative is how the products rank regions: Spearman 0.67–0.77 across watersheds and 1° cells.
   - That is moderate. Only 41 of each product's 100 most-flooded watersheds overlap, and VIIRS's area per watershed is a median 12x DFO's.
   - MoM scores both products' areas with **identical** weights (`DFO_Weightage.csv` and `VIIRS_Weightage.csv`: 100 km² per point, 1% per point, capped at 10). An area from one product therefore can't stand in for the other without rescaling.
 - **The overlap is asymmetric, and persistence helps.**
   - A DFO flood pixel flagged once is confirmed by VIIRS 53% of the time; one flagged 5+ times, 76–85%.
+
+    ![The longer DFO sees water, the more often VIIRS agrees](figures/x_2_persistence_confirms.png)
+
+    *The longer DFO sees water, the more often VIIRS agrees. Window 54.6N–57.0N, 105.5W–97.5W, native DFO grid, 1/480 degree (~230 m): DFO 5+ days, confirmed 1.1%; DFO 5+ days, not confirmed 0.1%; DFO 1-4 days, confirmed 7.1%; DFO 1-4 days, not confirmed 1.6%.*
+
   - In the other direction, even pixels VIIRS flagged on 30+ days were DFO flood only 34% of the time.
   - VIIRS can serve as a (much broader) superset of DFO. DFO can't reproduce VIIRS.
 - **Floodplains are a coarse prior for both products, and weaker than the other satellite.**
   - Globally a floodplain pixel is 4.2x (DFO) and 3.2x (VIIRS) more likely to flood than other land.
   - Inside flooded 1° regions the figures are 4.9x and 3.2x.
   - But within regions where both products flooded, **the other product's footprint locates the water about 2.7x better than the floodplain**. VIIRS flags 69% of the DFO flood pixels there (lift 6.5x at 1°), against 26% of the floodplain (lift 2.4x).
+
+    ![The other satellite locates the water better than the floodplain does](figures/x_4_viirs_beats_plain.png)
+
+    *The other satellite locates the water better than the floodplain does. Window 54.6N–57.0N, 105.5W–97.5W, native DFO grid, 1/480 degree (~230 m): DFO flood inside VIIRS and floodplain 2.4%; DFO flood inside VIIRS only 5.7%; DFO flood inside floodplain only 0.4%; DFO flood in neither 1.3%; floodplain 22.3%.*
+
   - So the floodplain says roughly where to look; an actual observation of flooding says much more precisely where the water is.
 - **The VIIRS 5-day composite is, if anything, further from DFO.**
+
+  ![The 5-day composite is even further from DFO](figures/x_5_five_day_further.png)
+
+  *The 5-day composite is even further from DFO. Window 23.2N–25.6N, 87.8E–92.6E, native DFO grid, 1/480 degree (~230 m): DFO flood confirmed by VIIRS 5-day 1.1%; DFO flood not confirmed 0.1%; VIIRS 5-day only 52.6%.*
+
   - It contains slightly more of DFO: 72% of DFO flood pixels against 68% for the 1-day composite.
   - But its ever-flagged area is 9.5x DFO's (1-day: 7.2x), and its area per watershed a median 17x (1-day: 12x).
   - Pixel overlap is lower (Jaccard 0.074 against 0.090), as is the top-100 watershed overlap (35 against 41).
@@ -391,90 +421,6 @@ Inputs:
 - `viirs5day_merged/viirs5day_janaug.tiff`: 236 daily VIIRS 5-day composites, 2026-01-07 to 2026-08-31 without 2026-05-05, merged from parts A, B, R1–R4 and E.
 - The GFPLAIN250m `river_plains_mask.tiff` on each grid.
 
+---
 
-## Figures
-
-One map per conclusion above, each on a small sample window, rendered in the same stack
-as the MoM map itself (MapLibre GL with the OpenFreeMap positron basemap) and
-screenshotted with Playwright. The classes are mutually exclusive and come from the very
-rasters the report is computed from, so a figure can be read as a picture of one row of
-one table. Every figure repeats its statistic for its own window, which is why those
-numbers differ from the global ones: a window is chosen to show the effect, not to be
-representative. Code: `figures_src/make_figures.py`, `figures_src/web/fig_page.html`,
-`figures_src/shoot.js`.
-
-### DFO is mostly a subset of VIIRS, and a small one
-
-![DFO is mostly a subset of VIIRS, and a small one](figures/x_1_dfo_subset_of_viirs.png)
-
-68% of the pixels DFO ever flagged were also flagged by VIIRS, VIIRS's ever-flagged area is 7.2x DFO's, and the pixel Jaccard is only 0.09.
-
-Window 23.2N-25.6N, 87.8E-92.6E, native DFO grid, 1/480 degree (~230 m). window: 131,840 km2 of land:
-
-- DFO flood confirmed by VIIRS: 5,718 km2 (4.3% of this window)
-- DFO flood not flagged by VIIRS: 259 km2 (0.2% of this window)
-- VIIRS only: 53,598 km2 (40.7% of this window)
-
-### The longer DFO sees water, the more often VIIRS agrees
-
-![The longer DFO sees water, the more often VIIRS agrees](figures/x_2_persistence_confirms.png)
-
-A DFO pixel flagged once is confirmed by VIIRS 53% of the time; one flagged on 5 or more days, 76-85%.
-
-Window 54.6N-57.0N, 105.5W-97.5W, native DFO grid, 1/480 degree (~230 m). window: 131,758 km2 of land:
-
-- DFO 5+ days, confirmed: 1,384 km2 (1.1% of this window)
-- DFO 5+ days, not confirmed: 148 km2 (0.1% of this window)
-- DFO 1-4 days, confirmed: 9,312 km2 (7.1% of this window)
-- DFO 1-4 days, not confirmed: 2,165 km2 (1.6% of this window)
-
-### At 1 degree almost every cell is flagged by VIIRS, so coarse agreement says little
-
-![At 1 degree almost every cell is flagged by VIIRS, so coarse agreement says little](figures/x_3_coarse_agreement_artefact.png)
-
-Over eight months 96% of 1 degree cells and 94% of watersheds were flagged by VIIRS at least once, which is why their Jaccard reaches 0.91-0.95.
-
-Window 52.6N-55.0N, 75.3W-67.7W, native DFO grid, 1/480 degree (~230 m). window: 131,800 km2 of land:
-
-- flagged by both: 5,003 km2 (3.8% of this window)
-- VIIRS only: 51,496 km2 (39.1% of this window)
-- DFO sudden only: 1,418 km2 (1.1% of this window)
-
-### The other satellite locates the water better than the floodplain does
-
-![The other satellite locates the water better than the floodplain does](figures/x_4_viirs_beats_plain.png)
-
-Within regions where both flooded, VIIRS contains 69% of the DFO flood pixels (lift 6.5x) against 26% for the floodplain (lift 2.4x) - about 2.7x better.
-
-Window 54.6N-57.0N, 105.5W-97.5W, native DFO grid, 1/480 degree (~230 m). window: 131,758 km2 of land:
-
-- DFO flood inside VIIRS and floodplain: 3,145 km2 (2.4% of this window)
-- DFO flood inside VIIRS only: 7,550 km2 (5.7% of this window)
-- DFO flood inside floodplain only: 546 km2 (0.4% of this window)
-- DFO flood in neither: 1,767 km2 (1.3% of this window)
-- floodplain: 29,349 km2 (22.3% of this window)
-
-### The 5-day composite is even further from DFO
-
-![The 5-day composite is even further from DFO](figures/x_5_five_day_further.png)
-
-Its ever-flagged area is 9.5x DFO's (1-day: 7.2x) and the pixel Jaccard falls to 0.074 from 0.090.
-
-Window 23.2N-25.6N, 87.8E-92.6E, native DFO grid, 1/480 degree (~230 m). window: 131,840 km2 of land:
-
-- DFO flood confirmed by VIIRS 5-day: 1,467 km2 (1.1% of this window)
-- DFO flood not confirmed: 111 km2 (0.1% of this window)
-- VIIRS 5-day only: 69,397 km2 (52.6% of this window)
-
-### Where DFO flags flood and VIIRS does not: the salt lakes of SW Australia
-
-![Where DFO flags flood and VIIRS does not: the salt lakes of SW Australia](figures/x_1b_dfo_not_confirmed.png)
-
-32% of DFO's ever-flagged pixels were never flagged by VIIRS. The two products disagree most over shallow saline and ephemeral water, not over river flood.
-
-Window 33.4S-31.0S, 120.9E-126.1E, native DFO grid, 1/480 degree (~230 m). window: 116,917 km2 of land:
-
-- DFO flood confirmed by VIIRS: 512 km2 (0.4% of this window)
-- DFO flood not flagged by VIIRS: 10,199 km2 (8.7% of this window)
-- VIIRS only: 2,850 km2 (2.4% of this window)
-- floodplain: 17,048 km2 (14.6% of this window)
+Figures are rendered from the same rasters the tables are computed from, in the stack the MoM map itself uses (MapLibre GL, OpenFreeMap positron), and screenshotted with Playwright; `figures_src/` holds the generator. A window is chosen to show the effect, not to be representative, so its numbers differ from the global ones.

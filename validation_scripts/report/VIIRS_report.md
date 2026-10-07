@@ -12,17 +12,42 @@
 ## Summary
 
 1. **VIIRS flags about 10x more land than DFO.** 9.4% of the land domain was flagged at least once in eight months, against 0.97% for DFO sudden flood.
+
+   ![VIIRS flags about ten times more land than DFO](figures/viirs_1_vs_dfo_area.png)
+
+   *VIIRS flags about ten times more land than DFO. Window 31.6N–34.0N, 93.2W–88.0W, native DFO grid, 1/480 degree (~230 m): flagged by both 0.5%; VIIRS only 20.6%; DFO sudden only 0.1%.*
+
 2. **Floodplains are enriched to the same degree as for DFO sudden flood.**
    - Floodplain is 10.5% of land and holds 27% of the VIIRS-flagged pixels.
    - A floodplain pixel is 3.2x more likely to be flagged than other land.
+
+     ![VIIRS flood against river floodplains](figures/viirs_2_plain_enrichment.png)
+
+     *VIIRS flood against river floodplains. Window 9.6N–11.6N, 103.9E–107.7E, native DFO grid, 1/480 degree (~230 m): VIIRS flood on floodplain 28.7%; VIIRS flood off floodplain 6.9%; floodplain, never flagged 27.9%.*
+
    - Weighted by days, the floodplain holds 40% of flood-days, and its mean daily flagged share is 5.7x that of other land.
 3. **Inside a region that floods, the floodplain helps, but only coarsely.**
    - Within flooded 1° regions, the floodplain is 13.5% of land and holds 33% of VIIRS flood pixels (risk ratio 3.2x).
    - Floodplain floods more than other land in 87% of those regions.
    - Still, 75% of floodplain pixels in these regions were never flagged, and 18% of flood pixels are in flooded 1° regions with no mapped floodplain.
+
+     ![Three quarters of the floodplain is never flagged, even where VIIRS floods](figures/viirs_3_plain_unflagged.png)
+
+     *Three quarters of the floodplain is never flagged, even where VIIRS floods. Window 4.2S–1.8S, 62.7W–58.3W, native DFO grid, 1/480 degree (~230 m): VIIRS flood on floodplain 13.8%; VIIRS flood off floodplain 10.7%; floodplain, never flagged 14.6%.*
+
 4. **The floodplain link is weakest where VIIRS flags the most.** 45% of all VIIRS flood pixels are north of 50°N, and at 50–60°N the risk ratio is only 2.0x. At 40–50°S (Patagonia) VIIRS flagged 27% of all land at least once, with no floodplain preference (1.1x).
+
+   ![Where VIIRS flags the most, the floodplain means nothing](figures/viirs_4_patagonia.png)
+
+   *Where VIIRS flags the most, the floodplain means nothing. Window 50.5S–47.5S, 74.0W–65.5W, native DFO grid, 1/480 degree (~230 m): VIIRS flood on floodplain 5.2%; VIIRS flood off floodplain 38.8%; floodplain, never flagged 7.6%.*
+
 5. **The 5-day composite gives the same picture, slightly weaker.**
    - It flags more land: 12.4% ever flagged, against 9.4% for the 1-day composite.
+
+     ![The 5-day composite flags more land than the 1-day one](figures/viirs_5_one_vs_five_day.png)
+
+     *The 5-day composite flags more land than the 1-day one. Window 9.6N–11.6N, 103.9E–107.7E, native DFO grid, 1/480 degree (~230 m): flagged by both 35.6%; 5-day only 12.2%; 1-day only 0.0%; floodplain 19.0%.*
+
    - It is slightly less floodplain-bound: risk ratio 2.9x against 3.2x, both overall and within flooded 1° regions.
    - The extra area the 5-day composite flags is less floodplain-bound than the 1-day area, which dilutes the floodplain contrast a little. The conclusions don't change.
 6. **The grid makes no difference.** The DFO grid, with VIIRS resampled by nearest neighbour, gives the same figures to within rounding.
@@ -270,75 +295,6 @@ Inputs:
 - `viirs5day_merged/viirs5day_janaug.tiff`: 236 daily VIIRS 5-day composites, 2026-01-07 to 2026-08-31 without 2026-05-05, merged from parts A, B, R1–R4 and E.
 - The GFPLAIN250m `river_plains_mask.tiff` on each grid.
 
+---
 
-## Figures
-
-One map per conclusion above, each on a small sample window, rendered in the same stack
-as the MoM map itself (MapLibre GL with the OpenFreeMap positron basemap) and
-screenshotted with Playwright. The classes are mutually exclusive and come from the very
-rasters the report is computed from, so a figure can be read as a picture of one row of
-one table. Every figure repeats its statistic for its own window, which is why those
-numbers differ from the global ones: a window is chosen to show the effect, not to be
-representative. Code: `figures_src/make_figures.py`, `figures_src/web/fig_page.html`,
-`figures_src/shoot.js`.
-
-### VIIRS flags about ten times more land than DFO
-
-![VIIRS flags about ten times more land than DFO](figures/viirs_1_vs_dfo_area.png)
-
-9.4% of the land domain was flagged by VIIRS at least once in eight months, against 0.97% for DFO sudden flood.
-
-Window 31.6N-34.0N, 93.2W-88.0W, native DFO grid, 1/480 degree (~230 m). window: 131,774 km2 of land:
-
-- flagged by both: 723 km2 (0.5% of this window)
-- VIIRS only: 27,179 km2 (20.6% of this window)
-- DFO sudden only: 109 km2 (0.1% of this window)
-
-### VIIRS flood against river floodplains
-
-![VIIRS flood against river floodplains](figures/viirs_2_plain_enrichment.png)
-
-Floodplain is 10.5% of land and holds 27% of VIIRS-flagged pixels; a floodplain pixel is 3.2x more likely to be flagged than other land.
-
-Window 9.6N-11.6N, 103.9E-107.7E, native DFO grid, 1/480 degree (~230 m). window: 72,129 km2 of land:
-
-- VIIRS flood on floodplain: 20,679 km2 (28.7% of this window)
-- VIIRS flood off floodplain: 5,012 km2 (6.9% of this window)
-- floodplain, never flagged: 20,109 km2 (27.9% of this window)
-
-### Three quarters of the floodplain is never flagged, even where VIIRS floods
-
-![Three quarters of the floodplain is never flagged, even where VIIRS floods](figures/viirs_3_plain_unflagged.png)
-
-Within flooded 1 degree regions the floodplain holds 33% of VIIRS flood pixels, but 75% of floodplain pixels there were never flagged.
-
-Window 4.2S-1.8S, 62.7W-58.3W, native DFO grid, 1/480 degree (~230 m). window: 131,861 km2 of land:
-
-- VIIRS flood on floodplain: 18,238 km2 (13.8% of this window)
-- VIIRS flood off floodplain: 14,075 km2 (10.7% of this window)
-- floodplain, never flagged: 19,310 km2 (14.6% of this window)
-
-### Where VIIRS flags the most, the floodplain means nothing
-
-![Where VIIRS flags the most, the floodplain means nothing](figures/viirs_4_patagonia.png)
-
-At 40-50S VIIRS flagged 27% of all land at least once with no floodplain preference (risk ratio 1.1x); 45% of its flood pixels are north of 50N.
-
-Window 50.5S-47.5S, 74.0W-65.5W, native DFO grid, 1/480 degree (~230 m). window: 164,359 km2 of land:
-
-- VIIRS flood on floodplain: 8,548 km2 (5.2% of this window)
-- VIIRS flood off floodplain: 63,732 km2 (38.8% of this window)
-- floodplain, never flagged: 12,432 km2 (7.6% of this window)
-
-### The 5-day composite flags more land than the 1-day one
-
-![The 5-day composite flags more land than the 1-day one](figures/viirs_5_one_vs_five_day.png)
-
-12.4% of the land domain ever flagged by the 5-day composite against 9.4% by the 1-day one, and the extra area is less floodplain-bound.
-
-Window 9.6N-11.6N, 103.9E-107.7E, native DFO grid, 1/480 degree (~230 m). window: 72,129 km2 of land:
-
-- flagged by both: 25,671 km2 (35.6% of this window)
-- 5-day only: 8,789 km2 (12.2% of this window)
-- 1-day only: 21 km2 (0.0% of this window)
-- floodplain: 13,696 km2 (19.0% of this window)
+Figures are rendered from the same rasters the tables are computed from, in the stack the MoM map itself uses (MapLibre GL, OpenFreeMap positron), and screenshotted with Playwright; `figures_src/` holds the generator. A window is chosen to show the effect, not to be representative, so its numbers differ from the global ones.
