@@ -86,19 +86,26 @@ def update_HWRF_MoM(adate):
 
     # first check if file exists
     if not os.path.exists(gfms_sum):
-        print("not found: ", gfms_sum)
-        print("call fix day:", adate[:8])
+        logging.warning(f"GFMS summary not found: {gfms_sum}")
+        logging.info(f"calling GFMS_fixdate for: {adate[:8]}")
         from GFMS_tool import GFMS_fixdate
 
         GFMS_fixdate(adate[:8])
 
     if not os.path.exists(glofas_sum):
-        # print("not found: ", glofas_sum)
         glofas_latest = findLatest(settings.GLOFAS_DIR, "csv")
         glofas_sum = os.path.join(settings.GLOFAS_DIR, glofas_latest)
+        logging.warning(
+            f"GloFAS threspoints_{adate[:-2]}00.csv not published yet, falling "
+            f"back to the latest available: {glofas_latest}"
+        )
 
     # hwrf sum doesn't exists
     if not os.path.exists(hwrf_sum):
+        logging.warning(
+            f"HWRF rainfall not published for {adate}, generating an empty "
+            f"zero-rainfall summary instead: {hwrf_sum}"
+        )
         watersheds = watersheds_gdb_reader()
         hwrf_sum = HWRF_empty_csv(adate, watersheds)
         r"""
@@ -123,10 +130,16 @@ def update_HWRF_MoM(adate):
 
     # already processed
     if os.path.exists(Final_Attributes_csv) and os.path.exists(Attributes_Clean_csv):
-        # print('already processed: ',adate)
+        logging.info(f"HWRF MoM already processed: {adate}")
         return
     else:
-        print("processing: ", adate)
+        logging.info(f"processing HWRF MoM: {adate}")
+        logging.info(
+            f"HWRF MoM inputs for {adate}: "
+            f"gfms={os.path.basename(str(gfms_sum))}, "
+            f"glofas={os.path.basename(str(glofas_sum))}, "
+            f"hwrf={os.path.basename(str(hwrf_sum))}"
+        )
 
     weightage = read_data(os.path.join(settings.BASE_DATA_DIR, "GFMS_Weightage.csv"))
     HWRF_weightage = read_data(
@@ -1347,8 +1360,10 @@ def batchrun_HWRF_MoM():
     list_set = set(datelist)
     unique_dates = list(list_set)
     unique_dates.sort()
+    logging.info(f"HWRF MoM batch, dates found: {unique_dates}")
 
     for testdate in unique_dates:
+        logging.info(f"HWRF MoM batch, running workflow for: {testdate}")
         hwrf_workflow(testdate)
 
     return

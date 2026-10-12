@@ -409,16 +409,18 @@ def DFO_cron():
         logging.info("no new data to process!")
         return
 
+    logging.info(f"dates to process: {sorted(datelist.values())}")
     for key in datelist:
-        logging.info(f"download: {key}")
+        logging.info(f"download: {key} ({datelist[key]})")
         if not dfo_download(key):
+            logging.warning(
+                f"download failed for {key} ({datelist[key]}), skipping: the "
+                "date stays unprocessed and is retried on the next run"
+            )
             continue
         
-        logging.info("download finished!")
-        logging.info(f"processing: {key}")
-        # process data
-        # key: folder name
-        print(datelist[key]) #: real date
+        logging.info(f"download finished: {key}")
+        logging.info(f"processing: {key} ({datelist[key]})")
         DFO_process(key, datelist[key])
         # run DFO_MoM
         update_DFO_MoM(datelist[key])

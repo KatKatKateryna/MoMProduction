@@ -641,6 +641,10 @@ def GFMS_processing(proc_dates_list):
         if not os.path.exists(glofascsv):
             glofas_latest = findLatest(settings.GLOFAS_DIR, "csv")
             glofascsv = os.path.join(settings.GLOFAS_DIR, glofas_latest)
+            logging.warning(
+                f"GloFAS threspoints_{data_date}.csv not published yet, falling "
+                f"back to the latest available: {glofas_latest}"
+            )
 
         # set directory for adding/removing files
         curdir = os.getcwd()

@@ -55,7 +55,7 @@ def update_DFO_MoM(adate):
 
     # already processed
     if os.path.exists(Final_Attributes_csv) and os.path.exists(Attributes_Clean_csv):
-        print("already processed: ", adate)
+        logging.info(f"DFO MoM already processed: {adate}")
         return
 
     # check MOMOutput
@@ -84,6 +84,11 @@ def update_DFO_MoM(adate):
     if not os.path.exists(MOMOutput):
         logging.info(f"{MOMOutput} is not generated yet!")
         return
+
+    logging.info(
+        f"DFO MoM inputs for {adate}: "
+        f"dfo={os.path.basename(DFOsummary)}, mom={os.path.basename(MOMOutput)}"
+    )
 
     weightage = read_data(os.path.join(settings.BASE_DATA_DIR, "DFO_Weightage.csv"))
     Attributes = read_data(os.path.join(settings.BASE_DATA_DIR, "Attributes.csv"))

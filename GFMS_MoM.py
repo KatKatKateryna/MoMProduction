@@ -37,6 +37,12 @@ def flood_severity(GFMS_Table, GloFas_Table, adate):
         logging.info(f"GFMS MoM already processed: {adate}")
         return
 
+    logging.info(
+        f"GFMS MoM inputs for {adate}: "
+        f"gfms={os.path.basename(GFMS_Table)}, "
+        f"glofas={os.path.basename(GloFas_Table)}"
+    )
+
     # GFMS_Weightage.csv
     weightage = read_data(os.path.join(settings.BASE_DIR, "data", "GFMS_Weightage.csv"))
     add_field_GloFas = [

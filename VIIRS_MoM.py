@@ -36,13 +36,13 @@ def update_VIIRS_MoM(adate):
     DFO_MOMOutput = "Final_Attributes_{}{}MOM+DFOUpdated.csv".format(adate, hh)
     DFO_MOMOutput = os.path.join(settings.DFO_MOM_DIR, DFO_MOMOutput)
     if not os.path.exists(DFO_MOMOutput):
-        print("no file: ", DFO_MOMOutput)
+        logging.info(f"DFO MoM not available yet: {DFO_MOMOutput}")
         return
 
     VIIRS_summary_csv = "VIIRS_Flood_{}.csv".format(adate)
     VIIRS_summary_csv = os.path.join(settings.VIIRS_SUM_DIR, VIIRS_summary_csv)
     if not os.path.exists(VIIRS_summary_csv):
-        print("no file:", VIIRS_summary_csv)
+        logging.info(f"VIIRS summary not available yet: {VIIRS_summary_csv}")
         return
 
     # output files
@@ -57,8 +57,14 @@ def update_VIIRS_MoM(adate):
 
     # already processed
     if os.path.exists(Final_Attributes_csv) and os.path.exists(Attributes_Clean_csv):
-        print("already processed: ", adate)
+        logging.info(f"VIIRS MoM already processed: {adate}")
         return
+
+    logging.info(
+        f"VIIRS MoM inputs for {adate}: "
+        f"dfo_mom={os.path.basename(DFO_MOMOutput)}, "
+        f"viirs={os.path.basename(VIIRS_summary_csv)}"
+    )
 
     weightage = read_data(os.path.join(settings.BASE_DATA_DIR, "VIIRS_Weightage.csv"))
     Attributes = read_data(os.path.join(settings.BASE_DATA_DIR, "Attributes.csv"))
@@ -267,7 +273,7 @@ def batchrun_VIIRS_MoM():
         if not ".csv" in item:
             continue
         datestr = item[:-4].split("_")[-1]
-        print("Processing: ", datestr)
+        logging.info(f"VIIRS MoM batch: {datestr}")
         update_VIIRS_MoM(datestr)
 
 
