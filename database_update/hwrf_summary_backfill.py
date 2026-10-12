@@ -23,7 +23,6 @@ import settings
 from HWRF_tool import (
     HWRF_download,
     HWRF_extract_by_watershed,
-    check_hours,
     process_rain,
 )
 
@@ -66,9 +65,6 @@ def backfill(dates):
 
     for adate in dates:
         for key, url in list_cycles(adate).items():
-            if check_hours(key):
-                logging.info(f"too early to process {key}")
-                continue
             sum_csv = os.path.join(settings.HWRF_SUM_DIR, f"hwrf.{key}rainfall.csv")
             img_tiff = os.path.join(settings.HWRF_IMG_DIR, f"hwrf.{key}rainfall.tiff")
             if os.path.exists(sum_csv) and os.path.exists(img_tiff):

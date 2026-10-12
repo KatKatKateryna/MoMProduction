@@ -149,18 +149,13 @@ def backfill_gfms(adate, dry_run):
 
 def backfill_hwrf(adate, dry_run, with_alert=True):
     """HWRF MoM chain for the 4 cycles of a day, return the cycles run"""
-    # only cycles older than the HWRF delay, as the scheduled run would see them
-    latest_datehour = (
-        datetime.now(timezone.utc) - timedelta(hours=settings.HWRF_TIME_DELAY)
-    ).strftime("%Y%m%d%H")
+    now = datetime.now(timezone.utc)
     done = []
     for hh in HOURS:
         adatehour = adate + hh
-        if adatehour >= latest_datehour:
-            logging.info(
-                f"HWRF MoM {adatehour}: less than {settings.HWRF_TIME_DELAY} hours "
-                f"old, stop here"
-            )
+        cycle_time = datetime.strptime(adatehour, "%Y%m%d%H").replace(tzinfo=timezone.utc)
+        if cycle_time + timedelta(hours=1) > now:
+            logging.info(f"HWRF MoM {adatehour}: less than 1 hour old, stop here")
             break
         # update_HWRF_MoM would call GFMS_fixdate (download) on a missing summary
         if not os.path.exists(gfms_sum(adatehour)):
