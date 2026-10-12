@@ -145,9 +145,10 @@ def dfo_download(subfolder):
         # something wrong with downloading
         logging.warning(f"Download failed: {dataurl}, error: {result.returncode}")
         print("Exit code:", result.returncode)
-        sys.exit()
+        # sys.exit()
+        return False
 
-    return
+    return True
 
 
 def dfo_extract_by_mask(vrt_file, mask_json):
