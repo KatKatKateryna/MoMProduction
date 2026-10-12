@@ -578,8 +578,8 @@ def update_HWRF_MoM(adate):
         Final_Attributes["Flag"] = np.where(
             (Final_Attributes["Hazard_Score"] < Final_Attributes["HWRFTot_Score"]),
             1,
-            "",
-        )
+            np.nan,
+        ).astype(object)
         Final_Attributes["Hazard_Score"] = Final_Attributes[
             ["Hazard_Score", "HWRFTot_Score"]
         ].max(axis=1)
