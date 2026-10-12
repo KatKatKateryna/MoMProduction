@@ -32,6 +32,7 @@ if os.name == "nt":
     installers_path = os.path.join(current_dir, "first_setup")
     os.environ["PATH"] = installers_path + os.pathsep + os.environ["PATH"]
 
+import settings
 from DFO_MoM import batchrun_DFO_MoM
 from DFO_tool import DFO_cron
 from GFMS_tool import GFMS_cron, GFMS_fixdate
@@ -78,7 +79,7 @@ def _getParser():
 def run_job(cronjob):
     """run various cron job"""
     logging.info(f"run {cronjob}")
-    print("Main PID:", os.getpid())
+    logging.info(f"main PID: {os.getpid()}")
     if cronjob == "GFMS":
         GFMS_cron()
     elif cronjob == "HWRF":
@@ -91,7 +92,10 @@ def run_job(cronjob):
         VIIRS_cron()
         batchrun_VIIRS_MoM()
     else:
+        logging.warning(f"unknown job: {cronjob}")
         return
+
+    logging.info(f"finished {cronjob}")
 
 
 def run_fixdate(cronjob, adate):
@@ -110,6 +114,8 @@ def main():
     # Read command line arguments
     parser = _getParser()
     results = parser.parse_args()
+    # keep each job's log in its own file
+    settings.configure_logging(results.job)
     if results.adate:
         run_fixdate(results.job, results.adate)
     else:

@@ -72,15 +72,33 @@ WATERSHED_DIR = os.path.join(BASE_DIR, "data", "watershed_shp")
 WATERSHED_SHP = os.path.join(WATERSHED_DIR, "Watershed_pfaf_id.shp")
 
 # setup logging
-# generate a new log for each month
-todays_date = datetime.now(timezone.utc)
-logfile = "{year}_{month}.log".format(year=todays_date.year, month=todays_date.month)
-logfile = os.path.join(WORKING_DIR, config.get("processing_dir", "logs"), logfile)
-try:
-    logging.basicConfig(
-        filename=logfile,
-        format="%(asctime)s - %(module)s - %(levelname)s : %(message)s",
-        level=logging.INFO,
-    )
-except:
-    pass
+# a new log for each month, and a separate file per job when the job is known
+LOG_DIR = os.path.join(WORKING_DIR, config.get("processing_dir", "logs"))
+LOG_FORMAT = "%(asctime)s - %(module)s - %(levelname)s : %(message)s"
+
+
+def logfile_path(job=None):
+    """monthly log file path, suffixed with the job name when one is given"""
+    todays_date = datetime.now(timezone.utc)
+    name = "{year}_{month}".format(year=todays_date.year, month=todays_date.month)
+    if job:
+        name = "{}_{}".format(name, str(job).upper())
+    return os.path.join(LOG_DIR, "{}.log".format(name))
+
+
+def configure_logging(job=None):
+    """(re)point the root logger at this job's log file"""
+    try:
+        logging.basicConfig(
+            filename=logfile_path(job),
+            format=LOG_FORMAT,
+            level=logging.INFO,
+            force=True,
+        )
+    except Exception:
+        pass
+
+
+# default target until the job name is known: MoM_run calls this again with it
+logfile = logfile_path()
+configure_logging()
