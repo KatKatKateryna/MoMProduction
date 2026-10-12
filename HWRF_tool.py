@@ -172,7 +172,7 @@ def process_rain(adate, TC_Rain):
                     row_count = row_count + 1
         df = (
             pd.read_table(
-                i, skiprows=1, delim_whitespace=True, names=("lat", "lon", "Z")
+                i, skiprows=1, sep=r"\s+", names=("lat", "lon", "Z")
             )
         ).fillna(-999)
         df.sort_values(by=["lat", "lon"], ascending=[False, True])
