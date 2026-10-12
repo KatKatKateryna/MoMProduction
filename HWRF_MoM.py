@@ -79,11 +79,21 @@ def update_HWRF_MoM(adate):
     # if it's processed early in the day, older Glofas file will be used
     if not os.path.exists(glofas_sum) or int(adate[8:10]) < 10:
         glofas_latest = findLatestGlofas(settings.GLOFAS_DIR, adate, "csv")
-        glofas_sum = os.path.join(settings.GLOFAS_DIR, glofas_latest)
-        logging.warning(
-            f"GloFAS threspoints_{adate[:-2]}00.csv not published yet, falling "
-            f"back to the latest available: {glofas_latest}"
-        )
+        if glofas_latest:
+            glofas_sum = os.path.join(settings.GLOFAS_DIR, glofas_latest)
+            logging.warning(
+                f"GloFAS for {adate}: using the previous available "
+                f"{glofas_latest}"
+            )
+        elif os.path.exists(glofas_sum):
+            # no earlier GloFAS to fall back to, use the same day file
+            logging.warning(
+                f"GloFAS for {adate}: no earlier file, using the same day "
+                f"{os.path.basename(glofas_sum)}"
+            )
+        else:
+            logging.error(f"no GloFAS available for {adate}, HWRF MoM skipped")
+            return
 
     # hwrf sum doesn't exists, use the one from 6 hours ago
     if not os.path.exists(hwrf_sum):

@@ -643,8 +643,7 @@ def GFMS_processing(proc_dates_list):
         )
 
         # in case of glofascsv data is missing, use the latest
-        # as it is processed early in the day, older Glofas file will be used
-        if not os.path.exists(glofascsv) or int(data_date[8:10]) < 10:
+        if not os.path.exists(glofascsv):
             glofas_latest = findLatestGlofas(settings.GLOFAS_DIR, data_date, "csv")
             glofascsv = os.path.join(settings.GLOFAS_DIR, glofas_latest)
             logging.warning(
