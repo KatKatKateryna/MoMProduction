@@ -4,7 +4,7 @@ hwrf_summary_backfill.py
        HWRF_summary CSV and HWRF_image TIFF (no MoM / Final_Attributes update)
 
 Usage:
-    python database_update/hwrf_summary_backfill.py                # yesterday (UTC)
+    python database_update/hwrf_summary_backfill.py                # today + yesterday (UTC)
     python database_update/hwrf_summary_backfill.py 20261011 20261012
 """
 
@@ -98,8 +98,8 @@ def main():
     if len(sys.argv) > 1:
         dates = sys.argv[1:]
     else:
-        yesterday = datetime.now(timezone.utc) - timedelta(days=1)
-        dates = [yesterday.strftime("%Y%m%d")]
+        today = datetime.now(timezone.utc)
+        dates = [(today - timedelta(days=1)).strftime("%Y%m%d"), today.strftime("%Y%m%d")]
     backfill(dates)
 
 

@@ -42,8 +42,8 @@ def _getParser():
     )
     parser.add_argument(
         "--end",
-        default=(datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y%m%d"),
-        help="last day to backfill, YYYYMMDD (default: yesterday, UTC)",
+        default=datetime.now(timezone.utc).strftime("%Y%m%d"),
+        help="last day to backfill, YYYYMMDD (default: today, UTC)",
     )
     parser.add_argument(
         "--overwrite",
@@ -123,6 +123,12 @@ def backfill_gfms(adate, dry_run):
         logging.warning(f"GFMS MoM {adate}: no GFMS summary, skipped")
         return
     glofascsv = glofas_for_gfms(adate)
+    # today's GloFAS is published later in the day; a fallback to an older one
+    # would block the scheduled run that uses the same day file
+    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+    if adate == today and os.path.basename(glofascsv) != f"threspoints_{adate}00.csv":
+        logging.error(f"GFMS MoM {adate}: today's GloFAS not available yet, stop here")
+        sys.exit(1)
     if not glofascsv:
         logging.warning(f"GFMS MoM {adate}: no GloFAS available, skipped")
         return
@@ -143,12 +149,18 @@ def backfill_gfms(adate, dry_run):
 
 def backfill_hwrf(adate, dry_run, with_alert=True):
     """HWRF MoM chain for the 4 cycles of a day, return the cycles run"""
-    now_datehour = datetime.now(timezone.utc).strftime("%Y%m%d%H")
+    # only cycles older than the HWRF delay, as the scheduled run would see them
+    latest_datehour = (
+        datetime.now(timezone.utc) - timedelta(hours=settings.HWRF_TIME_DELAY)
+    ).strftime("%Y%m%d%H")
     done = []
     for hh in HOURS:
         adatehour = adate + hh
-        if adatehour > now_datehour:
-            logging.info(f"HWRF MoM {adatehour}: cycle not reached yet, stop here")
+        if adatehour >= latest_datehour:
+            logging.info(
+                f"HWRF MoM {adatehour}: less than {settings.HWRF_TIME_DELAY} hours "
+                f"old, stop here"
+            )
             break
         # update_HWRF_MoM would call GFMS_fixdate (download) on a missing summary
         if not os.path.exists(gfms_sum(adatehour)):
