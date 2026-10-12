@@ -411,7 +411,9 @@ def DFO_cron():
 
     for key in datelist:
         logging.info(f"download: {key}")
-        dfo_download(key)
+        if not dfo_download(key):
+            continue
+        
         logging.info("download finished!")
         logging.info(f"processing: {key}")
         # process data
