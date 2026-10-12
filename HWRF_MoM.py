@@ -16,10 +16,8 @@ import scipy.stats
 import settings
 from utilities import (
     findLatestGlofas,
-    findLatestHwrf,
     get_current_processing_datehour,
     get_latestitems,
-    hour_diff,
     hwrf_today,
     read_data,
 )
@@ -66,7 +64,14 @@ def update_HWRF_MoM(adate):
     glofas_sum = os.path.join(
         settings.GLOFAS_DIR, "threspoints_{}00.csv".format(adate[:-2])
     )
-    hwrf_sum = os.path.join(settings.HWRF_SUM_DIR, "hwrf.{}rainfall.csv".format(adate))
+    # use the HWRF rainfall of the previous cycle: the current cycle's rainfall
+    # is only published hours after the cycle time
+    hwrf_cycle = (datetime.strptime(adate, "%Y%m%d%H") - timedelta(hours=6)).strftime(
+        "%Y%m%d%H"
+    )
+    hwrf_sum = os.path.join(
+        settings.HWRF_SUM_DIR, "hwrf.{}rainfall.csv".format(hwrf_cycle)
+    )
 
     # first check if file exists
     if not os.path.exists(gfms_sum):
@@ -95,26 +100,12 @@ def update_HWRF_MoM(adate):
             logging.error(f"no GloFAS available for {adate}, HWRF MoM skipped")
             return
 
-    # hwrf sum doesn't exists, use the one from 6 hours ago
+    # previous cycle not available, continue without HWRF
     if not os.path.exists(hwrf_sum):
-        hwrf_latest = findLatestHwrf(settings.HWRF_SUM_DIR, adate, "csv")
-        if hwrf_latest:
-            ld_str = hwrf_latest.split(".")[1].replace("rainfall", "")
-            h_diff = abs(hour_diff(adate, ld_str))
-            if h_diff <= 6:
-                hwrf_sum = os.path.join(
-                    settings.HWRF_SUM_DIR, "hwrf.{}rainfall.csv".format(ld_str)
-                )
-                logging.warning(
-                    f"HWRF rainfall not published for {adate}, falling back "
-                    f"to the previous cycle: {hwrf_latest}"
-                )
-
-        # if 6-hours ago also doesnt exist, continue without HWRF
-        if not os.path.exists(hwrf_sum):
-            logging.warning(
-                f"no HWRF rainfall for {adate}, continuing without HWRF"
-            )
+        logging.warning(
+            f"no HWRF rainfall of the previous cycle {hwrf_cycle} for {adate}, "
+            f"continuing without HWRF"
+        )
 
     # hwrf_sum may not have
     Final_Attributes_csv = os.path.join(
