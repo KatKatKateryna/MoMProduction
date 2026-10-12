@@ -22,7 +22,6 @@ from utilities import (
     hour_diff,
     hwrf_today,
     read_data,
-    watersheds_gdb_reader,
 )
 
 
@@ -59,22 +58,6 @@ def mofunc_viirs(row):
         return "Information"
 
 
-def HWRF_empty_csv(adate, watersheds):
-    """create a zero-value HWRF summary CSV for dates with no rainfall data"""
-    out_csv = os.path.join(settings.HWRF_SUM_DIR, f"hwrf.{adate}rainfall.csv")
-    with open(out_csv, "w", newline="\n", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(
-            ["pfaf_id", "Rain_TotalArea_km", "perc_Area", "MeanRain", "MaxRain"]
-        )
-        for pfaf_id in watersheds.index:
-            writer.writerow([pfaf_id, 0.0, 0.0, 0.0, 0.0])
-
-    print(f"created empty HWRF CSV for {adate}: {out_csv}")
-    logging.info(f"created empty HWRF CSV for {adate}: {out_csv}")
-    return out_csv
-
-
 def update_HWRF_MoM(adate):
     """HWRF MoM for a date: YYYYMMDDHH"""
     print(f"___________update_HWRF_MoM: {adate}")
@@ -102,26 +85,26 @@ def update_HWRF_MoM(adate):
             f"back to the latest available: {glofas_latest}"
         )
 
-    # hwrf sum doesn't exists
+    # hwrf sum doesn't exists, use the one from 6 hours ago
     if not os.path.exists(hwrf_sum):
-        logging.warning(
-            f"HWRF rainfall not published for {adate}, generating an empty "
-            f"zero-rainfall summary instead: {hwrf_sum}"
-        )
+        hwrf_latest = findLatestHwrf(settings.HWRF_SUM_DIR, adate, "csv")
+        if hwrf_latest:
+            ld_str = hwrf_latest.split(".")[1].replace("rainfall", "")
+            h_diff = abs(hour_diff(adate, ld_str))
+            if h_diff <= 6:
+                hwrf_sum = os.path.join(
+                    settings.HWRF_SUM_DIR, "hwrf.{}rainfall.csv".format(ld_str)
+                )
+                logging.warning(
+                    f"HWRF rainfall not published for {adate}, falling back "
+                    f"to the previous cycle: {hwrf_latest}"
+                )
 
-        # if HWRF summary not generated yet, use the one from 6 hours ago
+        # if 6-hours ago also doesnt exist, continue without HWRF
         if not os.path.exists(hwrf_sum):
-            hwrf_latest = findLatestHwrf(settings.HWRF_SUM_DIR, adate, "csv")
-            if hwrf_latest:
-                ld_str = hwrf_latest.split(".")[1].replace("rainfall", "")
-                h_diff = abs(hour_diff(adate, ld_str))
-                if h_diff <= 6:
-                    hwrf_sum = os.path.join(settings.HWRF_SUM_DIR, "hwrf.{}rainfall.csv".format(ld_str))
-        # if 6-hours ago also doesnt exist, fabricate an empty file
-        if not os.path.exists(hwrf_sum):
-            watersheds = watersheds_gdb_reader()
-            hwrf_sum = HWRF_empty_csv(adate, watersheds)
-        
+            logging.warning(
+                f"no HWRF rainfall for {adate}, continuing without HWRF"
+            )
 
     # hwrf_sum may not have
     Final_Attributes_csv = os.path.join(
@@ -543,8 +526,10 @@ def update_HWRF_MoM(adate):
                         HWRFTot_Score,
                     ]
                     HWRF_w_score.writerow(results_list)
-    except:
-        pass
+            csvfile.close()
+    except Exception as e:
+        if os.path.exists(hwrf_sum):
+            logging.warning(f"HWRF scoring failed for {adate}, skipping HWRF: {e}")
 
     GFMS = read_data(GFMS_w_score_csv)
     GloFas = read_data(GloFas_w_Avgscore_csv)
@@ -597,8 +582,9 @@ def update_HWRF_MoM(adate):
         Final_Attributes["Hazard_Score"] = Final_Attributes[
             ["Hazard_Score", "HWRFTot_Score"]
         ].max(axis=1)
-    except:
-        pass
+    except Exception as e:
+        if os.path.exists(hwrf_sum):
+            logging.warning(f"HWRF merge failed for {adate}, skipping HWRF: {e}")
     Final_Attributes = Final_Attributes[Final_Attributes.Hazard_Score != 0]
     Final_Attributes.drop(
         Final_Attributes.index[
