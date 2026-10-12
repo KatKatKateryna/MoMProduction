@@ -42,8 +42,8 @@ def _getParser():
     )
     parser.add_argument(
         "--end",
-        default=datetime.now(timezone.utc).strftime("%Y%m%d"),
-        help="last day to backfill, YYYYMMDD (default: today, UTC)",
+        default=(datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y%m%d"),
+        help="last day to backfill, YYYYMMDD (default: yesterday, UTC)",
     )
     parser.add_argument(
         "--overwrite",
