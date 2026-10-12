@@ -402,8 +402,11 @@ def DFO_cron():
     datelist = generate_procesing_list()
 
     if len(datelist) == 0:
+        # return instead of exiting the process: the caller still has to run
+        # batchrun_DFO_MoM, which catches up any date whose MoM is missing or
+        # was deferred because its cycles had not happened yet
         logging.info("no new data to process!")
-        sys.exit(0)
+        return
 
     for key in datelist:
         logging.info(f"download: {key}")

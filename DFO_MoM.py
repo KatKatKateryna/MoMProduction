@@ -9,6 +9,7 @@ import csv
 import logging
 import os
 import sys
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -59,7 +60,14 @@ def update_DFO_MoM(adate):
 
     # check MOMOutput
     hhs = ["00", "06", "12", "18"]
+    now_datehour = datetime.now(timezone.utc).strftime("%Y%m%d%H")
     for hh0 in hhs:
+        # skip cycles that have not happened yet. hhs is in ascending order, so
+        # once one cycle is in the future every later one is too, and the 18Z
+        # output merged below cannot exist either: nothing left to do for now.
+        if adate + hh0 > now_datehour:
+            logging.info(f"cycle not reached yet, stop here: {adate}{hh0}")
+            return
         MOMOutput = os.path.join(
             settings.HWRF_MOM_DIR,
             "Final_Attributes_{}{}HWRFUpdated.csv".format(adate, hh0),
@@ -70,6 +78,12 @@ def update_DFO_MoM(adate):
     MOMOutput = os.path.join(
         settings.HWRF_MOM_DIR, "Final_Attributes_{}{}HWRFUpdated.csv".format(adate, hh)
     )
+
+    # the cycle this function merges may not be published yet, whether or not
+    # the force generation above ran
+    if not os.path.exists(MOMOutput):
+        logging.info(f"{MOMOutput} is not generated yet!")
+        return
 
     weightage = read_data(os.path.join(settings.BASE_DATA_DIR, "DFO_Weightage.csv"))
     Attributes = read_data(os.path.join(settings.BASE_DATA_DIR, "Attributes.csv"))
