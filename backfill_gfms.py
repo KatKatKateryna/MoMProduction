@@ -22,6 +22,7 @@ Usage:
 """
 
 import argparse
+import glob
 import os
 import sys
 import time
@@ -61,6 +62,25 @@ def mark_skipped(real_date, reason):
     os.makedirs(STATE_DIR, exist_ok=True)
     with open(os.path.join(STATE_DIR, f"{real_date}.nodata"), "w") as f:
         f.write(f"{datetime.now(timezone.utc).isoformat()} {reason}\n")
+
+
+def cleanup_proc_files(real_date):
+    """remove the day's .bin/.hdr/.vrt/.csv from the processing folder
+
+    GFMS_processing() archives and deletes these after a normal run, but the
+    backfill bypasses it, so without this every backfilled day left ~60MB of
+    raw downloads behind. Summaries are already in GFMS_summary/ by now and
+    the .bin files can be re-downloaded if a day ever needs redoing.
+    """
+    files = glob.glob(
+        os.path.join(settings.GFMS_PROC_DIR, f"Flood_byStor_{real_date}*.*")
+    )
+    for f in files:
+        try:
+            os.remove(f)
+        except OSError as exc:
+            log(f"  could not delete {f}: {exc}")
+    return len(files)
 
 
 def find_days_to_process(start_date, end_date, max_days):
@@ -118,6 +138,7 @@ def process_day(day):
 
     if not produced:
         mark_skipped(real_date, "no images produced")
+        cleanup_proc_files(real_date)
         log(f"DAY {real_date} no data at source - marked skipped")
         return timings
 
@@ -135,6 +156,9 @@ def process_day(day):
         GFMS_fix_duration(base0, csvlist)
     except Exception as exc:
         log(f"  summary fix FAILED for {real_date}: {exc}")
+
+    removed = cleanup_proc_files(real_date)
+    log(f"  removed {removed} processing file(s)")
 
     total = time.monotonic() - day_start
     per_file = (sum(timings) / len(timings)) if timings else 0.0
