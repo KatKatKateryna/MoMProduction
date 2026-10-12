@@ -15,7 +15,8 @@ import scipy.stats
 
 import settings
 from utilities import (
-    findLatest,
+    findLatestGlofas,
+    findLatestHwrf,
     get_current_processing_datehour,
     get_latestitems,
     hour_diff,
@@ -92,8 +93,9 @@ def update_HWRF_MoM(adate):
 
         GFMS_fixdate(adate[:8])
 
-    if not os.path.exists(glofas_sum):
-        glofas_latest = findLatest(settings.GLOFAS_DIR, "csv")
+    # if it's processed early in the day, older Glofas file will be used
+    if not os.path.exists(glofas_sum) or int(adate[8:10]) < 10:
+        glofas_latest = findLatestGlofas(settings.GLOFAS_DIR, adate, "csv")
         glofas_sum = os.path.join(settings.GLOFAS_DIR, glofas_latest)
         logging.warning(
             f"GloFAS threspoints_{adate[:-2]}00.csv not published yet, falling "
@@ -106,19 +108,20 @@ def update_HWRF_MoM(adate):
             f"HWRF rainfall not published for {adate}, generating an empty "
             f"zero-rainfall summary instead: {hwrf_sum}"
         )
-        watersheds = watersheds_gdb_reader()
-        hwrf_sum = HWRF_empty_csv(adate, watersheds)
-        r"""
-        hwrf_latest = findLatest(settings.HWRF_SUM_DIR, "csv")
-        if hwrf_latest:
-            ld_str = hwrf_latest.split(".")[1].replace("rainfall", "")
-            h_diff = abs(hour_diff(adate, ld_str))
-            if h_diff <= 6:
-                hwrf_sum = os.path.join(settings.HWRF_SUM_DIR, "hwrf.{}rainfall.csv".format(ld_str))
+
+        # if HWRF summary not generated yet, use the one from 6 hours ago
+        if not os.path.exists(hwrf_sum):
+            hwrf_latest = findLatestHwrf(settings.HWRF_SUM_DIR, adate, "csv")
+            if hwrf_latest:
+                ld_str = hwrf_latest.split(".")[1].replace("rainfall", "")
+                h_diff = abs(hour_diff(adate, ld_str))
+                if h_diff <= 6:
+                    hwrf_sum = os.path.join(settings.HWRF_SUM_DIR, "hwrf.{}rainfall.csv".format(ld_str))
+        # if 6-hours ago also doesnt exist, fabricate an empty file
         if not os.path.exists(hwrf_sum):
             watersheds = watersheds_gdb_reader()
             hwrf_sum = HWRF_empty_csv(adate, watersheds)
-        """
+        
 
     # hwrf_sum may not have
     Final_Attributes_csv = os.path.join(

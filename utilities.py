@@ -57,17 +57,25 @@ def hour_diff(adate1, adate2):
     return dhours
 
 
-def findLatest(apath, atype):
-    """return the latest file in folder"""
-    check_path = os.path.join(apath, f"*.{atype}")
-    all_files = glob.glob(check_path)
-    # latest_file = max(all_files, key=os.path.getctime)
-    try:
-        latest_file = max(all_files)
-    except ValueError:
-        return ""
+def findLatestGlofas(apath, adate, atype):
+    """return the latest GloFAS file dated BEFORE adate (YYYYMMDD[HH])"""
+    target = f"threspoints_{adate[:8]}00.{atype}"
+    candidates = [
+        os.path.basename(f)
+        for f in glob.glob(os.path.join(apath, f"threspoints_*.{atype}"))
+        if os.path.basename(f) < target
+    ]
+    return max(candidates) if candidates else ""
 
-    return os.path.basename(latest_file)
+def findLatestHwrf(apath, adate, atype):
+    """return the latest HWRF rainfall file dated BEFORE adate (YYYYMMDDHH)"""
+    target = f"hwrf.{adate[:10]}rainfall.{atype}"
+    candidates = [
+        os.path.basename(f)
+        for f in glob.glob(os.path.join(apath, f"hwrf.*rainfall.{atype}"))
+        if os.path.basename(f) < target
+    ]
+    return max(candidates) if candidates else ""
 
 
 def get_latestitems(afolder, numofitems=7):
@@ -156,7 +164,7 @@ def main():
     print("{} - {} = {} hours".format(da1, da2, dhours))
 
     print("==> find latest")
-    lastest_csv = findLatest(settings.GLOFAS_SUM_DIR, "csv")
+    lastest_csv = findLatestGlofas(settings.GLOFAS_SUM_DIR, da2, "csv")
     print(lastest_csv)
 
     print("==> get lastest items")

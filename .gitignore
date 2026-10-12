@@ -143,3 +143,4 @@ database_update/nginx_cog*
 nohup.out
 *.conf
 *Caddyfile*
+hwrf_data*

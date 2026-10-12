@@ -51,7 +51,7 @@ def check_hours(adate):
     # adate in YYYYMMDDHH
 
     ct = datetime.now(timezone.utc)
-    da = datetime.strptime(adate, "%Y%m%d%H")
+    da = datetime.strptime(adate, "%Y%m%d%H").replace(tzinfo=timezone.utc)
     delta = ct - da
     dhours = delta.total_seconds() / 3600.0
     if dhours > settings.HWRF_TIME_DELAY:
@@ -79,6 +79,8 @@ def generate_procesing_list():
         datelist = {}
         for link in soup.find_all("a"):
             fstr = link.string
+            if not fstr:
+                continue
             if fstr[:5] == "hwrf.":
                 a_entry = fstr.split(".")[1]
                 a_entry = a_entry.replace("/", "")
@@ -95,6 +97,8 @@ def generate_procesing_list():
             soup = BeautifulSoup(reqs.text, "html.parser")
             for link in soup.find_all("a"):
                 fstr = link.string
+                if not fstr:
+                    continue
                 hhstr = fstr.replace("/", "")
                 if hhstr in ["00", "06", "12", "18"]:
                     a_entry = key + hhstr
@@ -103,6 +107,7 @@ def generate_procesing_list():
                     # check if it is too early to process the data
                     if check_hours(a_entry):
                         continue
+                    dataurllist[a_entry] = hosturl + fstr
 
         return dataurllist
 

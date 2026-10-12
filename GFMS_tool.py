@@ -33,7 +33,7 @@ from GFMS_MoM import flood_severity
 # from HWRF_MoM import update_HWRF_MoM, update_HWRFMoM_DFO_VIIRS, final_alert_pdc
 from HWRF_MoM import hwrf_workflow
 import settings
-from utilities import findLatest, hwrf_today, watersheds_gdb_reader
+from utilities import findLatestGlofas, hwrf_today, watersheds_gdb_reader
 
 load_dotenv()
 WATERSHEDS = None
@@ -100,7 +100,7 @@ def GloFAS_process():
         sys.exit()
 
     # load watersheds data
-    global WATERSHEDS # declare global before potential Write
+    global WATERSHEDS  # declare global before potential Write
     if WATERSHEDS is None:
         WATERSHEDS = watersheds_gdb_reader()
 
@@ -404,7 +404,7 @@ def GFMS_extract_by_mask(vrt_file, mask_json):
             out_image, out_transform = mask(
                 src, [mask_json["features"][0]["geometry"]], crop=True
             )
-    except rasterio.errors.RasterioIOError as er: # e.g. if file doesn't exist
+    except rasterio.errors.RasterioIOError as er:  # e.g. if file doesn't exist
         logging.warning(f"RasterioIOError: {vrt_file}")
         src = None
         return pd.DataFrame()
@@ -450,7 +450,7 @@ def GFMS_extract_by_watershed(vrt_file):
     """extract and summary"""
 
     # load watersheds data
-    global WATERSHEDS # declare global before potential Write
+    global WATERSHEDS  # declare global before potential Write
     if WATERSHEDS is None:
         WATERSHEDS = watersheds_gdb_reader()
 
@@ -469,7 +469,9 @@ def GFMS_extract_by_watershed(vrt_file):
     summary_file = os.path.join(
         settings.GFMS_PROC_DIR, os.path.basename(vrt_file)[:-4] + ".csv"
     )
-    if not os.path.exists(summary_file) or os.path.getsize(summary_file) == 0: # ignores corrupted files
+    if (
+        not os.path.exists(summary_file) or os.path.getsize(summary_file) == 0
+    ):  # ignores corrupted files
         with open(summary_file, "w") as f:
             writer = csv.writer(f)
             writer.writerow(headers_list)
@@ -602,7 +604,7 @@ def GFMS_processing(proc_dates_list):
     binhours = ["00", "03", "06", "09", "12", "15", "18", "21"]
     for data_date in proc_dates_list:
         real_date = data_date[:-2]
-        
+
         fix_list = []
         for binhour in binhours:
             bin_file = "Flood_byStor_" + real_date + binhour + ".bin"
@@ -619,10 +621,13 @@ def GFMS_processing(proc_dates_list):
         base0 = "Flood_byStor_" + previous_date.strftime("%Y%m%d") + "21.csv"
         # fix_list = ["Flood_byStor_" + real_date + x + ".csv" for x in binhours]
 
-        # check if the base0 exists(+any of the time bins), 
+        # check if the base0 exists(+any of the time bins),
         # if not, use the first one of the current day(+other time bins)
         # if no missing time bins - summaries already exist
-        if (os.path.exists(os.path.join(settings.GFMS_SUM_DIR, base0)) and len(fix_list) > 0) or len(fix_list) > 1:
+        if (
+            os.path.exists(os.path.join(settings.GFMS_SUM_DIR, base0))
+            and len(fix_list) > 0
+        ) or len(fix_list) > 1:
             # call fix duration
             GFMS_fix_duration(base0, fix_list)
         else:
@@ -638,8 +643,9 @@ def GFMS_processing(proc_dates_list):
         )
 
         # in case of glofascsv data is missing, use the latest
-        if not os.path.exists(glofascsv):
-            glofas_latest = findLatest(settings.GLOFAS_DIR, "csv")
+        # as it is processed early in the day, older Glofas file will be used
+        if not os.path.exists(glofascsv) or int(data_date[8:10]) < 10:
+            glofas_latest = findLatestGlofas(settings.GLOFAS_DIR, data_date, "csv")
             glofascsv = os.path.join(settings.GLOFAS_DIR, glofas_latest)
             logging.warning(
                 f"GloFAS threspoints_{data_date}.csv not published yet, falling "
@@ -654,9 +660,11 @@ def GFMS_processing(proc_dates_list):
         # if os.path.exists(glofascsv) and os.path.exists(gfmscsv):
         # only proceed if valid data is present
         try:
-            flood_severity(gfmscsv, glofascsv, real_date) # if exists checked inside
+            flood_severity(gfmscsv, glofascsv, real_date)  # if exists checked inside
         except Exception as e:
-            logging.error(f"Flood severity calculation (GFMS_MoM) failed for {real_date}: {e}")
+            logging.error(
+                f"Flood severity calculation (GFMS_MoM) failed for {real_date}: {e}"
+            )
             sys.exit(1)
 
         # zip GFMS data after processing
@@ -692,9 +700,7 @@ def GFMS_processing(proc_dates_list):
                 for f in files:
                     z.write(f, arcname=os.path.basename(f))
             os.replace(tmp_zip, zipped)
-            logging.info(
-                f"archived {len(files)} new + {carried} existing: {zipped}"
-            )
+            logging.info(f"archived {len(files)} new + {carried} existing: {zipped}")
 
             # remove only the files that were just archived
             for filePath in files:
