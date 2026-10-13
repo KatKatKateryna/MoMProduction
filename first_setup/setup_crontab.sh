@@ -35,6 +35,7 @@ CRON_JOBS=(
     "0 2,7,13,19 * * * $RUNNER -j HWRF >> $LOG_DIR/hwrf.log 2>&1"
     "0 3,10,23 * * * $RUNNER -j DFO >> $LOG_DIR/dfo.log 2>&1"
     "0 5,12,17 * * * $RUNNER -j VIIRS >> $LOG_DIR/viirs.log 2>&1"
+    "30 2,7,13,19 * * * $RUNNER -j HAFS >> $LOG_DIR/hafs.log 2>&1"
 )
 
 # Remove existing MoM entries (current and legacy forms), then append fresh.

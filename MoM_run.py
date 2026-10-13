@@ -53,7 +53,7 @@ def _getParser():
         epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    joblist = ["GFMS", "HWRF", "HWRF_MOM", "DFO", "DFO_MOM", "VIIRS", "VIIRS_MOM"]
+    joblist = ["GFMS", "HWRF", "HWRF_MOM", "DFO", "DFO_MOM", "VIIRS", "VIIRS_MOM", "HAFS"]
     parser.add_argument(
         "-j",
         "--job",
@@ -91,6 +91,11 @@ def run_job(cronjob):
     elif cronjob == "VIIRS":
         VIIRS_cron()
         batchrun_VIIRS_MoM()
+    elif cronjob == "HAFS":
+        # imported here only: the other jobs never load the HAFS code
+        from HAFS_tool import HAFS_cron
+
+        HAFS_cron()
     else:
         logging.warning(f"unknown job: {cronjob}")
         return

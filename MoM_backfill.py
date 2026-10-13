@@ -17,6 +17,7 @@ import argparse
 import glob
 import logging
 import os
+import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 
@@ -196,6 +197,25 @@ def backfill_dfo_viirs(adate, hwrf_done, dry_run):
         run_step("VIIRS MoM", update_VIIRS_MoM, adate, workdir=settings.VIIRS_PROC_DIR)
 
 
+def backfill_hafs(args):
+    """same days for HAFS, in its own process so it can never change the
+    outputs above"""
+    if not settings.HAFS_ENABLED:
+        return
+    cmd = [
+        sys.executable, os.path.join(settings.BASE_DIR, "HAFS_tool.py"),
+        "--days", str(args.days), "--end", args.end,
+    ]
+    if args.overwrite:
+        cmd.append("--overwrite")
+    logging.info(f"HAFS backfill: {' '.join(cmd[1:])}")
+    if args.dry_run:
+        return
+    result = subprocess.run(cmd, cwd=settings.BASE_DIR)
+    if result.returncode != 0:
+        logging.warning(f"HAFS backfill exited with code {result.returncode}")
+
+
 def main():
     args = _getParser().parse_args()
 
@@ -232,6 +252,8 @@ def main():
         backfill_dfo_viirs(adate, hwrf_done, args.dry_run)
 
     logging.info("MoM backfill finished")
+
+    backfill_hafs(args)
 
 
 if __name__ == "__main__":
