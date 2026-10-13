@@ -15,7 +15,7 @@ import os
 import shutil
 import subprocess
 import sys
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import zipfile
 
 import geopandas
@@ -40,6 +40,21 @@ load_dotenv()
 # total number of hdf files
 DFO_TOTAL_TILES = 287
 DFO_MINIMUM_TILES = 280
+
+# a date still without DFO data this many days later gets an all-zero
+# summary (fill_missing_dates); only dates the host still keeps (about a
+# week) are filled
+DFO_FILL_AFTER_DAYS = 1
+DFO_FILL_LOOKBACK_DAYS = 7
+DFO_FILLED_DIR = os.path.join(settings.DFO_PROC_DIR, "filled")
+
+# flood layers of the DFO hdf files, in the order of the summary columns
+FLOOD_LAYERS = [
+    "Flood 1-Day 250m",
+    "Flood 1-Day CS 250m",
+    "Flood 2-Day 250m",
+    "Flood 3-Day 250m",
+]
 
 
 def get_real_date(year, day_num):
@@ -180,21 +195,26 @@ def dfo_extract_by_mask(vrt_file, mask_json):
     return d
 
 
+def summary_headers(vrt_file):
+    """summary columns of a flood layer mosaic (e.g. Flood_1-Day_CS_250m.vrt)"""
+    headerprefix = os.path.basename(vrt_file).split("_")[1]
+    if "_CS_" in vrt_file:
+        headerprefix = "1-Day_CS"
+
+    return [
+        "pfaf_id",
+        headerprefix + "_TotalArea_km2",
+        headerprefix + "_perc_Area",
+    ]
+
+
 def dfo_extract_by_watershed(vtk_file):
     """extract data by all the watersheds"""
 
     watersheds = watersheds_gdb_reader()
     pfaf_id_list = watersheds.index.tolist()
 
-    headerprefix = os.path.basename(vtk_file).split("_")[1]
-    if "_CS_" in vtk_file:
-        headerprefix = "1-Day_CS"
-
-    headers_list = [
-        "pfaf_id",
-        headerprefix + "_TotalArea_km2",
-        headerprefix + "_perc_Area",
-    ]
+    headers_list = summary_headers(vtk_file)
     summary_file = os.path.basename(vtk_file)[:-4] + ".csv"
     if not os.path.exists(summary_file):
         with open(summary_file, "w") as f:
@@ -256,12 +276,7 @@ def DFO_process(folder, adate):
     # switch to working directory
     os.chdir(hdffolder)
 
-    floodlayer = [
-        "Flood 1-Day 250m",
-        "Flood 1-Day CS 250m",
-        "Flood 2-Day 250m",
-        "Flood 3-Day 250m",
-    ]
+    floodlayer = FLOOD_LAYERS
     # new layer name mapping
     floodsubdataset = {
         "Flood 1-Day 250m": "Flood_1Day_250m",
@@ -397,16 +412,53 @@ def DFO_process(folder, adate):
     return
 
 
+def fill_missing_dates():
+    """write an all-zero DFO summary (no image) for each recent date that
+    still has no DFO data DFO_FILL_AFTER_DAYS days later, so DFO adds nothing
+    that day instead of blocking the DFO/VIIRS MoM and leaving the alerts on
+    old DFO data"""
+    today = datetime.now(timezone.utc).date()
+    pfaf_ids = None
+    columns = [
+        col
+        for flood in FLOOD_LAYERS
+        for col in summary_headers(flood.replace(" ", "_") + ".vrt")[1:]
+    ]
+    for back in range(DFO_FILL_LOOKBACK_DAYS, DFO_FILL_AFTER_DAYS - 1, -1):
+        adate = (today - timedelta(days=back)).strftime("%Y%m%d")
+        summary_csv = os.path.join(settings.DFO_SUM_DIR, f"DFO_{adate}.csv")
+        if os.path.exists(summary_csv):
+            continue
+        if pfaf_ids is None:
+            pfaf_ids = watersheds_gdb_reader().index
+        empty = pd.DataFrame(0.0, index=range(len(pfaf_ids)), columns=columns)
+        empty.insert(0, "pfaf_id", pfaf_ids)
+        empty.to_csv(summary_csv)
+        os.makedirs(DFO_FILLED_DIR, exist_ok=True)
+        with open(os.path.join(DFO_FILLED_DIR, f"DFO_{adate}.txt"), "w") as f:
+            f.write(f"{datetime.now(timezone.utc).isoformat()} no DFO data {back} days after the date\n")
+        logging.warning(
+            f"DFO FILLED {adate}: no DFO data {back} days after the date, wrote an "
+            f"ALL-ZERO summary (not observed data, no image): {summary_csv}"
+        )
+
+
 def DFO_cron():
     """cron job to process DFO"""
 
-    datelist = generate_procesing_list()
+    try:
+        datelist = generate_procesing_list()
+    except Exception:
+        # host unreachable or gone: the missing dates are still filled below
+        logging.exception("DFO host listing failed")
+        datelist = {}
 
     if len(datelist) == 0:
         # return instead of exiting the process: the caller still has to run
         # batchrun_DFO_MoM, which catches up any date whose MoM is missing or
         # was deferred because its cycles had not happened yet
         logging.info("no new data to process!")
+        fill_missing_dates()
         return
 
     logging.info(f"dates to process: {sorted(datelist.values())}")
@@ -426,6 +478,7 @@ def DFO_cron():
         update_DFO_MoM(datelist[key])
         logging.info(f"processing finished: {key}")
 
+    fill_missing_dates()
     return
 
 
