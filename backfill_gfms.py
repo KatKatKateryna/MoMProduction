@@ -20,7 +20,7 @@ yet settled are excluded regardless of --end.
 
 Usage:
     python backfill_gfms.py                        # 20260101 .. 20261006
-    python backfill_gfms.py --start 20260101 --end 20261006 --max-days 4
+    python backfill_gfms.py --start 20260101 --end 20261006 --max-days 220
 """
 
 import argparse
@@ -221,7 +221,7 @@ def main():
         "--end", default=DEFAULT_END, help="last date to backfill (inclusive), YYYYMMDD"
     )
     parser.add_argument(
-        "--max-days", type=int, default=4, help="maximum days per run"
+        "--max-days", type=int, default=220, help="maximum days per run"
     )
     args = parser.parse_args()
 
