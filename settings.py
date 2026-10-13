@@ -39,6 +39,9 @@ GFMS_DIR = os.path.join(PRODUCT_DIR, config.get("products_dir", "GFMS"))
 GFMS_SUM_DIR = os.path.join(GFMS_DIR, "GFMS_summary")
 GFMS_IMG_DIR = os.path.join(GFMS_DIR, "GFMS_image")
 GFMS_MOM_DIR = os.path.join(GFMS_DIR, "GFMS_MoM")
+# per-watershed summaries from the precomputed cell lookup (gfms_cells.py);
+# False = the original per-watershed masks
+GFMS_CELL_LOOKUP = config.getboolean("gfms", "CELL_LOOKUP", fallback=False)
 
 # config DFO directory
 DFO_PROC_DIR = os.path.join(WORKING_DIR, config.get("processing_dir", "dfo"))
@@ -60,12 +63,33 @@ HWRF_DIR = os.path.join(PRODUCT_DIR, config.get("products_dir", "HWRF"))
 HWRF_SUM_DIR = os.path.join(HWRF_DIR, "HWRF_summary")
 HWRF_IMG_DIR = os.path.join(HWRF_DIR, "HWRF_image")
 HWRF_MOM_DIR = os.path.join(HWRF_DIR, "HWRF_MoM")
+HWRF_BACKUP_DIR = os.path.join(HWRF_DIR, "HWRF_host_data_backups")
 # HWRF time_delay: 6 hours
 HWRF_TIME_DELAY = 6
 
 # final product
 FINAL_MOM = os.path.join(PRODUCT_DIR, config.get("products_dir", "FINAL"))
 FINAL_MOM_DIR = os.path.join(PRODUCT_DIR, config.get("products_dir", "FINAL"))
+
+# config HAFS (optional, independent of the HWRF workflow; off unless the
+# [hafs] section of production.cfg turns it on)
+HAFS_ENABLED = config.getboolean("hafs", "ENABLED", fallback=False)
+HAFS_HOST = config.get(
+    "hafs", "HOST", fallback="https://noaa-nws-hafs-pds.s3.amazonaws.com/"
+)
+HAFS_MODEL = config.get("hafs", "MODEL", fallback="hfsa")
+HAFS_WINDOW_KM = config.getfloat("hafs", "WINDOW_KM", fallback=500)
+HAFS_LOOKBACK_DAYS = config.getint("hafs", "LOOKBACK_DAYS", fallback=2)
+HAFS_PROC_DIR = os.path.join(WORKING_DIR, "hafs")
+HAFS_DIR = os.path.join(PRODUCT_DIR, "HAFS")
+HAFS_SUM_DIR = os.path.join(HAFS_DIR, "HAFS_summary")
+HAFS_IMG_DIR = os.path.join(HAFS_DIR, "HAFS_image")
+HAFS_MOM_DIR = os.path.join(HAFS_DIR, "HAFS_MoM")
+HAFS_TRACK_DIR = os.path.join(HAFS_DIR, "HAFS_track")
+HAFS_BACKUP_DIR = os.path.join(HAFS_DIR, "HAFS_host_data_backups")
+DFO_HAFS_DIR = os.path.join(DFO_DIR, "DFO_HAFS_MoM")
+VIIRS_HAFS_DIR = os.path.join(VIIRS_DIR, "VIIRS_HAFS_MoM")
+FINAL_HAFS_DIR = os.path.join(PRODUCT_DIR, "Final_Alerts_hafs")
 
 # config watershed shp file
 WATERSHED_DIR = os.path.join(BASE_DIR, "data", "watershed_shp")

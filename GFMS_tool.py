@@ -479,6 +479,21 @@ def GFMS_extract_by_watershed(vrt_file):
         # already processed,
         return
 
+    # fast path: precomputed watershed cells (gfms_cells.py), same rows
+    if settings.GFMS_CELL_LOOKUP and os.path.exists(vrt_file):
+        from gfms_cells import summary_rows
+
+        try:
+            rows = summary_rows(vrt_file, WATERSHEDS)
+        except Exception:
+            logging.exception("GFMS cell lookup failed, using the per-watershed masks")
+            rows = None
+        if rows is not None:
+            with open(summary_file, "a") as f:
+                csv.writer(f).writerows(rows)
+            logging.info(f"generated (cell lookup): {summary_file}")
+            return
+
     # write out the summary
     # count = 0
 
@@ -506,6 +521,11 @@ def GFMS_extract_by_watershed(vrt_file):
                 data_points = GFMS_extract_by_mask(vrt_file, watershed_json)
 
             # write summary to a csv file
+            # a watershed without flooded cells gets 0s, not the previous one's values
+            GFMS_TotalArea = 0.0
+            GFMS_Area_percent = 0.0
+            GFMS_MeanDepth = 0.0
+            GFMS_MaxDepth = 0.0
             GFMS_Duration = 0
             if not data_points.empty:
                 GFMS_TotalArea = data_points["area"].sum()

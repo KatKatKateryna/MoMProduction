@@ -144,3 +144,4 @@ nohup.out
 *.conf
 *Caddyfile*
 hwrf_data*
+data/gfms_watershed_cells.npz
