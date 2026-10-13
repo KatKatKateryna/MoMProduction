@@ -19,8 +19,8 @@ durations build on the previous day's recomputed 21z summary).
 yet settled are excluded regardless of --end.
 
 Usage:
-    python backfill_gfms.py                        # 20260101 .. 20261006
-    python backfill_gfms.py --start 20260101 --end 20261006 --max-days 220
+    python backfill_gfms.py                        # 20260101 .. 20261013
+    python backfill_gfms.py --start 20260101 --end 20261013 --max-days 220
 """
 
 import argparse
@@ -39,7 +39,7 @@ BINHOURS = ["00", "03", "06", "09", "12", "15", "18", "21"]
 
 # current backfill pass (inclusive)
 DEFAULT_START = "20260101"
-DEFAULT_END = "20261006"
+DEFAULT_END = "20261013"
 
 # days with no data at the source are marked here so later runs skip them
 # instead of stalling on the same gap forever
