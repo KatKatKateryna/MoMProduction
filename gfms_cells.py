@@ -20,8 +20,7 @@ gfms_cells.py
     the build fails, GFMS falls back to the original per-watershed masks.
     The file is generated, not kept in git.
 
-    Switch: CELL_LOOKUP in the [gfms] section of production.cfg
-    (True / False; missing = False).
+    Switch: GFMS_CELL_LOOKUP in GFMS_tool.py (True / False).
 
 **EXAMPLE**
     python gfms_cells.py            # build (or rebuild) the lookup by hand

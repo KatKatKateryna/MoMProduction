@@ -38,6 +38,10 @@ from utilities import findLatestGlofas, hwrf_today, watersheds_gdb_reader
 load_dotenv()
 WATERSHEDS = None
 
+# per-watershed summaries from the precomputed cell lookup (gfms_cells.py);
+# False = the original per-watershed masks
+GFMS_CELL_LOOKUP = True
+
 # no need for cron-job
 # from progressbar import progress
 
@@ -480,7 +484,7 @@ def GFMS_extract_by_watershed(vrt_file):
         return
 
     # fast path: precomputed watershed cells (gfms_cells.py), same rows
-    if settings.GFMS_CELL_LOOKUP and os.path.exists(vrt_file):
+    if GFMS_CELL_LOOKUP and os.path.exists(vrt_file):
         from gfms_cells import summary_rows
 
         try:

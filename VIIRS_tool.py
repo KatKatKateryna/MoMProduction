@@ -37,6 +37,10 @@ from VIIRS_MoM import update_VIIRS_MoM
 
 import xml.etree.ElementTree as ET
 
+# per-watershed summaries from the precomputed cell lookup (viirs_cells.py);
+# False = the original per-watershed masks
+VIIRS_CELL_LOOKUP = True
+
 
 def generate_adate(delay=1):
     """generate 1 day delay date"""
@@ -360,7 +364,7 @@ def VIIRS_extract_by_watershed(adate, tiffs):
 
         # fast path: precomputed watershed cells (viirs_cells.py), same rows
         rows = None
-        if settings.VIIRS_CELL_LOOKUP:
+        if VIIRS_CELL_LOOKUP:
             from viirs_cells import summary_rows
 
             try:

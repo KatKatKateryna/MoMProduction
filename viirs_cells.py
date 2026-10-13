@@ -23,8 +23,7 @@ viirs_cells.py
     build fails, VIIRS falls back to the per-watershed masks. The file is
     generated, not kept in git.
 
-    Switch: CELL_LOOKUP in the [viirs] section of production.cfg
-    (True / False; missing = False).
+    Switch: VIIRS_CELL_LOOKUP in VIIRS_tool.py (True / False).
 
 **EXAMPLE**
     python viirs_cells.py VIIRS_1day_composite20261012_flood.tiff   # build by hand

@@ -39,9 +39,6 @@ GFMS_DIR = os.path.join(PRODUCT_DIR, config.get("products_dir", "GFMS"))
 GFMS_SUM_DIR = os.path.join(GFMS_DIR, "GFMS_summary")
 GFMS_IMG_DIR = os.path.join(GFMS_DIR, "GFMS_image")
 GFMS_MOM_DIR = os.path.join(GFMS_DIR, "GFMS_MoM")
-# per-watershed summaries from the precomputed cell lookup (gfms_cells.py);
-# False = the original per-watershed masks
-GFMS_CELL_LOOKUP = config.getboolean("gfms", "CELL_LOOKUP", fallback=False)
 
 # config DFO directory
 DFO_PROC_DIR = os.path.join(WORKING_DIR, config.get("processing_dir", "dfo"))
@@ -56,9 +53,6 @@ VIIRS_DIR = os.path.join(PRODUCT_DIR, config.get("products_dir", "VIIRS"))
 VIIRS_SUM_DIR = os.path.join(VIIRS_DIR, "VIIRS_summary")
 VIIRS_IMG_DIR = os.path.join(VIIRS_DIR, "VIIRS_image")
 VIIRS_MOM_DIR = os.path.join(VIIRS_DIR, "VIIRS_MoM")
-# per-watershed summaries from the precomputed cell lookup (viirs_cells.py);
-# False = the original per-watershed masks
-VIIRS_CELL_LOOKUP = config.getboolean("viirs", "CELL_LOOKUP", fallback=False)
 
 # config HWRF directory
 HWRF_PROC_DIR = os.path.join(WORKING_DIR, config.get("processing_dir", "hwrf"))
