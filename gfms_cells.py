@@ -14,15 +14,17 @@ gfms_cells.py
     the file's nodata), so cells that are dry, wet or missing on a given day
     are all handled. The summary rows are identical to the original ones.
 
-    The lookup is only used when it matches: same GFMS grid (size, position,
-    cell size) and same watershed shapefile. Otherwise, or when the file is
-    missing, GFMS falls back to the original per-watershed masks.
+    With the switch on, the first GFMS run builds the lookup (~3 minutes) and
+    rebuilds it when the watershed shapefile changes. It is only used for a
+    file with the same GFMS grid (size, position, cell size); otherwise, or if
+    the build fails, GFMS falls back to the original per-watershed masks.
+    The file is generated, not kept in git.
 
     Switch: CELL_LOOKUP in the [gfms] section of production.cfg
     (True / False; missing = False).
 
 **EXAMPLE**
-    python gfms_cells.py            # build (or rebuild) the lookup
+    python gfms_cells.py            # build (or rebuild) the lookup by hand
 """
 
 import hashlib
@@ -90,7 +92,7 @@ def build():
             dst.write(full, 1)
         with memfile.open() as src:
             px, py = src.res
-            for n, pfaf_id in enumerate(pfaf_ids, 1):
+            for pfaf_id in pfaf_ids:
                 # same geometry hand-over and mask call as GFMS_extract_by_mask
                 mask_json = json.loads(
                     geopandas.GeoSeries([watersheds.loc[pfaf_id, "geometry"]]).to_json()
@@ -113,10 +115,9 @@ def build():
                 cells.append((row + row_off).astype(np.int64) * GRID_WIDTH + (col + col_off))
                 areas.append(np.asarray(area, np.float64))
                 offsets.append(offsets[-1] + len(row))
-                if n % 500 == 0:
-                    print(f"{n}/{len(pfaf_ids)} watersheds, {time.monotonic() - t0:.0f}s", flush=True)
 
-    tmp = CELLS_FILE + ".part.npz"
+    # unique name: two GFMS processes may build at the same time
+    tmp = f"{CELLS_FILE}.{os.getpid()}.part.npz"
     np.savez_compressed(
         tmp,
         pfaf_ids=np.asarray(pfaf_ids),
@@ -127,25 +128,37 @@ def build():
         shapefile=np.asarray(shapefile_fingerprint()),
     )
     os.replace(tmp, CELLS_FILE)
-    print(f"saved {CELLS_FILE}: {len(pfaf_ids)} watersheds, {offsets[-1]} cells, "
-          f"{time.monotonic() - t0:.0f}s")
+    logging.info(f"GFMS cell lookup saved: {CELLS_FILE}, {len(pfaf_ids)} watersheds, "
+                 f"{offsets[-1]} cells, {time.monotonic() - t0:.0f}s")
+
+
+def read_lookup():
+    """the saved lookup if it matches the current watershed shapefile"""
+    if not os.path.exists(CELLS_FILE):
+        return None
+    with np.load(CELLS_FILE) as z:
+        lookup = {k: z[k] for k in z.files}
+    if str(lookup["shapefile"]) != shapefile_fingerprint():
+        logging.info("GFMS cell lookup was built for another watershed shapefile")
+        return None
+    return lookup
 
 
 def load_lookup():
-    """the lookup if it matches the current watershed shapefile, else None"""
+    """the lookup, built first when missing or out of date; None if that
+    fails (the caller then uses the per-watershed masks)"""
     global _LOOKUP
     if _LOOKUP is None:
-        if not os.path.exists(CELLS_FILE):
-            logging.warning(f"GFMS cell lookup missing ({CELLS_FILE}), build it with gfms_cells.py")
-            _LOOKUP = False
-            return None
-        with np.load(CELLS_FILE) as z:
-            lookup = {k: z[k] for k in z.files}
-        if str(lookup["shapefile"]) != shapefile_fingerprint():
-            logging.warning("GFMS cell lookup was built for another watershed shapefile, rebuild it with gfms_cells.py")
-            _LOOKUP = False
-            return None
-        _LOOKUP = lookup
+        try:
+            lookup = read_lookup()
+            if lookup is None:
+                logging.info(f"building the GFMS cell lookup: {CELLS_FILE}")
+                build()
+                lookup = read_lookup()
+        except Exception:
+            logging.exception("GFMS cell lookup could not be built or read")
+            lookup = None
+        _LOOKUP = lookup if lookup is not None else False
     return _LOOKUP or None
 
 
@@ -201,4 +214,5 @@ def summary_rows(vrt_file, watersheds):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s", force=True)
     sys.exit(build())
