@@ -482,6 +482,30 @@ def DFO_cron():
     return
 
 
+def DFO_fixdate(adate):
+    """process a specific date (YYYYMMDD) that the host still has and that
+    has no DFO summary yet"""
+    datelist = generate_procesing_list()
+    if adate not in datelist.values():
+        logging.info(
+            f"DFO fixdate {adate}: not on the host or already processed, "
+            f"available: {sorted(datelist.values())}"
+        )
+        return
+
+    key = [k for k, v in datelist.items() if v == adate][0]
+    logging.info(f"try to fix a date: {adate}")
+    logging.info(f"download: {key} ({adate})")
+    if not dfo_download(key):
+        logging.warning(f"download failed for {key} ({adate})")
+        return
+    logging.info(f"download finished: {key}")
+    logging.info(f"processing: {key} ({adate})")
+    DFO_process(key, adate)
+    update_DFO_MoM(adate)
+    logging.info(f"processing finished: {key}")
+
+
 def main():
     DFO_cron()
 
