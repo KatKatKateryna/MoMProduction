@@ -145,3 +145,4 @@ nohup.out
 *Caddyfile*
 hwrf_data*
 data/gfms_watershed_cells.npz
+data/viirs_watershed_runs.npz

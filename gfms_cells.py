@@ -27,7 +27,6 @@ gfms_cells.py
     python gfms_cells.py            # build (or rebuild) the lookup by hand
 """
 
-import hashlib
 import json
 import logging
 import math
@@ -44,7 +43,7 @@ from rasterio.io import MemoryFile
 from rasterio.mask import mask
 
 import settings
-from utilities import watersheds_gdb_reader
+from utilities import shapefile_fingerprint, watersheds_gdb_reader
 
 CELLS_FILE = os.path.join(settings.BASE_DATA_DIR, "gfms_watershed_cells.npz")
 
@@ -55,17 +54,6 @@ GRID_TRANSFORM = Affine(0.0625, 0.0, -127.25, 0.0, -0.0625, 50.0)
 GRID_NODATA = -9999.0
 
 _LOOKUP = None
-
-
-def shapefile_fingerprint():
-    """sha256 of the watershed shapefile geometry and attribute files"""
-    sha = hashlib.sha256()
-    base = os.path.splitext(settings.WATERSHED_SHP)[0]
-    for ext in (".shp", ".dbf"):
-        with open(base + ext, "rb") as f:
-            for block in iter(lambda: f.read(1 << 22), b""):
-                sha.update(block)
-    return sha.hexdigest()
 
 
 def grid_signature(width, height, transform):

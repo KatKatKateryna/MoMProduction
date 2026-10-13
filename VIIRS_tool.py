@@ -32,6 +32,7 @@ from rasterio.mask import mask
 
 import settings
 from utilities import read_data, watersheds_gdb_reader
+from viirs_cells import flood_area_km2, is_flood
 from VIIRS_MoM import update_VIIRS_MoM
 
 import xml.etree.ElementTree as ET
@@ -305,12 +306,15 @@ def VIIRS_extract_by_mask(mask_json, tiff):
             area = 0
             # return empty dataframe
             return area
+        transform = src.transform
     data = out_image[0]
-    point_count = np.count_nonzero((data > 140) & (data < 201))
+    # flood cells per row, each counted with its true area (smaller away
+    # from the equator on this latitude/longitude grid)
+    counts = np.count_nonzero(is_flood(data), axis=1)
+    row_off = int(round((out_transform.f - transform.f) / transform.e))
+    rows = np.flatnonzero(counts)
     src = None
-    # total area
-    # resolution is 375m
-    area = point_count * 0.375 * 0.375
+    area = flood_area_km2(rows + row_off, counts[rows], transform)
     return area
 
 
@@ -353,6 +357,24 @@ def VIIRS_extract_by_watershed(adate, tiffs):
         with open(csv_file, "w") as f:
             writer = csv.writer(f)
             writer.writerow(headers_list)
+
+        # fast path: precomputed watershed cells (viirs_cells.py), same rows
+        rows = None
+        if settings.VIIRS_CELL_LOOKUP:
+            from viirs_cells import summary_rows
+
+            try:
+                rows = summary_rows(tiff, watersheds)
+            except Exception:
+                logging.exception("VIIRS cell lookup failed, using the per-watershed masks")
+                rows = None
+        if rows is not None:
+            with open(csv_file, "a") as f:
+                csv.writer(f).writerows(rows)
+            logging.info(f"generated (cell lookup): {csv_file}")
+            csv_dict[field_prefix] = csv_file
+            continue
+
         with open(csv_file, "a") as f:
             writer = csv.writer(f)
             for the_pfafid in pfafid_list:
