@@ -65,15 +65,12 @@ def generate_procesing_list():
 
     hosturl = settings.config.get("hwrf", "HOST")
 
-    # Check if the host URL is accessible
-    from utilities import url_exits
-
-    if not url_exits(hosturl):
-        logging.info(f"Host URL {hosturl} is not accessible")
-        return {}  # Return an empty dictionary if URL isn't reachable
-
     try:
-        reqs = requests.get(hosturl)
+        # one request both checks the host and lists the dates
+        reqs = requests.get(hosturl, timeout=60)
+        if reqs.status_code != 200:
+            logging.info(f"Host URL {hosturl} is not accessible")
+            return {}  # Return an empty dictionary if URL isn't reachable
         soup = BeautifulSoup(reqs.text, "html.parser")
 
         datelist = {}
