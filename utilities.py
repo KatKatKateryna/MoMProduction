@@ -4,9 +4,11 @@ routines shared across the modules
 
 """
 
+import csv
 import glob
 import hashlib
 import os
+import re
 from datetime import date, datetime, timedelta, timezone
 
 import geopandas
@@ -99,6 +101,30 @@ def get_latestitems(afolder, numofitems=7):
         return items
     else:
         return items[-numofitems:]
+
+
+# columns of the HWRF and HAFS rainfall summaries (hwrf./hafs.YYYYMMDDHHrainfall.csv)
+RAIN_SUMMARY_HEADERS = ["pfaf_id", "Rain_TotalArea_km", "perc_Area", "MeanRain", "MaxRain"]
+
+
+def write_empty_rain_summary(path):
+    """header-only rainfall summary: the cycle is processed and has no rain
+    over any watershed (a missing summary means not processed yet)"""
+    with open(path, "w") as f:
+        csv.writer(f).writerow(RAIN_SUMMARY_HEADERS)
+
+
+def hafs_storms(cycle):
+    """storm ids (e.g. 20e, 09l) HAFS has published for a cycle (YYYYMMDDHH);
+    raises on a failed request"""
+    host = settings.HAFS_HOST.rstrip("/") + "/"
+    prefix = f"{settings.HAFS_MODEL}/{cycle[:8]}/{cycle[8:]}/"
+    reqs = requests.get(
+        host, params={"list-type": "2", "prefix": prefix, "delimiter": "."}, timeout=60
+    )
+    reqs.raise_for_status()
+    found = re.findall(rf"<Prefix>{re.escape(prefix)}(\d\d[a-z])\.</Prefix>", reqs.text)
+    return sorted(set(found))
 
 
 def url_exits(aurl):

@@ -26,7 +26,12 @@ from shapely.geometry import Point
 
 import settings
 from HWRF_MoM import hwrf_workflow
-from utilities import get_current_processing_datehour, hwrf_today, watersheds_gdb_reader
+from utilities import (
+    RAIN_SUMMARY_HEADERS,
+    get_current_processing_datehour,
+    hwrf_today,
+    watersheds_gdb_reader,
+)
 
 
 def check_status(adate):
@@ -286,13 +291,7 @@ def HWRF_extract_by_watershed(raintiff):
     watersheds = watersheds_gdb_reader()
     pfafid_list = watersheds.index.tolist()
 
-    headers_list = [
-        "pfaf_id",
-        "Rain_TotalArea_km",
-        "perc_Area",
-        "MeanRain",
-        "MaxRain",
-    ]
+    headers_list = RAIN_SUMMARY_HEADERS
     output_csv = raintiff.replace(".tiff", ".csv")
     with open(output_csv, "w") as f:
         writer = csv.writer(f)
@@ -325,16 +324,16 @@ def HWRF_extract_by_watershed(raintiff):
                 writer.writerow(results_list)
                 has_data = True
     # has_data, move file to the right locaition
-    # no_data, delete all the file
+    # no_data: keep the header-only summary (processed, no rain over any
+    # watershed; a missing summary means not processed yet), delete the image
+    shutil.move(output_csv, os.path.join(settings.HWRF_SUM_DIR, output_csv))
     if has_data:
-        shutil.move(output_csv, os.path.join(settings.HWRF_SUM_DIR, output_csv))
         shutil.move(raintiff, os.path.join(settings.HWRF_IMG_DIR, raintiff))
         os.remove(raintiff.replace(".tiff", ".vrt"))
     else:
         os.remove(raintiff)
-        os.remove(output_csv)
         os.remove(raintiff.replace(".tiff", ".vrt"))
-        logging.info(f"no data: {output_csv}")
+        logging.info(f"no data, empty summary: {output_csv}")
 
     return [output_csv, has_data]
 
@@ -378,7 +377,7 @@ def HWRF_cron():
         logging.info(f"processing {newtiff}")
         [hwrfcsv, dataflag] = HWRF_extract_by_watershed(newtiff)
         if not dataflag:
-            logging.info(f"no data, not generated: {hwrfcsv}")
+            logging.info(f"no rain over watersheds, empty summary: {hwrfcsv}")
             # if no csv produced, it shall just conitune to produce MoM output
             # continue
         logging.info(f"generated: {hwrfcsv}")

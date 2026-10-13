@@ -7,10 +7,11 @@ import csv
 import glob
 import logging
 import os
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import numpy as np
 import pandas as pd
+import requests
 import scipy.stats
 
 import settings
@@ -18,8 +19,10 @@ from utilities import (
     findLatestGlofas,
     get_current_processing_datehour,
     get_latestitems,
+    hafs_storms,
     hwrf_today,
     read_data,
+    write_empty_rain_summary,
 )
 
 
@@ -56,6 +59,68 @@ def mofunc_viirs(row):
         return "Information"
 
 
+# the previous cycle's HWRF rainfall is waited for until it is this old; after
+# that the MoM is written without it
+HWRF_MISSING_AFTER = timedelta(hours=12)
+# from this age, a missing cycle that neither the HWRF host nor HAFS has any
+# storm for gets an empty summary right away
+HWRF_NO_STORMS_AFTER = timedelta(hours=6)
+
+
+def hwrf_host_has_cycle(hwrf_cycle):
+    """True/False from the HWRF host listings, None if they cannot be read
+    (the host answers 403 both for a missing cycle and when rate limiting)"""
+    host = settings.config.get("hwrf", "HOST").rstrip("/")
+    day = f"hwrf.{hwrf_cycle[:8]}/"
+    try:
+        top = requests.get(f"{host}/", timeout=60)
+        if top.status_code != 200:
+            return None
+        if f'href="{day}"' not in top.text:
+            return False
+        listing = requests.get(f"{host}/{day}", timeout=60)
+        if listing.status_code != 200:
+            return None
+        return f'href="{hwrf_cycle[8:]}/"' in listing.text
+    except requests.exceptions.RequestException:
+        return None
+
+
+def no_storms_published(hwrf_cycle):
+    """True only when both hosts confirm there are no storms for the cycle:
+    the HWRF host has no such cycle and HAFS lists no storms for it"""
+    if not settings.HAFS_ENABLED:
+        return False
+    try:
+        if hafs_storms(hwrf_cycle):
+            return False
+    except requests.exceptions.RequestException:
+        return False
+    return hwrf_host_has_cycle(hwrf_cycle) is False
+
+
+def previous_rain_ready(hwrf_cycle, now=None):
+    """True when the MoM can use, or go on without, the HWRF rainfall of
+    hwrf_cycle (YYYYMMDDHH): its summary exists (empty when there was no
+    rain), no storm is published for it (an empty summary is written then),
+    or it is HWRF_MISSING_AFTER old"""
+    hwrf_sum = os.path.join(settings.HWRF_SUM_DIR, f"hwrf.{hwrf_cycle}rainfall.csv")
+    if os.path.exists(hwrf_sum):
+        return True
+    now = now or datetime.now(timezone.utc)
+    age = now - datetime.strptime(hwrf_cycle, "%Y%m%d%H").replace(tzinfo=timezone.utc)
+    if age >= HWRF_MISSING_AFTER:
+        return True
+    if age >= HWRF_NO_STORMS_AFTER and no_storms_published(hwrf_cycle):
+        write_empty_rain_summary(hwrf_sum)
+        logging.info(
+            f"HWRF {hwrf_cycle}: no storms on the HWRF host or in HAFS, empty "
+            f"summary written: {hwrf_sum}"
+        )
+        return True
+    return False
+
+
 def update_HWRF_MoM(adate):
     """HWRF MoM for a date: YYYYMMDDHH"""
     print(f"___________update_HWRF_MoM: {adate}")
@@ -72,6 +137,16 @@ def update_HWRF_MoM(adate):
     hwrf_sum = os.path.join(
         settings.HWRF_SUM_DIR, "hwrf.{}rainfall.csv".format(hwrf_cycle)
     )
+
+    # wait for the previous cycle's rainfall unless it is long overdue: a MoM
+    # written without it is final and would not be redone when it arrives
+    if not previous_rain_ready(hwrf_cycle):
+        logging.info(
+            f"HWRF MoM {adate}: rainfall of the previous cycle {hwrf_cycle} not "
+            f"processed yet, waiting (written without it once "
+            f"{HWRF_MISSING_AFTER.total_seconds() / 3600:.0f}h old)"
+        )
+        return
 
     # first check if file exists
     if not os.path.exists(gfms_sum):
@@ -1322,10 +1397,18 @@ def batchrun_HWRF_MoM():
     # collect all dates
     # first scan hwrf_summary folder
     datelist = []
+    now = datetime.now(timezone.utc)
     for entry in get_latestitems(settings.HWRF_SUM_DIR):
         if "rainfall.csv" in entry:
             testdate = entry.split(".")[1].replace("rainfall", "")
             datelist.append(testdate)
+            # the next cycle's MoM uses this summary (previous-cycle HWRF), so
+            # it can run as soon as that cycle has started
+            next_cycle = datetime.strptime(testdate, "%Y%m%d%H").replace(
+                tzinfo=timezone.utc
+            ) + timedelta(hours=6)
+            if next_cycle <= now:
+                datelist.append(next_cycle.strftime("%Y%m%d%H"))
 
     # scan raw data folder
     for entry in get_latestitems(settings.HWRF_PROC_DIR):

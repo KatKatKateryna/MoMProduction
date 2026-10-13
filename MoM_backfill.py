@@ -155,8 +155,8 @@ def backfill_hwrf(adate, dry_run, with_alert=True):
     for hh in HOURS:
         adatehour = adate + hh
         cycle_time = datetime.strptime(adatehour, "%Y%m%d%H").replace(tzinfo=timezone.utc)
-        if cycle_time + timedelta(hours=1) > now:
-            logging.info(f"HWRF MoM {adatehour}: less than 1 hour old, stop here")
+        if cycle_time > now:
+            logging.info(f"HWRF MoM {adatehour}: cycle not reached yet, stop here")
             break
         # update_HWRF_MoM would call GFMS_fixdate (download) on a missing summary
         if not os.path.exists(gfms_sum(adatehour)):

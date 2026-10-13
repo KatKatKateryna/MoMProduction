@@ -43,7 +43,6 @@ import glob
 import json
 import logging
 import os
-import re
 import shutil
 import sys
 import tempfile
@@ -62,6 +61,7 @@ from rasterio.transform import from_origin
 import eccodes  # isort: skip
 
 import settings
+from utilities import RAIN_SUMMARY_HEADERS, hafs_storms, write_empty_rain_summary
 
 HOURS = ["00", "06", "12", "18"]
 RES = 0.05
@@ -113,14 +113,7 @@ def make_dirs():
 
 def list_storms(cycle):
     """storm ids (e.g. 20e, 09l) HAFS has for a cycle"""
-    host = settings.HAFS_HOST.rstrip("/") + "/"
-    prefix = f"{settings.HAFS_MODEL}/{cycle[:8]}/{cycle[8:]}/"
-    reqs = requests.get(
-        host, params={"list-type": "2", "prefix": prefix, "delimiter": "."}, timeout=60
-    )
-    reqs.raise_for_status()
-    found = re.findall(rf"<Prefix>{re.escape(prefix)}(\d\d[a-z])\.</Prefix>", reqs.text)
-    return sorted(set(found))
+    return hafs_storms(cycle)
 
 
 def exists(url):
@@ -390,7 +383,7 @@ def summarize(raintiff, output_csv, grid, top, left):
     has_data = False
     with open(output_csv, "w") as f:
         writer = csv.writer(f)
-        writer.writerow(["pfaf_id", "Rain_TotalArea_km", "perc_Area", "MeanRain", "MaxRain"])
+        writer.writerow(RAIN_SUMMARY_HEADERS)
         for the_pfafid in watersheds.index.tolist():
             if the_pfafid not in candidates.index:
                 continue
@@ -423,9 +416,17 @@ def is_done(cycle):
     return os.path.exists(os.path.join(DONE_DIR, cycle))
 
 
+def empty_summary(cycle, note):
+    """settle a cycle without rain over any watershed: header-only summary,
+    no image"""
+    write_empty_rain_summary(os.path.join(settings.HAFS_SUM_DIR, f"hafs.{cycle}rainfall.csv"))
+    logging.info(f"HAFS {cycle}: {note}, empty summary written")
+    mark_done(cycle, note)
+
+
 def process_cycle(cycle):
     """HAFS summary, image and tracks of one cycle; True once the cycle is
-    settled (processed, or known to have nothing)"""
+    settled (processed, or known to have nothing; then the summary is empty)"""
     if is_done(cycle):
         return True
     age = utc_now() - cycle_time(cycle)
@@ -435,8 +436,7 @@ def process_cycle(cycle):
     storms = list_storms(cycle)
     if not storms:
         if age >= EMPTY_FINAL:
-            mark_done(cycle, "no storms")
-            logging.info(f"HAFS {cycle}: no storms")
+            empty_summary(cycle, "no storms")
             return True
         return False
 
@@ -463,7 +463,7 @@ def process_cycle(cycle):
         grids.append((grid, top, left))
         logging.info(f"HAFS {cycle}: {storm} max {np.nanmax(grid):.2f} in")
     if not grids:
-        mark_done(cycle, "no storm data")
+        empty_summary(cycle, "no storm data")
         return True
 
     grid, top, left = merge(grids)
@@ -476,12 +476,11 @@ def process_cycle(cycle):
         logging.info(f"HAFS {cycle}: generated summary and image")
         mark_done(cycle, " ".join(ready))
     else:
-        # same as HWRF: no rain over any watershed, no summary or image
+        # same as HWRF: no rain over any watershed, empty summary, no image
         for f in (raintiff, output_csv):
             if os.path.exists(f):
                 os.remove(f)
-        logging.info(f"HAFS {cycle}: no rain over watersheds")
-        mark_done(cycle, " ".join(ready) + " (no rain over watersheds)")
+        empty_summary(cycle, " ".join(ready) + " (no rain over watersheds)")
     return True
 
 
@@ -546,7 +545,7 @@ def run_cycle_mom(cycle, with_alert=True):
     not due yet (later cycles are not either)"""
     from HWRF_MoM import final_alert_pdc, update_HWRF_MoM, update_HWRFMoM_DFO_VIIRS
 
-    if cycle_time(cycle) + timedelta(hours=1) > utc_now():
+    if cycle_time(cycle) > utc_now():
         return False
     # the HWRF MoM of a cycle uses the rain of the previous cycle
     if not is_done(shift_cycle(cycle, -6)):
