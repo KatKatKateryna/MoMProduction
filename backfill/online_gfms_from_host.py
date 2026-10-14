@@ -3,7 +3,7 @@ online_gfms_from_host.py -- regenerate missing GFMS image (tiff) products, and t
 matching per-watershed summary CSVs, for historical dates.
 
 Scope is deliberately narrow: GFMS image + GFMS summary only. It does not
-touch GloFAS, HWRF, DFO, VIIRS, the Final_Alert composite, or the database.
+touch GloFAS, HWRF, DFO, VIIRS, or the Final_Alert composite.
 
 Why this exists: image products were never generated under cron (gdal_translate
 was unresolvable without an activated conda env), so GFMS_image/ is empty while

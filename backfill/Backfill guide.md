@@ -28,8 +28,8 @@ setsid nohup python -u backfill/<script>.py ... \
 The products build on each other:
 
 ```
-source summaries / images  ->  MoM products  ->  database upload
-(step 1, any order)            (step 2)           (step 3)
+source summaries / images  ->  MoM products
+(step 1, any order)            (step 2)
 ```
 
 1. **Source summaries and images.** `offline_summaries_from_images.py` does
@@ -50,17 +50,15 @@ source summaries / images  ->  MoM products  ->  database upload
    chain): `offline_mom_from_summaries.py --out-dir <folder>`. It only reads the
    summaries and only writes into that folder, so every step 1 run must be
    finished first.
-3. **Database**: re-upload the regenerated summaries and MoM products with
-   the scripts in `database_update/`.
 
 Only redo what changed, together with everything after it. For example:
 
 | Changed | Rerun |
 |---|---|
-| VIIRS area calculation | VIIRS summaries, then `offline_mom_from_summaries.py` (VIIRS MoM, HWRF+DFO+VIIRS, final alerts, HAFS chain), then the database |
-| HWRF / HAFS rain calculation | `offline_hwrf_hafs_summaries_from_backups.py`, then `offline_mom_from_summaries.py`, then the database |
-| GFMS calculation | `offline_gfms_summaries_from_images.py` (or `online_gfms_from_host.py`), then `offline_mom_from_summaries.py`, then the database |
-| Scoring / weightage only | `offline_mom_from_summaries.py`, then the database |
+| VIIRS area calculation | VIIRS summaries, then `offline_mom_from_summaries.py` (VIIRS MoM, HWRF+DFO+VIIRS, final alerts, HAFS chain) |
+| HWRF / HAFS rain calculation | `offline_hwrf_hafs_summaries_from_backups.py`, then `offline_mom_from_summaries.py` |
+| GFMS calculation | `offline_gfms_summaries_from_images.py` (or `online_gfms_from_host.py`), then `offline_mom_from_summaries.py` |
+| Scoring / weightage only | `offline_mom_from_summaries.py` |
 
 The regular cron jobs keep running during a backfill. They only process new
 cycles, so they do not collide with a backfill of past dates.
@@ -142,8 +140,7 @@ summaries of 2026-10-10/11 came out byte-identical).
   unless `--overwrite`: then it is recomputed and replaced.
 - **Lookup file:** `data/gfms_watershed_cells.npz` is created only if it does
   not exist. An existing one is never replaced.
-- **Not touched:** `GFMS/GFMS_summary/`, the images, the MoM products, the
-  database.
+- **Not touched:** `GFMS/GFMS_summary/`, the images, the MoM products.
 - Write to a new folder, check the results, then move the files into
   `GFMS/GFMS_summary/` yourself (replacing the old ones) before step 2.
 
@@ -169,7 +166,7 @@ Regenerates the GFMS images and per-watershed summaries of past days.
   (today's files include forecasts), and at most `--max-days` per run.
 - **Temporary files:** the downloaded files in the GFMS processing folder are
   deleted after each day.
-- **Not touched:** GloFAS, the MoM products, the database.
+- **Not touched:** GloFAS, the MoM products.
 
 ```bash
 python backfill/online_gfms_from_host.py --start 20260101 --end 20261013 --max-days 220
@@ -208,7 +205,7 @@ code (cell lookup, dateline handling, HAFS track window `WINDOW_KM`).
 - **Temporary files:** in `hwrf/backfill_work/` and the HAFS `work/` folder,
   under the processing directory; removed at the end.
 - **Not touched:** the backups, the HAFS tracks and done markers, the MoM
-  products, the database.
+  products.
 
 ```bash
 python backfill/offline_hwrf_hafs_summaries_from_backups.py 20261011 20261013   # first and last day
@@ -227,7 +224,7 @@ backup exists.
   `HWRF_image/hwrf.YYYYMMDDHHrainfall.tiff`, only for cycles that have no
   summary, or only a zero-value placeholder. A cycle that already has a real
   summary is skipped, so this script cannot be used to recompute.
-- **Not touched:** the MoM products, the database.
+- **Not touched:** the MoM products.
 - The host keeps only the last few days, so older cycles cannot be filled.
 
 ```bash
@@ -248,7 +245,7 @@ calculation (true cell areas; only pixels coded 141–200 count as flooded).
 - **Lookup file:** `data/viirs_watershed_runs.npz` is created by the first
   run if it does not exist (about 6 minutes). An existing one is never
   replaced.
-- **Not touched:** `VIIRS/VIIRS_summary/`, the MoM products, the database.
+- **Not touched:** `VIIRS/VIIRS_summary/`, the MoM products.
 - Write to a new folder, check the results, then move the files into
   `VIIRS/VIIRS_summary/` yourself (replacing the old ones) before step 2.
 

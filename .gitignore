@@ -136,7 +136,7 @@ production.cfg
 database_update/downloads_mom/
 database_update/*.csv
 *.tiff
-*/*/db_config.cfg
+first_setup/db_config.cfg
 database_update/db_upload_utils/failed.txt
 database_update/logs/*
 database_update/nginx_cog*
