@@ -22,7 +22,8 @@ from bs4 import BeautifulSoup
 from osgeo import gdal
 from rasterio import Affine
 from rasterio.mask import mask
-from shapely.geometry import Point
+from shapely.affinity import translate
+from shapely.geometry import Point, mapping, shape
 
 import settings
 from HWRF_MoM import hwrf_workflow
@@ -32,6 +33,10 @@ from utilities import (
     hwrf_today,
     watersheds_gdb_reader,
 )
+
+# per-watershed summaries from the precomputed cell lookup (hwrf_cells.py);
+# False = the original per-watershed masks
+HWRF_CELL_LOOKUP = True
 
 
 def check_status(adate):
@@ -240,10 +245,13 @@ def HWRF_extract_by_mask(mask_json, tiff):
     """extract by each watershed"""
 
     with rasterio.open(tiff) as src:
+        shapes = [mask_json["features"][0]["geometry"]]
+        if src.bounds.right > 180:
+            # image past the dateline (0..360): the watershed there is at
+            # longitude + 360
+            shapes.append(mapping(translate(shape(shapes[0]), xoff=360)))
         try:
-            out_image, out_transform = mask(
-                src, [mask_json["features"][0]["geometry"]], crop=True
-            )
+            out_image, out_transform = mask(src, shapes, crop=True)
         except ValueError as e:
             #'Input shapes do not overlap raster.'
             # print(e)
@@ -297,6 +305,22 @@ def HWRF_extract_by_watershed(raintiff):
         writer = csv.writer(f)
         writer.writerow(headers_list)
     has_data = False
+
+    # fast path: precomputed watershed cells (hwrf_cells.py), same rows
+    rows = None
+    if HWRF_CELL_LOOKUP:
+        from hwrf_cells import summary_rows_from_tiff
+
+        try:
+            rows = summary_rows_from_tiff(raintiff, watersheds)
+        except Exception:
+            logging.exception("HWRF cell lookup failed, using the per-watershed masks")
+    if rows is not None:
+        with open(output_csv, "a") as f:
+            csv.writer(f).writerows(rows)
+        has_data = len(rows) > 0
+        pfafid_list = []
+
     with open(output_csv, "a") as f:
         writer = csv.writer(f)
         for the_pfafid in pfafid_list:

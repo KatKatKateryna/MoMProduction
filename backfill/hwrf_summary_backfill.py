@@ -4,8 +4,8 @@ hwrf_summary_backfill.py
        HWRF_summary CSV and HWRF_image TIFF (no MoM / Final_Attributes update)
 
 Usage:
-    python database_update/hwrf_summary_backfill.py                # today + yesterday (UTC)
-    python database_update/hwrf_summary_backfill.py 20261011 20261012
+    python backfill/hwrf_summary_backfill.py                # today + yesterday (UTC)
+    python backfill/hwrf_summary_backfill.py 20261011 20261012
 """
 
 import csv

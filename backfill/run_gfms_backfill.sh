@@ -6,7 +6,7 @@
 # previous run is still working exits immediately instead of running a second
 # copy over the same files.
 #
-# Runs backfill_gfms.py only -- no GloFAS, HWRF, DFO, VIIRS or composite work.
+# Runs backfill/backfill_gfms.py only -- no GloFAS, HWRF, DFO, VIIRS or composite work.
 #
 # Overridable via the environment: CONDA_SH, CONDA_ENV, PROJECT_DIR,
 # BACKFILL_START, BACKFILL_END, BACKFILL_MAX_DAYS.
@@ -56,9 +56,9 @@ if ! command -v gdal_translate >/dev/null; then
 fi
 
 cd "$PROJECT_DIR"
-mkdir -p logs
+mkdir -p backfill/logs
 
-exec python backfill_gfms.py \
+exec python backfill/backfill_gfms.py \
     --start "$BACKFILL_START" \
     --end "$BACKFILL_END" \
     --max-days "$BACKFILL_MAX_DAYS"

@@ -6,7 +6,7 @@ HAFS_tool.py
     For every HAFS cycle, the rain of each storm is taken from its parent
     swath file (average rain rate over 0-3 h, 0-6 h, ... 0-126 h; the 3 h rain
     is the difference of consecutive windows), keeping each 3 h step only
-    within WINDOW_KM of the storm at the start, middle or end of that step: a
+    within WINDOW_KM of the track segment of that step: a
     storm-following window like the HWRF moving nest. The storms are merged
     into one 0-126 h total in inches on the HWRF 0.05 deg grid, and summarized
     per watershed with the HWRF calculation:
@@ -19,9 +19,11 @@ HAFS_tool.py
     records of the swath file, copied unchanged (parent.swath.prate.grb2).
     A cycle already kept there is read from it instead of the host.
 
-    The MoM chain is then run with the unchanged HWRF functions, with every
+    The MoM chain is then run with the unchanged HWRF functions, reading the
+    HAFS summaries (settings.HWRF_SUM_DIR / HWRF_SUM_PREFIX) and with every
     output folder pointed at the HAFS ones, so the calculations are identical
     to HWRF but nothing is mixed:
+        HAFS/HAFS_summary/hafs.* <- HWRF/HWRF_summary/hwrf.*
         HAFS/HAFS_MoM            <- HWRF/HWRF_MoM
         DFO/DFO_HAFS_MoM         <- DFO/DFO_MoM
         VIIRS/VIIRS_HAFS_MoM     <- VIIRS/VIIRS_MoM
@@ -73,11 +75,13 @@ PUBLISHED_AFTER = timedelta(hours=5)
 EMPTY_FINAL = timedelta(hours=8)
 STORMS_FINAL = timedelta(hours=12)
 
-# internal folders: processed-cycle markers, summaries under the HWRF file
-# names the reused HWRF functions expect, and their temporary files
+# internal folders: processed-cycle markers and temporary files
 DONE_DIR = os.path.join(settings.HAFS_PROC_DIR, "done")
-MOM_SUM_DIR = os.path.join(settings.HAFS_PROC_DIR, "mom_summary")
 WORK_DIR = os.path.join(settings.HAFS_PROC_DIR, "work")
+
+# per-watershed summaries from the precomputed cell lookup (hwrf_cells.py);
+# False = the original per-watershed masks
+HAFS_CELL_LOOKUP = True
 
 
 def utc_now():
@@ -100,7 +104,7 @@ def make_dirs():
     for d in (
         settings.HAFS_SUM_DIR, settings.HAFS_IMG_DIR, settings.HAFS_MOM_DIR,
         settings.HAFS_TRACK_DIR, settings.DFO_HAFS_DIR, settings.VIIRS_HAFS_DIR,
-        settings.FINAL_HAFS_DIR, settings.HAFS_BACKUP_DIR, DONE_DIR, MOM_SUM_DIR,
+        settings.FINAL_HAFS_DIR, settings.HAFS_BACKUP_DIR, DONE_DIR,
         WORK_DIR,
     ):
         os.makedirs(d, exist_ok=True)
@@ -232,16 +236,25 @@ def distance_km(lats, lons, lat0, lon0):
     return 6371 * np.arccos(np.clip(cosd, -1, 1))
 
 
-def step_positions(track, start_hour, end_hour):
-    """storm positions at the start, middle and end of a step; only the ones
-    the track has"""
-    pos = {t["fhour"]: (t["lat"], t["lon"]) for t in track}
-    start, end = pos.get(start_hour), pos.get(end_hour)
-    points = [p for p in (start, end) if p]
-    if start and end:
-        dlon = (end[1] - start[1] + 180) % 360 - 180
-        points.append(((start[0] + end[0]) / 2, start[1] + dlon / 2))
-    return points
+def unit_vectors(lats, lons):
+    la, lo = np.radians(lats), np.radians(lons)
+    return np.stack([np.cos(la) * np.cos(lo), np.cos(la) * np.sin(lo), np.sin(la)], axis=-1)
+
+
+def segment_distance_km(lats, lons, start, end):
+    """great-circle distance to the track segment start-end; to the nearer
+    end where the closest point of the great circle is outside the segment"""
+    to_ends = np.minimum(distance_km(lats, lons, *start), distance_km(lats, lons, *end))
+    a, b = unit_vectors(*start), unit_vectors(*end)
+    n = np.cross(a, b)
+    if np.linalg.norm(n) < 1e-12:  # storm did not move
+        return to_ends
+    n /= np.linalg.norm(n)
+    p = unit_vectors(lats, lons)
+    pn = p @ n
+    c = p - pn[..., None] * n  # projection onto the great circle of the segment
+    inside = (np.cross(a, c) @ n >= 0) & (np.cross(c, b) @ n >= 0)
+    return np.where(inside, 6371 * np.abs(np.arcsin(np.clip(pn, -1, 1))), to_ends)
 
 
 def storm_rain(cycle, storm, track):
@@ -264,7 +277,9 @@ def storm_rain(cycle, storm, track):
         if not rates:
             raise RuntimeError(f"no rain rates in {path}")
 
-        # second pass: 3 h rain, kept within the window around the storm
+        # second pass: 3 h rain, kept within the window around the track
+        # segment the storm moves along during the step
+        positions = {t["fhour"]: (t["lat"], t["lon"]) for t in track}
         total = window = lats = lons = None
         prev_acc, prev_hour, skipped = None, 0, 0
         for hour, offset in sorted(rates):
@@ -286,14 +301,13 @@ def storm_rain(cycle, storm, track):
             acc = values * hour * 3600  # kg m-2 = mm over 0-hour
             step = np.clip(acc - prev_acc, 0, None)  # GRIB packing noise can go < 0
             prev_acc = acc
-            points = step_positions(track, prev_hour, hour)
+            start, end = positions.get(prev_hour), positions.get(hour)
             prev_hour = hour
-            if not points:
+            if start is None:
                 skipped += 1
                 continue
-            near = np.zeros(lats.shape, bool)
-            for lat0, lon0 in points:
-                near |= distance_km(lats, lons, lat0, lon0) <= settings.HAFS_WINDOW_KM
+            # past the end of the track the step keeps only its start
+            near = segment_distance_km(lats, lons, start, end or start) <= settings.HAFS_WINDOW_KM
             total += np.where(near & np.isfinite(step), step, 0)
             window |= near
     if skipped:
@@ -373,19 +387,39 @@ def summarize(raintiff, output_csv, grid, top, left):
     from utilities import watersheds_gdb_reader
 
     watersheds = watersheds_gdb_reader()
+
+    # fast path: precomputed watershed cells (hwrf_cells.py), same rows
+    if HAFS_CELL_LOOKUP:
+        from hwrf_cells import summary_rows
+
+        try:
+            rows = summary_rows(np.where(grid > 0, grid, np.nan), top, left, watersheds)
+        except Exception:
+            logging.exception("HAFS cell lookup failed, using the per-watershed masks")
+            rows = None
+        if rows is not None:
+            with open(output_csv, "w") as f:
+                writer = csv.writer(f)
+                writer.writerow(RAIN_SUMMARY_HEADERS)
+                writer.writerows(rows)
+            return len(rows) > 0
+
     # watersheds away from the rain give no rows; skip them for speed
     rainy = np.isfinite(grid) & (grid > 0)
     rows, cols = np.nonzero(rainy)
     minx, maxx = left + cols.min() * RES - RES, left + cols.max() * RES + RES
     miny, maxy = top - rows.max() * RES - RES, top - rows.min() * RES + RES
-    candidates = watersheds.cx[minx:maxx, miny:maxy]
+    candidates = watersheds.cx[minx:maxx, miny:maxy].index
+    if maxx > 180:
+        # grid past the dateline: watersheds there are at longitude - 360
+        candidates = candidates.union(watersheds.cx[minx - 360:maxx - 360, miny:maxy].index)
 
     has_data = False
     with open(output_csv, "w") as f:
         writer = csv.writer(f)
         writer.writerow(RAIN_SUMMARY_HEADERS)
         for the_pfafid in watersheds.index.tolist():
-            if the_pfafid not in candidates.index:
+            if the_pfafid not in candidates:
                 continue
             test_json = json.loads(
                 gpd.GeoSeries([watersheds.loc[the_pfafid, "geometry"]]).to_json()
@@ -500,7 +534,9 @@ def hafs_folders():
     import GFMS_tool
 
     patched = {
-        "HWRF_SUM_DIR": MOM_SUM_DIR,
+        "HWRF_SUM_DIR": settings.HAFS_SUM_DIR,
+        "HWRF_SUM_PREFIX": "hafs",
+        "HWRF_FILE_TAG": "HAFS",
         "HWRF_MOM_DIR": settings.HAFS_MOM_DIR,
         "HWRF_PROC_DIR": WORK_DIR,
         "DFO_MOM_DIR": settings.DFO_HAFS_DIR,
@@ -523,14 +559,6 @@ def hafs_folders():
             setattr(settings, k, v)
         GFMS_tool.GFMS_fixdate = saved_fixdate
         os.chdir(cwd)
-
-
-def stage_summaries():
-    """HAFS summaries under the HWRF file names the reused functions read"""
-    for path in glob.glob(os.path.join(settings.HAFS_SUM_DIR, "hafs.*rainfall.csv")):
-        target = os.path.join(MOM_SUM_DIR, "hwrf." + os.path.basename(path)[5:])
-        if not os.path.exists(target) or os.path.getmtime(target) < os.path.getmtime(path):
-            shutil.copy2(path, target)
 
 
 def run_step(name, func, *args):
@@ -570,7 +598,7 @@ def run_day_dfo_viirs(adate):
     from VIIRS_MoM import update_VIIRS_MoM
 
     for hh in HOURS:
-        mom = os.path.join(settings.HAFS_MOM_DIR, f"Final_Attributes_{adate}{hh}HWRFUpdated.csv")
+        mom = os.path.join(settings.HAFS_MOM_DIR, f"Final_Attributes_{adate}{hh}HAFSUpdated.csv")
         if not os.path.exists(mom):
             return
     with hafs_folders():
@@ -581,10 +609,10 @@ def run_day_dfo_viirs(adate):
 def hafs_outputs(adate):
     """HAFS MoM, DFO/VIIRS and final alert outputs of a day (YYYYMMDD)"""
     patterns = [
-        os.path.join(settings.HAFS_MOM_DIR, f"*_{adate}[0-9][0-9]HWRF*.csv"),
+        os.path.join(settings.HAFS_MOM_DIR, f"*_{adate}[0-9][0-9]HAFS*.csv"),
         os.path.join(settings.DFO_HAFS_DIR, f"*_{adate}18MOM+DFOUpdated.csv"),
         os.path.join(settings.VIIRS_HAFS_DIR, f"*_{adate}18MOM+DFO+VIIRSUpdated.csv"),
-        os.path.join(settings.FINAL_HAFS_DIR, f"Final_Attributes_{adate}[0-9][0-9]HWRF+MOM+DFO+VIIRSUpdated_PDC.csv"),
+        os.path.join(settings.FINAL_HAFS_DIR, f"Final_Attributes_{adate}[0-9][0-9]HAFS+MOM+DFO+VIIRSUpdated_PDC.csv"),
     ]
     return sorted(f for p in patterns for f in glob.glob(p))
 
@@ -614,7 +642,6 @@ def run(dates, warmup=None, overwrite=False):
             process_cycle(cycle)
         except Exception:
             logging.exception(f"HAFS data failed for {cycle}")
-    stage_summaries()
 
     for adate in days:
         due = True

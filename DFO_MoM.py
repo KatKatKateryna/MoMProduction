@@ -70,13 +70,13 @@ def update_DFO_MoM(adate):
             return
         MOMOutput = os.path.join(
             settings.HWRF_MOM_DIR,
-            "Final_Attributes_{}{}HWRFUpdated.csv".format(adate, hh0),
+            f"Final_Attributes_{adate}{hh0}{settings.HWRF_FILE_TAG}Updated.csv",
         )
         if not os.path.exists(MOMOutput):
             logging.info(f"force generate HWRF : {MOMOutput}")
             hwrf_workflow(adate + hh0)
     MOMOutput = os.path.join(
-        settings.HWRF_MOM_DIR, "Final_Attributes_{}{}HWRFUpdated.csv".format(adate, hh)
+        settings.HWRF_MOM_DIR, f"Final_Attributes_{adate}{hh}{settings.HWRF_FILE_TAG}Updated.csv"
     )
 
     # the cycle this function merges may not be published yet, whether or not

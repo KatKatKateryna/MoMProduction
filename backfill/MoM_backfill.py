@@ -8,9 +8,9 @@ MoM_backfill.py
     being re-downloaded.
 
 **EXAMPLE**
-    python MoM_backfill.py --days 7
-    python MoM_backfill.py --days 3 --end 20261010 --overwrite
-    python MoM_backfill.py --days 7 --dry-run
+    python backfill/MoM_backfill.py --days 7
+    python backfill/MoM_backfill.py --days 3 --end 20261010 --overwrite
+    python backfill/MoM_backfill.py --days 7 --dry-run
 """
 
 import argparse
@@ -21,7 +21,10 @@ import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 
-import settings
+# the project modules are one folder up
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import settings  # noqa: E402
 from DFO_MoM import update_DFO_MoM
 from GFMS_MoM import flood_severity
 from HWRF_MoM import final_alert_pdc, update_HWRF_MoM, update_HWRFMoM_DFO_VIIRS

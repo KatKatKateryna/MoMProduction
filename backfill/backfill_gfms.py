@@ -19,8 +19,8 @@ durations build on the previous day's recomputed 21z summary).
 yet settled are excluded regardless of --end.
 
 Usage:
-    python backfill_gfms.py                        # 20260101 .. 20261013
-    python backfill_gfms.py --start 20260101 --end 20261013 --max-days 220
+    python backfill/backfill_gfms.py                        # 20260101 .. 20261013
+    python backfill/backfill_gfms.py --start 20260101 --end 20261013 --max-days 220
 """
 
 import argparse
@@ -32,7 +32,10 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
-import settings
+# the project modules are one folder up
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import settings  # noqa: E402
 from GFMS_tool import GFMS_data_extractor, GFMS_fix_duration
 
 BINHOURS = ["00", "03", "06", "09", "12", "15", "18", "21"]

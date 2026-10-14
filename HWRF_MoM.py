@@ -104,7 +104,9 @@ def previous_rain_ready(hwrf_cycle, now=None):
     hwrf_cycle (YYYYMMDDHH): its summary exists (empty when there was no
     rain), no storm is published for it (an empty summary is written then),
     or it is HWRF_MISSING_AFTER old"""
-    hwrf_sum = os.path.join(settings.HWRF_SUM_DIR, f"hwrf.{hwrf_cycle}rainfall.csv")
+    hwrf_sum = os.path.join(
+        settings.HWRF_SUM_DIR, f"{settings.HWRF_SUM_PREFIX}.{hwrf_cycle}rainfall.csv"
+    )
     if os.path.exists(hwrf_sum):
         return True
     now = now or datetime.now(timezone.utc)
@@ -135,7 +137,7 @@ def update_HWRF_MoM(adate):
         "%Y%m%d%H"
     )
     hwrf_sum = os.path.join(
-        settings.HWRF_SUM_DIR, "hwrf.{}rainfall.csv".format(hwrf_cycle)
+        settings.HWRF_SUM_DIR, f"{settings.HWRF_SUM_PREFIX}.{hwrf_cycle}rainfall.csv"
     )
 
     # wait for the previous cycle's rainfall unless it is long overdue: a MoM
@@ -184,10 +186,10 @@ def update_HWRF_MoM(adate):
 
     # hwrf_sum may not have
     Final_Attributes_csv = os.path.join(
-        settings.HWRF_MOM_DIR, "Final_Attributes_{}HWRFUpdated.csv".format(adate)
+        settings.HWRF_MOM_DIR, f"Final_Attributes_{adate}{settings.HWRF_FILE_TAG}Updated.csv"
     )
     Attributes_Clean_csv = os.path.join(
-        settings.HWRF_MOM_DIR, "Attributes_Clean_{}HWRFUpdated.csv".format(adate)
+        settings.HWRF_MOM_DIR, f"Attributes_Clean_{adate}{settings.HWRF_FILE_TAG}Updated.csv"
     )
 
     # already processed
@@ -494,7 +496,7 @@ def update_HWRF_MoM(adate):
         with open(hwrf_sum, "r", encoding="UTF-8") as HWRF_file:
             logging.info(f"using: {hwrf_sum}")
             HWRF_reader = csv.reader(HWRF_file)
-            HWRF_w_score_csv = "HWRF_w_score_{}.csv".format(adate)
+            HWRF_w_score_csv = f"{settings.HWRF_FILE_TAG}_w_score_{adate}.csv"
             HWRF_w_score_csv = os.path.join(settings.HWRF_PROC_DIR, HWRF_w_score_csv)
             csvfile = open(HWRF_w_score_csv, "w", newline="\n", encoding="utf-8")
             HWRF_w_score = csv.writer(csvfile)
@@ -750,7 +752,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
     os.chdir(settings.HWRF_PROC_DIR)
 
     # first check if it is produced
-    hwrf_pattern = adate + "HWRF+"
+    hwrf_pattern = adate + settings.HWRF_FILE_TAG + "+"
     file_list = os.listdir(settings.HWRF_MOM_DIR)
     file_found = [1 for x in file_list if hwrf_pattern in x]
     if len(file_found) > 0:
@@ -775,7 +777,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
 
     # geneate HWRF_DFO_MoM
     MOMOutput = os.path.join(
-        settings.HWRF_MOM_DIR, "Final_Attributes_{}HWRFUpdated.csv".format(adate)
+        settings.HWRF_MOM_DIR, f"Final_Attributes_{adate}{settings.HWRF_FILE_TAG}Updated.csv"
     )
     if not os.path.exists(MOMOutput):
         # print('can not find ' + MOMOutput)
@@ -785,12 +787,8 @@ def update_HWRFMoM_DFO_VIIRS(adate):
     # output
     # Final_Attributes_yyyymmddhhMOM+yyyymmddDFOUpdated.csv
     # Attributes_clean_yyyymmddhhMOM+yyyymmddDFOUpdated.csv
-    DFO_Final_Attributes_csv = "Final_Attributes_{}HWRF+{}DFOUpdated.csv".format(
-        adate, dfo_date
-    )
-    DFO_Attributes_Clean_csv = "Attributes_Clean_{}HWRF+{}DFOUpdated.csv".format(
-        adate, dfo_date
-    )
+    DFO_Final_Attributes_csv = f"Final_Attributes_{adate}{settings.HWRF_FILE_TAG}+{dfo_date}DFOUpdated.csv"
+    DFO_Attributes_Clean_csv = f"Attributes_Clean_{adate}{settings.HWRF_FILE_TAG}+{dfo_date}DFOUpdated.csv"
 
     weightage = read_data(os.path.join(settings.BASE_DATA_DIR, "DFO_Weightage.csv"))
     Attributes = read_data(os.path.join(settings.BASE_DATA_DIR, "Attributes.csv"))
@@ -1027,13 +1025,9 @@ def update_HWRFMoM_DFO_VIIRS(adate):
     VIIRS_summary_csv = summary_viirs_all
 
     # output files
-    Final_Attributes_csv = "Final_Attributes_{}HWRF+{}DFO+{}VIIRSUpdated.csv".format(
-        adate, dfo_date, viirs_date
-    )
+    Final_Attributes_csv = f"Final_Attributes_{adate}{settings.HWRF_FILE_TAG}+{dfo_date}DFO+{viirs_date}VIIRSUpdated.csv"
     Final_Attributes_csv = os.path.join(settings.HWRF_MOM_DIR, Final_Attributes_csv)
-    Attributes_Clean_csv = "Attributes_clean_{}HWRF+{}DFO+{}VIIRSUpdated.csv".format(
-        adate, dfo_date, viirs_date
-    )
+    Attributes_Clean_csv = f"Attributes_clean_{adate}{settings.HWRF_FILE_TAG}+{dfo_date}DFO+{viirs_date}VIIRSUpdated.csv"
     Attributes_Clean_csv = os.path.join(settings.HWRF_MOM_DIR, Attributes_Clean_csv)
 
     weightage = read_data(os.path.join(settings.BASE_DATA_DIR, "VIIRS_Weightage.csv"))
@@ -1248,7 +1242,7 @@ def find_pair_HWRFoutput(adate):
     # first find the hwrf hour output
     hwrfh_list = glob.glob(os.path.join(settings.HWRF_MOM_DIR, "Final*.csv"))
     # Final_Attributes_2021102800HWRF+20211028DFO+20211027VIIRSUpdated.csv
-    matching = [s for s in hwrfh_list if adate + "HWRF+" in s]
+    matching = [s for s in hwrfh_list if adate + settings.HWRF_FILE_TAG + "+" in s]
     if len(matching) < 1:
         return ["", ""]
 
@@ -1263,7 +1257,7 @@ def find_pair_HWRFoutput(adate):
     pdatestr = pda.strftime("%Y%m%d")
     # pdate
     pdate = pdatestr + hh
-    matching = [s for s in hwrfh_list if pdate + "HWRF+" in s]
+    matching = [s for s in hwrfh_list if pdate + settings.HWRF_FILE_TAG + "+" in s]
     # no previous date
     if len(matching) < 1:
         return [MoM_adate, ""]
@@ -1276,7 +1270,7 @@ def find_pair_HWRFoutput(adate):
 def final_alert_pdc(adate):
     """generate final alert"""
 
-    fAlert = "Final_Attributes_{}HWRF+MOM+DFO+VIIRSUpdated_PDC.csv".format(adate)
+    fAlert = f"Final_Attributes_{adate}{settings.HWRF_FILE_TAG}+MOM+DFO+VIIRSUpdated_PDC.csv"
     fAlert = os.path.join(settings.FINAL_MOM, fAlert)
     # check if final alert is already generatated
     if os.path.exists(fAlert):
@@ -1419,8 +1413,8 @@ def batchrun_HWRF_MoM():
 
     # also scan mom folder
     for entry in get_latestitems(settings.HWRF_MOM_DIR):
-        if "Final" in entry and "HWRFUpdated" in entry:
-            testdate = entry.split("_")[2].replace("HWRFUpdated.csv", "")
+        if "Final" in entry and f"{settings.HWRF_FILE_TAG}Updated" in entry:
+            testdate = entry.split("_")[2].replace(f"{settings.HWRF_FILE_TAG}Updated.csv", "")
             datelist.append(testdate)
 
     # get current processing hour

@@ -58,6 +58,12 @@ VIIRS_MOM_DIR = os.path.join(VIIRS_DIR, "VIIRS_MoM")
 HWRF_PROC_DIR = os.path.join(WORKING_DIR, config.get("processing_dir", "hwrf"))
 HWRF_DIR = os.path.join(PRODUCT_DIR, config.get("products_dir", "HWRF"))
 HWRF_SUM_DIR = os.path.join(HWRF_DIR, "HWRF_summary")
+# summary file names in HWRF_SUM_DIR: <prefix>.YYYYMMDDHHrainfall.csv (the
+# HAFS chain runs the HWRF MoM with "hafs" on the HAFS summaries)
+HWRF_SUM_PREFIX = "hwrf"
+# model tag in the HWRF MoM, DFO MoM and final alert file names, e.g.
+# Final_Attributes_YYYYMMDDHH<tag>Updated.csv (the HAFS chain uses "HAFS")
+HWRF_FILE_TAG = "HWRF"
 HWRF_IMG_DIR = os.path.join(HWRF_DIR, "HWRF_image")
 HWRF_MOM_DIR = os.path.join(HWRF_DIR, "HWRF_MoM")
 HWRF_BACKUP_DIR = os.path.join(HWRF_DIR, "HWRF_host_data_backups")
@@ -75,7 +81,7 @@ HAFS_HOST = config.get(
     "hafs", "HOST", fallback="https://noaa-nws-hafs-pds.s3.amazonaws.com/"
 )
 HAFS_MODEL = config.get("hafs", "MODEL", fallback="hfsa")
-HAFS_WINDOW_KM = config.getfloat("hafs", "WINDOW_KM", fallback=500)
+HAFS_WINDOW_KM = config.getfloat("hafs", "WINDOW_KM", fallback=400)
 HAFS_LOOKBACK_DAYS = config.getint("hafs", "LOOKBACK_DAYS", fallback=2)
 HAFS_PROC_DIR = os.path.join(WORKING_DIR, "hafs")
 HAFS_DIR = os.path.join(PRODUCT_DIR, "HAFS")

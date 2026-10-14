@@ -146,3 +146,5 @@ nohup.out
 hwrf_data*
 data/gfms_watershed_cells.npz
 data/viirs_watershed_runs.npz
+data/hwrf_watershed_cells.npz
+backfill/logs/
