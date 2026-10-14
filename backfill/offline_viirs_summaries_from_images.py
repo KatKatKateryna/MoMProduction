@@ -7,10 +7,11 @@ offline_viirs_summaries_from_images.py
         VIIRS_1day_compositeYYYYMMDD_flood.tiff
         VIIRS_5day_compositeYYYYMMDD_flood.tiff
     writes OUT_DIR/VIIRS_Flood_YYYYMMDD.csv, the same file
-    VIIRS_extract_by_watershed writes. Nothing is deleted or overwritten:
-    the images are only read, a summary already in OUT_DIR is skipped, and
-    a new one is written to a temporary name and linked into place only if
-    that name is still free. A date with only one of the two images is
+    VIIRS_extract_by_watershed writes. Nothing is deleted: the images are
+    only read, and a summary already in OUT_DIR is skipped unless
+    --overwrite (then it is replaced). A new one is written to a temporary
+    name and moved into place, without --overwrite only if that name is
+    still free. A date with only one of the two images is
     skipped.
 
     The cell lookup data/viirs_watershed_runs.npz is used when it matches the
@@ -113,16 +114,21 @@ def summary(images, watersheds):
     return merge
 
 
-def write_new(table, path):
-    """write table to path only if path does not exist; False if it does"""
+def write_new(table, path, overwrite=False):
+    """write table to path; with overwrite an existing file is replaced, else
+    kept (False)"""
     part = f"{path}.{os.getpid()}.part"
     table.to_csv(part)
+    if overwrite:
+        os.replace(part, path)
+        return True
     try:
         os.link(part, path)  # fails if path exists: never overwrites
     except FileExistsError:
         return False
     finally:
-        os.remove(part)
+        if os.path.exists(part):
+            os.remove(part)
     return True
 
 
@@ -132,6 +138,10 @@ def main():
     parser.add_argument("out_dir")
     parser.add_argument("--start", help="first date, YYYYMMDD")
     parser.add_argument("--end", help="last date, YYYYMMDD")
+    parser.add_argument(
+        "--overwrite", action="store_true",
+        help="recompute and replace summaries already in OUT_DIR (default: skip them)",
+    )
     args = parser.parse_args()
 
     # only to the console (redirected to backfill/logs/), not the processing
@@ -146,7 +156,7 @@ def main():
     written, skipped, failed = [], [], []
     for adate, images in dates.items():
         out_csv = os.path.join(out_dir, f"VIIRS_Flood_{adate}.csv")
-        if os.path.exists(out_csv):
+        if os.path.exists(out_csv) and not args.overwrite:
             logging.info(f"{adate}: already exists, skipped: {out_csv}")
             skipped.append(adate)
             continue
@@ -161,7 +171,7 @@ def main():
             logging.exception(f"{adate}: failed")
             failed.append(adate)
             continue
-        if write_new(table, out_csv):
+        if write_new(table, out_csv, args.overwrite):
             logging.info(f"{adate}: generated {out_csv}, {len(table)} watersheds with flooding")
             written.append(adate)
         else:

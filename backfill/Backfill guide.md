@@ -32,8 +32,10 @@ source summaries / images  ->  MoM products  ->  database upload
 (step 1, any order)            (step 2)           (step 3)
 ```
 
-1. **Source summaries and images**, one script per source. These are
-   independent of each other and can run in any order or in parallel:
+1. **Source summaries and images.** `offline_summaries_from_images.py` does
+   all sources at once, offline, into a new folder. Or one script per source;
+   these are independent of each other and can run in any order or in
+   parallel:
    - GFMS: `offline_gfms_summaries_from_images.py` (summaries from the saved
      images), then move the new summaries into `GFMS_summary/` by hand; or
      `online_gfms_from_host.py` (or `online_gfms_from_host.sh`) to download
@@ -65,6 +67,60 @@ cycles, so they do not collide with a backfill of past dates.
 
 ## Scripts
 
+### `offline_summaries_from_images.py` (step 1, all sources)
+
+Builds every source summary of the last `--days` days, ending at `--end`,
+in one go and offline, into one new folder that `offline_mom_from_summaries.py`
+can read as its `--input-root`. Runs the four per-source scripts below in
+parallel, passing the folders, dates and `--overwrite` on to them, and copies
+what cannot be rebuilt from images.
+
+| Output folder | How |
+|---|---|
+| `OUT/gfms_summary/` | rebuilt from the GFMS images (`offline_gfms_summaries_from_images.py`); durations continue from the source GFMS summaries |
+| `OUT/viirs_summary/` | rebuilt from the VIIRS images (`offline_viirs_summaries_from_images.py`) |
+| `OUT/hwrf_summary/`, `OUT/hafs_summary/` | rebuilt from the HWRF / HAFS images (`offline_hwrf_hafs_summaries_from_images.py`); header-only summaries of cycles without rain (no image) are copied |
+| `OUT/glofas/` | `threspoints_YYYYMMDD00.csv` copied |
+| `OUT/dfo_summary/` | `DFO_YYYYMMDD.csv` copied (only the 3-Day DFO image is kept, the summary has 4 layers) |
+
+- **Sources, only read:** `--input-root` (default `/root/MoM`). Each folder
+  can be flat (`ROOT/gfms_image`, `ROOT/gfms_summary`, `ROOT/glofas`, …) or in
+  the layout of `/root/MoM` (`ROOT/Products/GFMS/GFMS_image`, …); the flat
+  one is used if it exists.
+- **Dates:** the window and the 2 days before it, which the MoM needs (its
+  warm-up day, and the previous GloFAS and rain of the 00 and 06 cycles).
+- **Never deletes anything.** Writes only under `--out-dir` (which must not be
+  `--input-root`), plus its logs in `backfill/logs/` (one per source script
+  and one for the run) and a cell lookup in `data/` if one does not exist yet.
+  A file already in the output folder is kept, unless `--overwrite`: then it
+  is replaced.
+- Checked: on 2026-10-10 to 10-12 every output (24 GFMS, 3 VIIRS, 8 HWRF, 12
+  HAFS, 3 GloFAS, 3 DFO) was byte-identical to the current summaries.
+
+```bash
+python backfill/offline_summaries_from_images.py --days 6 --end 20261013 --out-dir /root/MoM/rerun --dry-run
+python backfill/offline_summaries_from_images.py --days 6 --end 20261013 --out-dir /root/MoM/rerun
+python backfill/offline_mom_from_summaries.py --days 6 --end 20261013 --input-root /root/MoM/rerun \
+    --out-dir /root/MoM/rerun
+```
+
+### `offline_hwrf_hafs_summaries_from_images.py` (step 1, HWRF or HAFS)
+
+Rebuilds the HWRF or HAFS rainfall summaries from the saved rainfall images
+(each image holds the rain grid its summary was computed from).
+
+- **Reads, never changes:** `<model>.YYYYMMDDHHrainfall.tiff` in IMAGE_DIR,
+  and, with `--summary-dir`, the existing summaries: a header-only one (no
+  rain, so no image) is copied as it is; one with rain but no image cannot be
+  rebuilt and is reported.
+- **Writes:** `OUT_DIR/<model>.YYYYMMDDHHrainfall.csv`. A summary already
+  there is kept unless `--overwrite`.
+
+```bash
+python backfill/offline_hwrf_hafs_summaries_from_images.py hafs /root/MoM/Products/HAFS/HAFS_image \
+    /root/MoM/rerun/hafs_summary --summary-dir /root/MoM/Products/HAFS/HAFS_summary --start 20261008
+```
+
 ### `offline_gfms_summaries_from_images.py` (step 1, GFMS)
 
 Recomputes the GFMS summaries from the saved GFMS images with the current
@@ -81,8 +137,9 @@ summaries of 2026-10-10/11 came out byte-identical).
   the first time of the day starts its own duration (3 h or 0). So run whole
   periods oldest first, or start the period right after a day whose 21:00
   summary is good.
-- **Writes, never overwrites:** `OUT_DIR/Flood_byStor_YYYYMMDDHH.csv`. A
-  summary already in OUT_DIR is kept, and used for the following durations.
+- **Writes, never deletes:** `OUT_DIR/Flood_byStor_YYYYMMDDHH.csv`. A
+  summary already in OUT_DIR is kept, and used for the following durations,
+  unless `--overwrite`: then it is recomputed and replaced.
 - **Lookup file:** `data/gfms_watershed_cells.npz` is created only if it does
   not exist. An existing one is never replaced.
 - **Not touched:** `GFMS/GFMS_summary/`, the images, the MoM products, the
@@ -185,9 +242,9 @@ calculation (true cell areas; only pixels coded 141–200 count as flooded).
 - **Reads, never changes:** `VIIRS_1day_compositeYYYYMMDD_flood.tiff` and
   `VIIRS_5day_compositeYYYYMMDD_flood.tiff` in IMAGE_DIR, normally
   `VIIRS/VIIRS_image/`.
-- **Writes, never overwrites:** `OUT_DIR/VIIRS_Flood_YYYYMMDD.csv`. A summary
-  already in OUT_DIR is skipped. A date with only one of the two images is
-  skipped.
+- **Writes, never deletes:** `OUT_DIR/VIIRS_Flood_YYYYMMDD.csv`. A summary
+  already in OUT_DIR is skipped unless `--overwrite` (then it is replaced). A
+  date with only one of the two images is skipped.
 - **Lookup file:** `data/viirs_watershed_runs.npz` is created by the first
   run if it does not exist (about 6 minutes). An existing one is never
   replaced.
@@ -210,8 +267,10 @@ into a separate output folder.
   GFMS summary is missing is skipped, because the MoM code would download
   GFMS. A missing rain summary is never filled in from the hosts.
 - **Reads, never changes:** the GFMS, GloFAS, HWRF, HAFS, DFO and VIIRS
-  summaries under `--input-root` (default `/root/MoM`), in the same layout
-  as `/root/MoM` (`Products/GFMS/GFMS_summary/`, …).
+  summaries under `--input-root` (default `/root/MoM`). Each folder can be
+  flat (`ROOT/gfms_summary`, `ROOT/glofas`, `ROOT/dfo_summary`, …, as written
+  by `offline_summaries_from_images.py`) or in the layout of `/root/MoM`
+  (`Products/GFMS/GFMS_summary/`, …); the flat one is used if it exists.
 - **Writes, and nothing else:** the output folder `--out-dir` (required):
 
   | Folder | Contents |

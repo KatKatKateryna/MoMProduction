@@ -4,9 +4,11 @@ offline_mom_from_summaries.py
        alerts, and the same for the HAFS chain) for the last N days from
        summaries that already exist locally, into a separate output folder
 
-    Inputs: the summaries under --input-root (default /root/MoM, the folder
-    holding Products/), in the same layout: GFMS, GloFAS, HWRF, HAFS, DFO and
-    VIIRS summaries. They are only read.
+    Inputs: the GFMS, GloFAS, HWRF, HAFS, DFO and VIIRS summaries under
+    --input-root (default /root/MoM), only read. Each folder can be flat
+    (ROOT/gfms_summary, ROOT/glofas, ROOT/dfo_summary, ..., as written by
+    offline_summaries_from_images.py) or in the layout of /root/MoM
+    (ROOT/Products/GFMS/GFMS_summary, ...); the flat one is used if it exists.
 
     Outputs, all under --out-dir and nowhere else:
         OUT/gfms_mom          GFMS MoM
@@ -59,6 +61,7 @@ from datetime import datetime, timedelta, timezone
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import settings  # noqa: E402
+import folder_layout  # noqa: E402
 import GFMS_tool  # noqa: E402
 import HWRF_MoM  # noqa: E402
 from DFO_MoM import update_DFO_MoM  # noqa: E402
@@ -69,7 +72,7 @@ from VIIRS_MoM import update_VIIRS_MoM  # noqa: E402
 
 HOURS = ["00", "06", "12", "18"]
 LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
-DEFAULT_ROOT = os.path.dirname(settings.PRODUCT_DIR)  # /root/MoM
+DEFAULT_ROOT = folder_layout.DEFAULT_ROOT  # /root/MoM
 PROC_DIRS = ["GFMS_PROC_DIR", "HWRF_PROC_DIR", "DFO_PROC_DIR", "VIIRS_PROC_DIR"]
 INPUT_DIRS = ["GFMS_SUM_DIR", "GLOFAS_DIR", "GLOFAS_SUM_DIR", "DFO_SUM_DIR", "VIIRS_SUM_DIR"]
 OUT_DIRS = ["gfms_mom", "hwrf_mom", "dfo_mom", "viirs_mom", "hafs_mom", "dfo_hafs_mom",
@@ -80,6 +83,12 @@ CHAINS = {
              "mom": "hwrf_mom", "dfo": "dfo_mom", "viirs": "viirs_mom"},
     "HAFS": {"rain": ("HAFS_SUM_DIR", "hafs"), "tag": "HAFS",
              "mom": "hafs_mom", "dfo": "dfo_hafs_mom", "viirs": "viirs_hafs_mom"},
+}
+# settings input folder -> folder_layout name
+LAYOUT = {
+    "GFMS_SUM_DIR": "gfms_summary", "GLOFAS_DIR": "glofas", "GLOFAS_SUM_DIR": "glofas",
+    "DFO_SUM_DIR": "dfo_summary", "VIIRS_SUM_DIR": "viirs_summary",
+    "HWRF_SUM_DIR": "hwrf_summary", "HAFS_SUM_DIR": "hafs_summary",
 }
 # every settings value changed here, put back at the end
 PATCHED = PROC_DIRS + INPUT_DIRS + [
@@ -98,12 +107,10 @@ class Folders:
     def __init__(self, input_root, out_dir):
         self.input_root = os.path.abspath(input_root)
         self.out_dir = os.path.abspath(out_dir)
-        self.originals = {k: getattr(settings, k) for k in PATCHED + ["HAFS_SUM_DIR"]}
 
     def input(self, name):
-        """settings folder `name` under the input root"""
-        rel = os.path.relpath(self.originals[name], DEFAULT_ROOT)
-        return os.path.join(self.input_root, rel)
+        """settings input folder `name` under the input root, flat or common layout"""
+        return folder_layout.folder(self.input_root, LAYOUT[name])
 
     def out(self, name):
         return os.path.join(self.out_dir, name)
@@ -167,7 +174,7 @@ def _getParser():
     )
     parser.add_argument(
         "--input-root", default=DEFAULT_ROOT,
-        help=f"folder with the summaries, in the layout of {DEFAULT_ROOT} (default: {DEFAULT_ROOT})",
+        help=f"folder with the summaries, flat or in the layout of {DEFAULT_ROOT} (default: {DEFAULT_ROOT})",
     )
     parser.add_argument(
         "--out-dir", required=True,

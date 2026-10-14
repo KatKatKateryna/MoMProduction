@@ -17,10 +17,11 @@ offline_gfms_summaries_from_images.py
         PREV_DIR (default GFMS_summary/, only read); with none, the first
         time of the day starts from its own 3 / 0, as in the cron job.
 
-    Offline and never overwriting: nothing is downloaded, the images and
-    PREV_DIR are only read, and a summary already in OUT_DIR is kept (and
-    used for the following durations); a new one is written to a temporary
-    name and linked into place only if that name is still free. The cell
+    Offline and never deleting: nothing is downloaded, the images and
+    PREV_DIR are only read. A summary already in OUT_DIR is kept (and used
+    for the following durations), unless --overwrite: then it is recomputed
+    and replaced. A new one is written to a temporary name and moved into
+    place, without --overwrite only if that name is still free. The cell
     lookup data/gfms_watershed_cells.npz is built only when it does not exist
     yet (a new file); if it exists for another shapefile or grid, the
     per-watershed masks are used and it is left alone. The log goes to the
@@ -140,16 +141,21 @@ def fix_duration(df, df0):
     return df
 
 
-def write_new(df, path):
-    """write df to path only if path does not exist; False if it does"""
+def write_new(df, path, overwrite=False):
+    """write df to path; with overwrite an existing file is replaced, else
+    kept (False)"""
     part = f"{path}.{os.getpid()}.part"
     df.to_csv(part, index=False)
+    if overwrite:
+        os.replace(part, path)
+        return True
     try:
         os.link(part, path)  # fails if path exists: never overwrites
     except FileExistsError:
         return False
     finally:
-        os.remove(part)
+        if os.path.exists(part):
+            os.remove(part)
     return True
 
 
@@ -162,6 +168,10 @@ def main():
     parser.add_argument(
         "--prev-dir", default=settings.GFMS_SUM_DIR,
         help="summaries to continue the durations from (only read; default: GFMS_summary/)",
+    )
+    parser.add_argument(
+        "--overwrite", action="store_true",
+        help="recompute and replace summaries already in OUT_DIR (default: keep them)",
     )
     args = parser.parse_args()
 
@@ -192,7 +202,7 @@ def main():
         for hh, tiff in hours.items():
             name = f"Flood_byStor_{day}{hh}.csv"
             out_csv = os.path.join(out_dir, name)
-            if os.path.exists(out_csv):
+            if os.path.exists(out_csv) and not args.overwrite:
                 df = pd.read_csv(out_csv)
                 logging.info(f"{day}{hh}: already exists, kept: {out_csv}")
                 kept.append(day + hh)
@@ -205,7 +215,7 @@ def main():
                     continue
                 if df0 is not None:
                     df = fix_duration(df, df0)
-                if write_new(df, out_csv):
+                if write_new(df, out_csv, args.overwrite):
                     logging.info(f"{day}{hh}: generated {out_csv}")
                     written.append(day + hh)
                 else:
