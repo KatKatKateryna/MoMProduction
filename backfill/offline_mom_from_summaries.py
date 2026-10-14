@@ -1,5 +1,5 @@
 """
-MoM_backfill.py
+offline_mom_from_summaries.py
     -- regenerate the MoM products (GFMS, HWRF, DFO, VIIRS MoM and Final_Alert,
        and the same for the HAFS chain) for the last N days from summaries
        that already exist locally
@@ -20,9 +20,9 @@ MoM_backfill.py
     (e.g. the previous GloFAS for the 00 and 06 HWRF cycles).
 
 **EXAMPLE**
-    python backfill/MoM_backfill.py --days 7
-    python backfill/MoM_backfill.py --days 3 --end 20261010 --overwrite
-    python backfill/MoM_backfill.py --days 7 --dry-run
+    python backfill/offline_mom_from_summaries.py --days 7
+    python backfill/offline_mom_from_summaries.py --days 3 --end 20261010 --overwrite
+    python backfill/offline_mom_from_summaries.py --days 7 --dry-run
 """
 
 import argparse
@@ -276,7 +276,7 @@ def main():
 
     os.makedirs(LOG_DIR, exist_ok=True)
     log_file = os.path.join(
-        LOG_DIR, f"MoM_backfill_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}.log"
+        LOG_DIR, f"offline_mom_from_summaries_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}.log"
     )
     logging.basicConfig(
         filename=log_file, format=settings.LOG_FORMAT, level=logging.INFO, force=True

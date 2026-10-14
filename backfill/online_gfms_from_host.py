@@ -1,5 +1,5 @@
 """
-backfill_gfms.py -- regenerate missing GFMS image (tiff) products, and the
+online_gfms_from_host.py -- regenerate missing GFMS image (tiff) products, and the
 matching per-watershed summary CSVs, for historical dates.
 
 Scope is deliberately narrow: GFMS image + GFMS summary only. It does not
@@ -19,8 +19,8 @@ durations build on the previous day's recomputed 21z summary).
 yet settled are excluded regardless of --end.
 
 Usage:
-    python backfill/backfill_gfms.py                        # 20260101 .. 20261013
-    python backfill/backfill_gfms.py --start 20260101 --end 20261013 --max-days 220
+    python backfill/online_gfms_from_host.py                        # 20260101 .. 20261013
+    python backfill/online_gfms_from_host.py --start 20260101 --end 20261013 --max-days 220
 """
 
 import argparse

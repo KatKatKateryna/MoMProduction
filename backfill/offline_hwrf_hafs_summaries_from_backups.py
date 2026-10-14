@@ -1,5 +1,5 @@
 """
-rain_backfill_from_backups.py
+offline_hwrf_hafs_summaries_from_backups.py
     -- regenerate the HWRF and HAFS rainfall summaries and images from the
        host data backups, overwriting the existing ones
 
@@ -15,8 +15,8 @@ rain_backfill_from_backups.py
     that fails keeps them.
 
 Usage:
-    python backfill/rain_backfill_from_backups.py 20261008 20261013
-    python backfill/rain_backfill_from_backups.py 20261008          # up to today
+    python backfill/offline_hwrf_hafs_summaries_from_backups.py 20261008 20261013
+    python backfill/offline_hwrf_hafs_summaries_from_backups.py 20261008          # up to today
 """
 
 import glob
@@ -107,8 +107,9 @@ def hafs_cycle(cycle):
 
 
 def main():
-    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
-    logging.getLogger().setLevel(logging.INFO)
+    # only to the console (redirected to backfill/logs/), not the processing
+    # folder log that importing settings points logging at
+    logging.basicConfig(stream=sys.stdout, format=settings.LOG_FORMAT, level=logging.INFO, force=True)
     start = sys.argv[1]
     end = sys.argv[2] if len(sys.argv) > 2 else datetime.now(timezone.utc).strftime("%Y%m%d")
     logging.info(f"rain backfill from backups: {start} - {end}, HAFS window {settings.HAFS_WINDOW_KM} km")

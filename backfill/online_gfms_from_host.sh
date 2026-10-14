@@ -1,12 +1,13 @@
 #!/bin/bash
 #
-# run_gfms_backfill.sh -- cron entry point for the GFMS image/summary backfill.
+# online_gfms_from_host.sh -- locked entry point for the GFMS image/summary backfill
+# (downloads from the GFMS host; not in the crontab, run by hand).
 #
 # Holds an exclusive non-blocking lock, so an hourly tick that lands while the
 # previous run is still working exits immediately instead of running a second
 # copy over the same files.
 #
-# Runs backfill/backfill_gfms.py only -- no GloFAS, HWRF, DFO, VIIRS or composite work.
+# Runs backfill/online_gfms_from_host.py only -- no GloFAS, HWRF, DFO, VIIRS or composite work.
 #
 # Overridable via the environment: CONDA_SH, CONDA_ENV, PROJECT_DIR,
 # BACKFILL_START, BACKFILL_END, BACKFILL_MAX_DAYS.
@@ -40,7 +41,7 @@ if [ "${_GFMS_BACKFILL_LOCKED:-}" != "1" ]; then
 fi
 
 if [ ! -f "$CONDA_SH" ]; then
-    echo "run_gfms_backfill.sh: conda profile not found at $CONDA_SH" >&2
+    echo "online_gfms_from_host.sh: conda profile not found at $CONDA_SH" >&2
     exit 1
 fi
 
@@ -51,14 +52,14 @@ conda activate "$CONDA_ENV"
 set -u
 
 if ! command -v gdal_translate >/dev/null; then
-    echo "run_gfms_backfill.sh: gdal_translate not on PATH after activating '$CONDA_ENV'" >&2
+    echo "online_gfms_from_host.sh: gdal_translate not on PATH after activating '$CONDA_ENV'" >&2
     exit 1
 fi
 
 cd "$PROJECT_DIR"
 mkdir -p backfill/logs
 
-exec python backfill/backfill_gfms.py \
+exec python backfill/online_gfms_from_host.py \
     --start "$BACKFILL_START" \
     --end "$BACKFILL_END" \
     --max-days "$BACKFILL_MAX_DAYS"

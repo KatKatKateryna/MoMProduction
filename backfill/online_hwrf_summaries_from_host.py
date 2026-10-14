@@ -1,11 +1,11 @@
 """
-hwrf_summary_backfill.py
+online_hwrf_summaries_from_host.py
     -- download HWRF rainfall for given dates and produce only the
        HWRF_summary CSV and HWRF_image TIFF (no MoM / Final_Attributes update)
 
 Usage:
-    python backfill/hwrf_summary_backfill.py                # today + yesterday (UTC)
-    python backfill/hwrf_summary_backfill.py 20261011 20261012
+    python backfill/online_hwrf_summaries_from_host.py                # today + yesterday (UTC)
+    python backfill/online_hwrf_summaries_from_host.py 20261011 20261012
 """
 
 import csv
@@ -89,8 +89,9 @@ def backfill(dates):
 
 
 def main():
-    # settings already logs to file; also echo to the console
-    logging.getLogger().addHandler(logging.StreamHandler())
+    # only to the console (redirected to backfill/logs/), not the processing
+    # folder log that importing settings points logging at
+    logging.basicConfig(stream=sys.stdout, format=settings.LOG_FORMAT, level=logging.INFO, force=True)
     if len(sys.argv) > 1:
         dates = sys.argv[1:]
     else:

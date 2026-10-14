@@ -1,5 +1,5 @@
 """
-viirs_summaries_from_images.py
+offline_viirs_summaries_from_images.py
     -- VIIRS summaries (VIIRS_Flood_YYYYMMDD.csv) from saved VIIRS images,
        with the current calculation (true cell areas, viirs_cells.py)
 
@@ -19,8 +19,8 @@ viirs_summaries_from_images.py
     per-watershed masks are used (~5 minutes per image).
 
 Usage:
-    python backfill/viirs_summaries_from_images.py IMAGE_DIR OUT_DIR
-    python backfill/viirs_summaries_from_images.py IMAGE_DIR OUT_DIR --start 20260601 --end 20261012
+    python backfill/offline_viirs_summaries_from_images.py IMAGE_DIR OUT_DIR
+    python backfill/offline_viirs_summaries_from_images.py IMAGE_DIR OUT_DIR --start 20260601 --end 20261012
 """
 
 import argparse
@@ -37,6 +37,7 @@ import geopandas as gpd  # noqa: E402
 import pandas as pd  # noqa: E402
 import rasterio  # noqa: E402
 
+import settings  # noqa: E402
 import viirs_cells  # noqa: E402
 from utilities import watersheds_gdb_reader  # noqa: E402
 from VIIRS_tool import VIIRS_extract_by_mask  # noqa: E402
@@ -133,8 +134,9 @@ def main():
     parser.add_argument("--end", help="last date, YYYYMMDD")
     args = parser.parse_args()
 
-    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
-    logging.getLogger().setLevel(logging.INFO)
+    # only to the console (redirected to backfill/logs/), not the processing
+    # folder log that importing settings points logging at
+    logging.basicConfig(stream=sys.stdout, format=settings.LOG_FORMAT, level=logging.INFO, force=True)
     image_dir, out_dir = os.path.abspath(args.image_dir), os.path.abspath(args.out_dir)
     os.makedirs(out_dir, exist_ok=True)
 

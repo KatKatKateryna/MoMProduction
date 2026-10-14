@@ -341,7 +341,7 @@ def GFMS_download(bin_file):
     hdr_header = """NCOLS 2458
     NROWS 800
     XLLCORNER -127.25
-    YLLCORNER -50    print(lastest_csv)
+    YLLCORNER -50
 
     CELLSIZE 0.125
     PIXELTYPE FLOAT
@@ -416,7 +416,7 @@ def GFMS_extract_by_mask(vrt_file, mask_json):
         #'Input shapes do not overlap raster.'
         # print(e)
         src = None
-        # return empty dataframe    print(lastest_csv)
+        # return empty dataframe
         return pd.DataFrame()
 
     # extract data
