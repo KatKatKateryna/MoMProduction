@@ -89,7 +89,13 @@ HAFS_SUM_DIR = os.path.join(HAFS_DIR, "HAFS_summary")
 HAFS_IMG_DIR = os.path.join(HAFS_DIR, "HAFS_image")
 HAFS_MOM_DIR = os.path.join(HAFS_DIR, "HAFS_MoM")
 HAFS_TRACK_DIR = os.path.join(HAFS_DIR, "HAFS_track")
-HAFS_BACKUP_DIR = os.path.join(HAFS_DIR, "HAFS_host_data_backups")
+HAFS_BACKUP_DIR = os.path.expanduser(
+    config.get(
+        "hafs",
+        "BACKUP_DIR",
+        fallback=os.path.join(HAFS_DIR, "HAFS_host_data_backups"),
+    )
+)
 DFO_HAFS_DIR = os.path.join(DFO_DIR, "DFO_HAFS_MoM")
 VIIRS_HAFS_DIR = os.path.join(VIIRS_DIR, "VIIRS_HAFS_MoM")
 FINAL_HAFS_DIR = os.path.join(PRODUCT_DIR, "Final_Alerts_hafs")
