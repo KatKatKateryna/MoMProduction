@@ -257,6 +257,35 @@ def segment_distance_km(lats, lons, start, end):
     return np.where(inside, 6371 * np.abs(np.arcsin(np.clip(pn, -1, 1))), to_ends)
 
 
+def near_track(lats, lons, start, end, row_lats=None, col_lons=None):
+    """cells within WINDOW_KM of the track segment start-end. On a regular
+    grid (row_lats, col_lons) only the rows and columns of a box around the
+    segment are measured: no cell outside it can be that close (a degree of
+    latitude is >= 111 km, a degree of longitude >= 111 km * cos(lat), plus
+    a 1 deg margin for the great circle bulging past the end points)"""
+    km = settings.HAFS_WINDOW_KM
+    if row_lats is None:
+        return segment_distance_km(lats, lons, start, end) <= km
+    dlat = km / 111.19 + 1.0
+    lo, hi = min(start[0], end[0]) - dlat, max(start[0], end[0]) + dlat
+    rows = np.flatnonzero((row_lats >= lo) & (row_lats <= hi))
+    max_lat = max(abs(lo), abs(hi))
+    near = np.zeros(lats.shape, bool)
+    if rows.size == 0:
+        return near
+    if max_lat >= 80:
+        cols = np.arange(len(col_lons))
+    else:
+        dlon = km / (111.19 * np.cos(np.radians(max_lat))) + 1.0
+        to_end = (end[1] - start[1] + 180) % 360 - 180
+        offset = (col_lons - start[1] + 180) % 360 - 180  # dateline-safe
+        cols = np.flatnonzero((offset >= min(0, to_end) - dlon) & (offset <= max(0, to_end) + dlon))
+    if cols.size:
+        box = np.ix_(rows, cols)
+        near[box] = segment_distance_km(lats[box], lons[box], start, end) <= km
+    return near
+
+
 def storm_rain(cycle, storm, track):
     """0-126 h storm-following rain (inches) of one storm on a 0.05 deg grid:
     (grid, top, left), grid NaN outside the window"""
@@ -293,6 +322,11 @@ def storm_rain(cycle, storm, track):
                     total = np.zeros(shape)
                     window = np.zeros(shape, bool)
                     prev_acc = np.zeros(shape)
+                    # regular grid: rows of one latitude, columns of one longitude
+                    row_lats = col_lons = None
+                    if (np.array_equal(lats, np.broadcast_to(lats[:, :1], shape))
+                            and np.array_equal(lons, np.broadcast_to(lons[:1, :], shape))):
+                        row_lats, col_lons = lats[:, 0], lons[0, :]
                 values = eccodes.codes_get_values(gid).reshape(lats.shape)
                 if eccodes.codes_get(gid, "bitmapPresent"):
                     values = np.where(values == eccodes.codes_get(gid, "missingValue"), np.nan, values)
@@ -307,7 +341,7 @@ def storm_rain(cycle, storm, track):
                 skipped += 1
                 continue
             # past the end of the track the step keeps only its start
-            near = segment_distance_km(lats, lons, start, end or start) <= settings.HAFS_WINDOW_KM
+            near = near_track(lats, lons, start, end or start, row_lats, col_lons)
             total += np.where(near & np.isfinite(step), step, 0)
             window |= near
     if skipped:
