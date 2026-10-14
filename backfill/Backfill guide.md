@@ -72,16 +72,16 @@ cycles, so they do not collide with a backfill of past dates.
 Builds every source summary of the last `--days` days, ending at `--end`,
 in one go and offline, into one new folder that `offline_mom_from_summaries.py`
 can read as its `--input-root`. Runs the four per-source scripts below in
-parallel, passing the folders, dates and `--overwrite` on to them, and copies
-what cannot be rebuilt from images.
+parallel, passing the folders, dates and `--overwrite` on to them. GloFAS and
+DFO cannot be rebuilt from images (only the 3-Day DFO image is kept, the
+summary has 4 layers) and are not copied: `offline_mom_from_summaries.py`
+reads them from `--glofas-dfo-root` (default `/root/MoM`).
 
 | Output folder | How |
 |---|---|
 | `OUT/gfms_summary/` | rebuilt from the GFMS images (`offline_gfms_summaries_from_images.py`); durations continue from the source GFMS summaries |
 | `OUT/viirs_summary/` | rebuilt from the VIIRS images (`offline_viirs_summaries_from_images.py`) |
 | `OUT/hwrf_summary/`, `OUT/hafs_summary/` | rebuilt from the HWRF / HAFS images (`offline_hwrf_hafs_summaries_from_images.py`); header-only summaries of cycles without rain (no image) are copied |
-| `OUT/glofas/` | `threspoints_YYYYMMDD00.csv` copied |
-| `OUT/dfo_summary/` | `DFO_YYYYMMDD.csv` copied (only the 3-Day DFO image is kept, the summary has 4 layers) |
 
 - **Sources, only read:** `--input-root` (default `/root/MoM`). Each folder
   can be flat (`ROOT/gfms_image`, `ROOT/gfms_summary`, `ROOT/glofas`, …) or in
@@ -95,13 +95,13 @@ what cannot be rebuilt from images.
   A file already in the output folder is kept, unless `--overwrite`: then it
   is replaced.
 - Checked: on 2026-10-10 to 10-12 every output (24 GFMS, 3 VIIRS, 8 HWRF, 12
-  HAFS, 3 GloFAS, 3 DFO) was byte-identical to the current summaries.
+  HAFS) was byte-identical to the current summaries.
 
 ```bash
 python backfill/offline_summaries_from_images.py --days 6 --end 20261013 --out-dir /root/MoM/rerun --dry-run
 python backfill/offline_summaries_from_images.py --days 6 --end 20261013 --out-dir /root/MoM/rerun
 python backfill/offline_mom_from_summaries.py --days 6 --end 20261013 --input-root /root/MoM/rerun \
-    --out-dir /root/MoM/rerun
+    --glofas-dfo-root /root/MoM --out-dir /root/MoM/rerun
 ```
 
 ### `offline_hwrf_hafs_summaries_from_images.py` (step 1, HWRF or HAFS)
@@ -266,8 +266,9 @@ into a separate output folder.
 - **Offline:** nothing is downloaded and no host is contacted. A cycle whose
   GFMS summary is missing is skipped, because the MoM code would download
   GFMS. A missing rain summary is never filled in from the hosts.
-- **Reads, never changes:** the GFMS, GloFAS, HWRF, HAFS, DFO and VIIRS
-  summaries under `--input-root` (default `/root/MoM`). Each folder can be
+- **Reads, never changes:** the GFMS, HWRF, HAFS and VIIRS summaries under
+  `--input-root`, and the GloFAS and DFO summaries under `--glofas-dfo-root`
+  (both default `/root/MoM`). Each folder can be
   flat (`ROOT/gfms_summary`, `ROOT/glofas`, `ROOT/dfo_summary`, …, as written
   by `offline_summaries_from_images.py`) or in the layout of `/root/MoM`
   (`Products/GFMS/GFMS_summary/`, …); the flat one is used if it exists.

@@ -4,9 +4,11 @@ offline_mom_from_summaries.py
        alerts, and the same for the HAFS chain) for the last N days from
        summaries that already exist locally, into a separate output folder
 
-    Inputs: the GFMS, GloFAS, HWRF, HAFS, DFO and VIIRS summaries under
-    --input-root (default /root/MoM), only read. Each folder can be flat
-    (ROOT/gfms_summary, ROOT/glofas, ROOT/dfo_summary, ..., as written by
+    Inputs, only read: the GFMS, HWRF, HAFS and VIIRS summaries under
+    --input-root (default /root/MoM), and the GloFAS and DFO summaries under
+    --glofas-dfo-root (default /root/MoM; offline_summaries_from_images.py
+    does not rebuild them). Each folder can be flat (ROOT/gfms_summary,
+    ROOT/glofas, ROOT/dfo_summary, ..., as written by
     offline_summaries_from_images.py) or in the layout of /root/MoM
     (ROOT/Products/GFMS/GFMS_summary, ...); the flat one is used if it exists.
 
@@ -44,7 +46,7 @@ offline_mom_from_summaries.py
     python backfill/offline_mom_from_summaries.py --days 7 --out-dir /root/MoM/mom_rerun --dry-run
     python backfill/offline_mom_from_summaries.py --days 3 --end 20261012 --out-dir /root/MoM/mom_rerun
     python backfill/offline_mom_from_summaries.py --days 3 --end 20261012 --out-dir /root/MoM/mom_rerun \\
-        --hafs-fallback --overwrite --input-root /data/MoM_copy
+        --hafs-fallback --overwrite --input-root /data/MoM_copy --glofas-dfo-root /data/MoM_copy
 """
 
 import argparse
@@ -85,6 +87,7 @@ CHAINS = {
              "mom": "hafs_mom", "dfo": "dfo_hafs_mom", "viirs": "viirs_hafs_mom"},
 }
 # settings input folder -> folder_layout name
+GLOFAS_DFO = ["GLOFAS_DIR", "GLOFAS_SUM_DIR", "DFO_SUM_DIR"]
 LAYOUT = {
     "GFMS_SUM_DIR": "gfms_summary", "GLOFAS_DIR": "glofas", "GLOFAS_SUM_DIR": "glofas",
     "DFO_SUM_DIR": "dfo_summary", "VIIRS_SUM_DIR": "viirs_summary",
@@ -104,13 +107,16 @@ def _no_download(*args):
 class Folders:
     """input and output folders of the run"""
 
-    def __init__(self, input_root, out_dir):
+    def __init__(self, input_root, glofas_dfo_root, out_dir):
         self.input_root = os.path.abspath(input_root)
+        self.glofas_dfo_root = os.path.abspath(glofas_dfo_root)
         self.out_dir = os.path.abspath(out_dir)
 
     def input(self, name):
-        """settings input folder `name` under the input root, flat or common layout"""
-        return folder_layout.folder(self.input_root, LAYOUT[name])
+        """settings input folder `name` under the input root (GloFAS and DFO:
+        under the GloFAS/DFO root), flat or common layout"""
+        root = self.glofas_dfo_root if name in GLOFAS_DFO else self.input_root
+        return folder_layout.folder(root, LAYOUT[name])
 
     def out(self, name):
         return os.path.join(self.out_dir, name)
@@ -174,7 +180,13 @@ def _getParser():
     )
     parser.add_argument(
         "--input-root", default=DEFAULT_ROOT,
-        help=f"folder with the summaries, flat or in the layout of {DEFAULT_ROOT} (default: {DEFAULT_ROOT})",
+        help=f"folder with the GFMS, HWRF, HAFS and VIIRS summaries, flat or in the layout of "
+             f"{DEFAULT_ROOT} (default: {DEFAULT_ROOT})",
+    )
+    parser.add_argument(
+        "--glofas-dfo-root", default=DEFAULT_ROOT,
+        help=f"folder with the GloFAS and DFO summaries, flat or in the layout of {DEFAULT_ROOT} "
+             f"(default: {DEFAULT_ROOT})",
     )
     parser.add_argument(
         "--out-dir", required=True,
@@ -356,11 +368,12 @@ def main():
     console.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
     logging.getLogger().addHandler(console)
 
-    folders = Folders(args.input_root, args.out_dir)
+    folders = Folders(args.input_root, args.glofas_dfo_root, args.out_dir)
     dates = backfill_dates(args.end, args.days)
     chains = ["HWRF"] + (["HAFS"] if settings.HAFS_ENABLED else [])
     logging.info(
-        f"MoM backfill {dates[0]} - {dates[-1]}: input {folders.input_root}, output "
+        f"MoM backfill {dates[0]} - {dates[-1]}: input {folders.input_root}, GloFAS/DFO "
+        f"{folders.glofas_dfo_root}, output "
         f"{folders.out_dir}, chains {' '.join(chains)}, hafs_fallback={args.hafs_fallback}, "
         f"overwrite={args.overwrite}, dry_run={args.dry_run}"
     )

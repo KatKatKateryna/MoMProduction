@@ -1,17 +1,16 @@
 """
 offline_summaries_from_images.py
-    -- all source summaries of the last N days, offline: rebuilt from the
-       saved images where possible, copied otherwise, into one new folder
+    -- the source summaries of the last N days that can be rebuilt from
+       the saved images, offline, into one new folder
 
     Runs, in parallel, one process per source:
         GFMS        offline_gfms_summaries_from_images.py       -> OUT/gfms_summary
         VIIRS       offline_viirs_summaries_from_images.py      -> OUT/viirs_summary
         HWRF        offline_hwrf_hafs_summaries_from_images.py  -> OUT/hwrf_summary
         HAFS        offline_hwrf_hafs_summaries_from_images.py  -> OUT/hafs_summary
-    and copies what cannot be rebuilt from images:
-        GloFAS      threspoints_YYYYMMDD00.csv                  -> OUT/glofas
-        DFO         DFO_YYYYMMDD.csv (only the 3-Day image is   -> OUT/dfo_summary
-                    kept, the summary has 4 layers)
+    GloFAS and DFO cannot be rebuilt from images (only the 3-Day DFO image
+    is kept, the summary has 4 layers) and are not copied:
+    offline_mom_from_summaries.py reads them from --glofas-dfo-root.
     OUT is then a flat input root for offline_mom_from_summaries.py.
 
     Sources: --input-root (default /root/MoM). Each folder can be flat
@@ -34,13 +33,12 @@ offline_summaries_from_images.py
     python backfill/offline_summaries_from_images.py --days 6 --end 20261013 --out-dir /root/MoM/rerun --dry-run
     python backfill/offline_summaries_from_images.py --days 6 --end 20261013 --out-dir /root/MoM/rerun
     python backfill/offline_mom_from_summaries.py --days 6 --end 20261013 --input-root /root/MoM/rerun \\
-        --out-dir /root/MoM/rerun
+        --glofas-dfo-root /root/MoM --out-dir /root/MoM/rerun
 """
 
 import argparse
 import logging
 import os
-import shutil
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
@@ -60,13 +58,6 @@ def window(end, days):
     end_date = datetime.strptime(end, "%Y%m%d")
     start = end_date - timedelta(days=days - 1 + DAYS_BEFORE)
     return start.strftime("%Y%m%d"), end
-
-
-def dates(start, end):
-    day, last = datetime.strptime(start, "%Y%m%d"), datetime.strptime(end, "%Y%m%d")
-    while day <= last:
-        yield day.strftime("%Y%m%d")
-        day += timedelta(days=1)
 
 
 def jobs(src, out, start, end, overwrite):
@@ -89,36 +80,6 @@ def jobs(src, out, start, end, overwrite):
     }
 
 
-def copy_files(src_dir, dst_dir, names, overwrite, dry_run):
-    """copy the files `names` that exist in src_dir; keep those already in
-    dst_dir unless overwrite; return (copied, kept, missing)"""
-    copied, kept, missing = [], [], []
-    for name in names:
-        src, dst = os.path.join(src_dir, name), os.path.join(dst_dir, name)
-        if not os.path.exists(src):
-            missing.append(name)
-            continue
-        if os.path.exists(dst) and not overwrite:
-            kept.append(name)
-            continue
-        if not dry_run:
-            os.makedirs(dst_dir, exist_ok=True)
-            part = f"{dst}.{os.getpid()}.part"
-            shutil.copy2(src, part)
-            if overwrite:
-                os.replace(part, dst)
-            else:
-                try:
-                    os.link(part, dst)  # fails if dst exists: never overwrites
-                except FileExistsError:
-                    kept.append(name)
-                    continue
-                finally:
-                    os.remove(part)
-        copied.append(name)
-    return copied, kept, missing
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--days", type=int, required=True,
@@ -129,12 +90,11 @@ def main():
                         help=f"folder with the images and summaries, flat or in the layout of "
                              f"{folder_layout.DEFAULT_ROOT} (default: {folder_layout.DEFAULT_ROOT})")
     parser.add_argument("--out-dir", required=True,
-                        help="new folder for gfms_summary, viirs_summary, hwrf_summary, hafs_summary, "
-                             "dfo_summary, glofas")
+                        help="new folder for gfms_summary, viirs_summary, hwrf_summary, hafs_summary")
     parser.add_argument("--overwrite", action="store_true",
                         help="replace files already in --out-dir (default: keep them)")
     parser.add_argument("--dry-run", action="store_true",
-                        help="only report what would be run and copied, write nothing")
+                        help="only report what would be run, write nothing")
     args = parser.parse_args()
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
@@ -163,17 +123,6 @@ def main():
         with open(job_log, "w") as f:
             procs[name] = (subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT,
                                             stdin=subprocess.DEVNULL, cwd=settings.BASE_DIR), job_log)
-
-    # what cannot be rebuilt from images, copied meanwhile
-    days = list(dates(start, end))
-    for label, folder, dst, names in (
-        ("GloFAS", "glofas", "glofas", [f"threspoints_{d}00.csv" for d in days]),
-        ("DFO", "dfo_summary", "dfo_summary", [f"DFO_{d}.csv" for d in days]),
-    ):
-        src_dir = folder_layout.folder(src, folder)
-        copied, kept, missing = copy_files(src_dir, os.path.join(out, dst), names, args.overwrite, args.dry_run)
-        logging.info(f"{label}: from {src_dir}: {'to copy' if args.dry_run else 'copied'} {len(copied)}, kept {len(kept)}, "
-                     f"not in the source {len(missing)}{': ' + ' '.join(missing) if missing else ''}")
 
     failed = []
     for name, (proc, job_log) in procs.items():
