@@ -21,13 +21,13 @@ from utilities import read_data
 
 
 def mofunc_dfo(row):
-    if row["Severity"] > 0.8 or row["Hazard_Score"] > 80:
+    if row["Severity"] >= 0.8 or row["Hazard_Score"] >= 80:
         return "Warning"
-    elif 0.6 < row["Severity"] < 0.80 or 60 < row["Hazard_Score"] < 80:
+    elif row["Severity"] >= 0.6 or row["Hazard_Score"] >= 60:
         return "Watch"
-    elif 0.35 < row["Severity"] < 0.6 or 35 < row["Hazard_Score"] < 60:
+    elif row["Severity"] >= 0.35 or row["Hazard_Score"] >= 35:
         return "Advisory"
-    elif 0 < row["Severity"] < 0.35 or 0 < row["Hazard_Score"] < 35:
+    elif row["Severity"] > 0 or row["Hazard_Score"] > 0:
         return "Information"
 
 
