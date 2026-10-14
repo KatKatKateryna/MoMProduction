@@ -181,6 +181,9 @@ def flood_severity(GFMS_Table, GloFas_Table, adate):
         error_flag = False
         row_count = 1
         for row in GloFas_reader:
+            # GloFAS writes -9999 for the 2/5/20 yr EPS when no exceedance is forecast
+            if row_count > 1:
+                row[9:12] = ["0" if float(x) < 0 else x for x in row[9:12]]
             if row_count == 1:
                 for x in add_field_GloFas:
                     row.append(x)
