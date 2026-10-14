@@ -1,28 +1,48 @@
 """
 offline_mom_from_summaries.py
-    -- regenerate the MoM products (GFMS, HWRF, DFO, VIIRS MoM and Final_Alert,
-       and the same for the HAFS chain) for the last N days from summaries
-       that already exist locally
+    -- regenerate the MoM products (GFMS, HWRF, DFO, VIIRS MoM and final
+       alerts, and the same for the HAFS chain) for the last N days from
+       summaries that already exist locally, into a separate output folder
 
-    Offline and MoM-only:
-      - nothing is downloaded or requested from any host: the *_summary and
-        GloFAS files are expected to be in place. A cycle whose GFMS summary
-        is missing is skipped (the MoM would download GFMS), and a missing
-        HWRF/HAFS rain summary is never filled in from the hosts.
-      - the only files written are the MoM and final alert outputs:
-        GFMS_MoM, HWRF_MoM, DFO_MoM, VIIRS_MoM, Final_Alert, HAFS_MoM,
-        DFO_HAFS_MoM, VIIRS_HAFS_MoM, Final_Alerts_hafs. The MoM steps' own
-        temporary files go to a temporary folder (removed at the end) instead
-        of the processing folders, and the log to backfill/logs/.
-      - HAFS: only its MoM chain is run; cycles HAFS has not processed yet
-        are skipped, never processed here.
+    Inputs: the summaries under --input-root (default /root/MoM, the folder
+    holding Products/), in the same layout: GFMS, GloFAS, HWRF, HAFS, DFO and
+    VIIRS summaries. They are only read.
+
+    Outputs, all under --out-dir and nowhere else:
+        OUT/gfms_mom          GFMS MoM
+        OUT/hwrf_mom          HWRF MoM and HWRF+DFO+VIIRS        (tag HWRF)
+        OUT/dfo_mom           DFO MoM of the HWRF chain
+        OUT/viirs_mom         VIIRS MoM of the HWRF chain
+        OUT/hafs_mom          HAFS MoM and HAFS+DFO+VIIRS        (tag HAFS)
+        OUT/dfo_hafs_mom      DFO MoM of the HAFS chain
+        OUT/viirs_hafs_mom    VIIRS MoM of the HAFS chain
+        OUT/Final_Alerts      final alerts of both chains (…HWRF+MOM… and …HAFS+MOM…)
+    An output already in OUT is kept, unless --overwrite: then the outputs of
+    the days in the window are deleted from OUT first. The day before the
+    window is built too (no alerts), because each final alert pairs with the
+    same cycle of the previous day; --overwrite does not delete it.
+
+    Offline: nothing is downloaded or requested from any host. A cycle whose
+    GFMS summary is missing is skipped (the MoM would download GFMS), and a
+    missing rain summary is never filled in from the hosts. The MoM steps'
+    temporary files go to a temporary folder (removed at the end), the log to
+    backfill/logs/.
+
+    Rain: the HWRF chain uses the HWRF summary of the previous cycle. With
+    --hafs-fallback, a cycle without an HWRF summary uses the HAFS summary of
+    that cycle instead (outputs still tagged HWRF; the log says which). With
+    neither, the MoM goes on without rain once the cycle is 12 h old, as the
+    cron job does. The HAFS chain runs a cycle only when the HAFS summary of
+    the previous cycle exists.
+
     The GloFAS file of each step is chosen by the MoM code of the cron jobs
-    (e.g. the previous GloFAS for the 00 and 06 HWRF cycles).
+    (e.g. the previous GloFAS for the 00 and 06 cycles).
 
 **EXAMPLE**
-    python backfill/offline_mom_from_summaries.py --days 7
-    python backfill/offline_mom_from_summaries.py --days 3 --end 20261010 --overwrite
-    python backfill/offline_mom_from_summaries.py --days 7 --dry-run
+    python backfill/offline_mom_from_summaries.py --days 7 --out-dir /root/MoM/mom_rerun --dry-run
+    python backfill/offline_mom_from_summaries.py --days 3 --end 20261012 --out-dir /root/MoM/mom_rerun
+    python backfill/offline_mom_from_summaries.py --days 3 --end 20261012 --out-dir /root/MoM/mom_rerun \\
+        --hafs-fallback --overwrite --input-root /data/MoM_copy
 """
 
 import argparse
@@ -41,47 +61,96 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import settings  # noqa: E402
 import GFMS_tool  # noqa: E402
 import HWRF_MoM  # noqa: E402
-from DFO_MoM import update_DFO_MoM
-from GFMS_MoM import flood_severity
-from HWRF_MoM import final_alert_pdc, update_HWRF_MoM, update_HWRFMoM_DFO_VIIRS
-from utilities import findLatestGlofas
-from VIIRS_MoM import update_VIIRS_MoM
+from DFO_MoM import update_DFO_MoM  # noqa: E402
+from GFMS_MoM import flood_severity  # noqa: E402
+from HWRF_MoM import final_alert_pdc, update_HWRF_MoM, update_HWRFMoM_DFO_VIIRS  # noqa: E402
+from utilities import findLatestGlofas  # noqa: E402
+from VIIRS_MoM import update_VIIRS_MoM  # noqa: E402
 
 HOURS = ["00", "06", "12", "18"]
 LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+DEFAULT_ROOT = os.path.dirname(settings.PRODUCT_DIR)  # /root/MoM
 PROC_DIRS = ["GFMS_PROC_DIR", "HWRF_PROC_DIR", "DFO_PROC_DIR", "VIIRS_PROC_DIR"]
+INPUT_DIRS = ["GFMS_SUM_DIR", "GLOFAS_DIR", "GLOFAS_SUM_DIR", "DFO_SUM_DIR", "VIIRS_SUM_DIR"]
+OUT_DIRS = ["gfms_mom", "hwrf_mom", "dfo_mom", "viirs_mom", "hafs_mom", "dfo_hafs_mom",
+            "viirs_hafs_mom", "Final_Alerts"]
+# per chain: rain summaries (settings name, prefix), file tag, output folders
+CHAINS = {
+    "HWRF": {"rain": ("HWRF_SUM_DIR", "hwrf"), "tag": "HWRF",
+             "mom": "hwrf_mom", "dfo": "dfo_mom", "viirs": "viirs_mom"},
+    "HAFS": {"rain": ("HAFS_SUM_DIR", "hafs"), "tag": "HAFS",
+             "mom": "hafs_mom", "dfo": "dfo_hafs_mom", "viirs": "viirs_hafs_mom"},
+}
+# every settings value changed here, put back at the end
+PATCHED = PROC_DIRS + INPUT_DIRS + [
+    "HWRF_SUM_DIR", "HWRF_SUM_PREFIX", "HWRF_FILE_TAG", "GFMS_MOM_DIR", "HWRF_MOM_DIR",
+    "DFO_MOM_DIR", "VIIRS_MOM_DIR", "FINAL_MOM", "FINAL_MOM_DIR",
+]
 
 
 def _no_download(*args):
     raise RuntimeError(f"MoM backfill never downloads ({args})")
 
 
+class Folders:
+    """input and output folders of the run"""
+
+    def __init__(self, input_root, out_dir):
+        self.input_root = os.path.abspath(input_root)
+        self.out_dir = os.path.abspath(out_dir)
+        self.originals = {k: getattr(settings, k) for k in PATCHED + ["HAFS_SUM_DIR"]}
+
+    def input(self, name):
+        """settings folder `name` under the input root"""
+        rel = os.path.relpath(self.originals[name], DEFAULT_ROOT)
+        return os.path.join(self.input_root, rel)
+
+    def out(self, name):
+        return os.path.join(self.out_dir, name)
+
+    def rain_summary(self, chain, cycle):
+        """rain summary of a cycle (YYYYMMDDHH) for a chain"""
+        sum_dir, prefix = CHAINS[chain]["rain"]
+        return os.path.join(self.input(sum_dir), f"{prefix}.{cycle}rainfall.csv")
+
+
 @contextlib.contextmanager
-def offline(tmpdir, hafs_tool=None):
-    """MoM steps with no host access and their temporary files in tmpdir
-    instead of the processing folders, always put back afterwards"""
-    saved = {k: getattr(settings, k) for k in PROC_DIRS}
+def offline(folders, tmpdir):
+    """no host access, the inputs under the input root, temporary files in
+    tmpdir; everything put back afterwards"""
+    saved = {k: getattr(settings, k) for k in PATCHED}
     saved_fixdate = GFMS_tool.GFMS_fixdate
     saved_no_storms = HWRF_MoM.no_storms_published
-    saved_work = hafs_tool.WORK_DIR if hafs_tool else None
     try:
         for k in PROC_DIRS:
             setattr(settings, k, tmpdir)
+        for k in INPUT_DIRS:
+            setattr(settings, k, folders.input(k))
+        settings.GFMS_MOM_DIR = folders.out("gfms_mom")
+        settings.FINAL_MOM = settings.FINAL_MOM_DIR = folders.out("Final_Alerts")
         # a missing GFMS summary would be downloaded
         GFMS_tool.GFMS_fixdate = _no_download
         # asks the HWRF/HAFS hosts and writes an empty rain summary
         HWRF_MoM.no_storms_published = lambda hwrf_cycle: False
-        if hafs_tool:
-            # hafs_folders points the processing folders at WORK_DIR
-            hafs_tool.WORK_DIR = tmpdir
         yield
     finally:
         for k, v in saved.items():
             setattr(settings, k, v)
         GFMS_tool.GFMS_fixdate = saved_fixdate
         HWRF_MoM.no_storms_published = saved_no_storms
-        if hafs_tool:
-            hafs_tool.WORK_DIR = saved_work
+
+
+def use_chain(folders, chain, rain_chain=None):
+    """point the reused HWRF/DFO/VIIRS MoM functions at a chain's rain
+    summaries (or those of rain_chain), file tag and output folders"""
+    c = CHAINS[chain]
+    sum_dir, prefix = CHAINS[rain_chain or chain]["rain"]
+    settings.HWRF_SUM_DIR = folders.input(sum_dir)
+    settings.HWRF_SUM_PREFIX = prefix
+    settings.HWRF_FILE_TAG = c["tag"]
+    settings.HWRF_MOM_DIR = folders.out(c["mom"])
+    settings.DFO_MOM_DIR = folders.out(c["dfo"])
+    settings.VIIRS_MOM_DIR = folders.out(c["viirs"])
 
 
 def _getParser():
@@ -89,25 +158,32 @@ def _getParser():
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
-        "--days",
-        type=int,
-        required=True,
+        "--days", type=int, required=True,
         help="number of days to backfill, counted back from --end (inclusive)",
     )
     parser.add_argument(
-        "--end",
-        default=datetime.now(timezone.utc).strftime("%Y%m%d"),
+        "--end", default=datetime.now(timezone.utc).strftime("%Y%m%d"),
         help="last day to backfill, YYYYMMDD (default: today, UTC)",
     )
     parser.add_argument(
-        "--overwrite",
-        action="store_true",
-        help="delete existing MoM outputs of these days (HAFS ones too) so they are regenerated",
+        "--input-root", default=DEFAULT_ROOT,
+        help=f"folder with the summaries, in the layout of {DEFAULT_ROOT} (default: {DEFAULT_ROOT})",
     )
     parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="only report what would be run, write nothing",
+        "--out-dir", required=True,
+        help="folder the outputs are written to (" + ", ".join(OUT_DIRS) + ")",
+    )
+    parser.add_argument(
+        "--hafs-fallback", action="store_true",
+        help="HWRF chain: use the HAFS summary of a cycle that has no HWRF summary",
+    )
+    parser.add_argument(
+        "--overwrite", action="store_true",
+        help="delete the outputs of these days from --out-dir first, so they are regenerated",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="only report what would be run and removed, write nothing",
     )
     return parser
 
@@ -121,23 +197,21 @@ def backfill_dates(end, days):
     ]
 
 
-def mom_outputs(adate):
-    """all MoM output files of a day (YYYYMMDD)"""
+def mom_outputs(folders, adate):
+    """the output files of a day (YYYYMMDD) in the output folder"""
     patterns = [
-        os.path.join(settings.GFMS_MOM_DIR, f"Final_Attributes_{adate}.csv"),
-        os.path.join(settings.GFMS_MOM_DIR, f"Attributes_Clean_{adate}.csv"),
-        os.path.join(settings.HWRF_MOM_DIR, f"*_{adate}[0-9][0-9]HWRF*.csv"),
-        os.path.join(settings.DFO_MOM_DIR, f"*_{adate}18MOM+DFOUpdated.csv"),
-        os.path.join(settings.VIIRS_MOM_DIR, f"*_{adate}18MOM+DFO+VIIRSUpdated.csv"),
-        os.path.join(
-            settings.FINAL_MOM,
-            f"Final_Attributes_{adate}[0-9][0-9]HWRF+MOM+DFO+VIIRSUpdated_PDC.csv",
-        ),
+        os.path.join(folders.out("gfms_mom"), f"Final_Attributes_{adate}.csv"),
+        os.path.join(folders.out("gfms_mom"), f"Attributes_Clean_{adate}.csv"),
     ]
-    found = []
-    for pattern in patterns:
-        found.extend(glob.glob(pattern))
-    return sorted(found)
+    for c in CHAINS.values():
+        patterns += [
+            os.path.join(folders.out(c["mom"]), f"*_{adate}[0-9][0-9]{c['tag']}*.csv"),
+            os.path.join(folders.out(c["dfo"]), f"*_{adate}18MOM+DFOUpdated.csv"),
+            os.path.join(folders.out(c["viirs"]), f"*_{adate}18MOM+DFO+VIIRSUpdated.csv"),
+            os.path.join(folders.out("Final_Alerts"),
+                         f"Final_Attributes_{adate}[0-9][0-9]{c['tag']}+MOM+DFO+VIIRSUpdated_PDC.csv"),
+        ]
+    return sorted(f for p in patterns for f in glob.glob(p))
 
 
 def gfms_sum(adatehour):
@@ -177,12 +251,12 @@ def backfill_gfms(adate, dry_run):
         logging.warning(f"GFMS MoM {adate}: no GFMS summary, skipped")
         return
     glofascsv = glofas_for_gfms(adate)
-    # today's GloFAS is published later in the day; a fallback to an older one
-    # would block the scheduled run that uses the same day file
+    # today's GloFAS is published later in the day: the cron job waits for it
+    # instead of falling back to an older one
     today = datetime.now(timezone.utc).strftime("%Y%m%d")
     if adate == today and os.path.basename(glofascsv) != f"threspoints_{adate}00.csv":
-        logging.error(f"GFMS MoM {adate}: today's GloFAS not available yet, stop here")
-        sys.exit(1)
+        logging.warning(f"GFMS MoM {adate}: today's GloFAS not available yet, skipped")
+        return
     if not glofascsv:
         logging.warning(f"GFMS MoM {adate}: no GloFAS available, skipped")
         return
@@ -191,84 +265,74 @@ def backfill_gfms(adate, dry_run):
         f"glofas={os.path.basename(glofascsv)}"
     )
     if not dry_run:
-        run_step(
-            "GFMS MoM",
-            flood_severity,
-            gfmscsv,
-            glofascsv,
-            adate,
-            workdir=settings.GFMS_PROC_DIR,
-        )
+        run_step("GFMS MoM", flood_severity, gfmscsv, glofascsv, adate,
+                 workdir=settings.GFMS_PROC_DIR)
 
 
-def backfill_hwrf(adate, dry_run, with_alert=True):
-    """HWRF MoM chain for the 4 cycles of a day, return the cycles run"""
+def rain_chain_for(folders, chain, adatehour, hafs_fallback):
+    """whose rain summary the MoM of a cycle uses (that of the previous
+    cycle): the chain's own, HAFS for the HWRF chain with --hafs-fallback when
+    HWRF has none, or None when the HAFS chain has none"""
+    rain_cycle = (datetime.strptime(adatehour, "%Y%m%d%H") - timedelta(hours=6)).strftime("%Y%m%d%H")
+    if os.path.exists(folders.rain_summary(chain, rain_cycle)):
+        return chain
+    if chain == "HWRF":
+        if hafs_fallback and os.path.exists(folders.rain_summary("HAFS", rain_cycle)):
+            return "HAFS"
+        return chain  # goes on without rain once 12 h old, as the cron job
+    return None
+
+
+def backfill_chain(folders, chain, adate, dry_run, hafs_fallback=False, with_alert=True):
+    """MoM, +DFO+VIIRS and final alert of the 4 cycles of a day for a chain,
+    return the cycles run"""
     now = datetime.now(timezone.utc)
     done = []
     for hh in HOURS:
         adatehour = adate + hh
         cycle_time = datetime.strptime(adatehour, "%Y%m%d%H").replace(tzinfo=timezone.utc)
         if cycle_time > now:
-            logging.info(f"HWRF MoM {adatehour}: cycle not reached yet, stop here")
+            logging.info(f"{chain} MoM {adatehour}: cycle not reached yet, stop here")
             break
         # update_HWRF_MoM would call GFMS_fixdate (download) on a missing summary
         if not os.path.exists(gfms_sum(adatehour)):
-            logging.warning(f"HWRF MoM {adatehour}: no GFMS summary, skipped")
+            logging.warning(f"{chain} MoM {adatehour}: no GFMS summary, skipped")
             continue
-        logging.info(f"HWRF MoM {adatehour}")
+        rain_chain = rain_chain_for(folders, chain, adatehour, hafs_fallback)
+        if rain_chain is None:
+            logging.warning(f"{chain} MoM {adatehour}: no {chain} summary of the previous cycle, skipped")
+            continue
+        source = f", rain from {rain_chain} (no HWRF summary)" if rain_chain != chain else ""
+        logging.info(f"{chain} MoM {adatehour}{source}")
         if dry_run:
             done.append(hh)
             continue
-        if not run_step(
-            "HWRF MoM", update_HWRF_MoM, adatehour, workdir=settings.HWRF_PROC_DIR
-        ):
+        # only update_HWRF_MoM reads the rain summary
+        use_chain(folders, chain, rain_chain)
+        ok = run_step(f"{chain} MoM", update_HWRF_MoM, adatehour, workdir=settings.HWRF_PROC_DIR)
+        use_chain(folders, chain)
+        if not ok:
             continue
-        run_step(
-            "HWRF+DFO+VIIRS MoM",
-            update_HWRFMoM_DFO_VIIRS,
-            adatehour,
-            workdir=settings.HWRF_PROC_DIR,
-        )
+        run_step(f"{chain}+DFO+VIIRS MoM", update_HWRFMoM_DFO_VIIRS, adatehour,
+                 workdir=settings.HWRF_PROC_DIR)
         if with_alert:
-            run_step("Final alert", final_alert_pdc, adatehour)
+            run_step(f"{chain} final alert", final_alert_pdc, adatehour)
         done.append(hh)
     return done
 
 
-def backfill_dfo_viirs(adate, hwrf_done, dry_run):
-    # update_DFO_MoM force-generates missing HWRF cycles, which could download
-    # GFMS, so only run it when every cycle of the day went through
-    if hwrf_done != HOURS:
+def backfill_dfo_viirs(chain, adate, cycles_done, dry_run):
+    # update_DFO_MoM force-generates missing cycles, so only run it when
+    # every cycle of the day went through
+    if cycles_done != HOURS:
         logging.warning(
-            f"DFO/VIIRS MoM {adate}: HWRF cycles run {hwrf_done}, need all "
-            f"{HOURS}, skipped"
+            f"{chain} DFO/VIIRS MoM {adate}: cycles run {cycles_done}, need all {HOURS}, skipped"
         )
         return
-    logging.info(f"DFO MoM {adate}, VIIRS MoM {adate}")
+    logging.info(f"{chain} DFO MoM {adate}, VIIRS MoM {adate}")
     if not dry_run:
-        run_step("DFO MoM", update_DFO_MoM, adate, workdir=settings.DFO_PROC_DIR)
-        run_step("VIIRS MoM", update_VIIRS_MoM, adate, workdir=settings.VIIRS_PROC_DIR)
-
-
-def backfill_hafs(hafs_tool, warmup, dates, dry_run):
-    """the HAFS MoM chain of the same days (HAFS_tool.run without the HAFS
-    data step): HAFS MoM, +DFO+VIIRS and final alert of each cycle, then the
-    DFO and VIIRS HAFS MoM of each day; a cycle HAFS has not processed yet
-    stops its day"""
-    for adate in [warmup] + dates:
-        is_warmup = adate == warmup
-        logging.info(f"HAFS MoM {adate}{' (warm-up, no alerts)' if is_warmup else ''}")
-        if dry_run:
-            continue
-        due = True
-        for hh in HOURS:
-            due = hafs_tool.run_cycle_mom(adate + hh, with_alert=not is_warmup)
-            if not due:
-                break
-        if not is_warmup:
-            hafs_tool.run_day_dfo_viirs(adate)
-        if not due:
-            break
+        run_step(f"{chain} DFO MoM", update_DFO_MoM, adate, workdir=settings.DFO_PROC_DIR)
+        run_step(f"{chain} VIIRS MoM", update_VIIRS_MoM, adate, workdir=settings.VIIRS_PROC_DIR)
 
 
 def main():
@@ -285,45 +349,44 @@ def main():
     console.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
     logging.getLogger().addHandler(console)
 
+    folders = Folders(args.input_root, args.out_dir)
     dates = backfill_dates(args.end, args.days)
+    chains = ["HWRF"] + (["HAFS"] if settings.HAFS_ENABLED else [])
     logging.info(
-        f"MoM backfill {dates[0]} - {dates[-1]}, overwrite={args.overwrite}, "
-        f"dry_run={args.dry_run}"
+        f"MoM backfill {dates[0]} - {dates[-1]}: input {folders.input_root}, output "
+        f"{folders.out_dir}, chains {' '.join(chains)}, hafs_fallback={args.hafs_fallback}, "
+        f"overwrite={args.overwrite}, dry_run={args.dry_run}"
     )
 
-    hafs_tool = None
-    if settings.HAFS_ENABLED:
-        import HAFS_tool as hafs_tool  # eccodes: imported after the GDAL modules
-
+    if not args.dry_run:
+        for name in OUT_DIRS:
+            os.makedirs(folders.out(name), exist_ok=True)
     if args.overwrite:
         for adate in dates:
-            outputs = mom_outputs(adate) + (hafs_tool.hafs_outputs(adate) if hafs_tool else [])
-            for f in outputs:
+            for f in mom_outputs(folders, adate):
                 logging.info(f"remove: {f}")
                 if not args.dry_run:
                     os.remove(f)
 
     # the final alert of a cycle needs the same cycle of the previous day,
-    # so build the HWRF MoM of the day before the window first (no alerts)
-    warmup = (datetime.strptime(dates[0], "%Y%m%d") - timedelta(days=1)).strftime(
-        "%Y%m%d"
-    )
+    # so build the MoM of the day before the window first (no alerts)
+    warmup = (datetime.strptime(dates[0], "%Y%m%d") - timedelta(days=1)).strftime("%Y%m%d")
     logging.info(f"warm-up day for the final alert pairs: {warmup}")
 
     tmpdir = tempfile.mkdtemp(prefix="mom_backfill_")
     try:
-        with offline(tmpdir, hafs_tool):
-            backfill_hwrf(warmup, args.dry_run, with_alert=False)
-
+        with offline(folders, tmpdir):
             for adate in dates:
-                logging.info(f"===== backfill {adate} =====")
+                logging.info(f"===== GFMS MoM {adate} =====")
                 backfill_gfms(adate, args.dry_run)
-                hwrf_done = backfill_hwrf(adate, args.dry_run)
-                backfill_dfo_viirs(adate, hwrf_done, args.dry_run)
-
-            if hafs_tool:
-                logging.info("===== HAFS MoM chain =====")
-                backfill_hafs(hafs_tool, warmup, dates, args.dry_run)
+            for chain in chains:
+                use_chain(folders, chain)
+                logging.info(f"===== {chain} chain, warm-up {warmup} =====")
+                backfill_chain(folders, chain, warmup, args.dry_run, args.hafs_fallback, with_alert=False)
+                for adate in dates:
+                    logging.info(f"===== {chain} chain {adate} =====")
+                    cycles_done = backfill_chain(folders, chain, adate, args.dry_run, args.hafs_fallback)
+                    backfill_dfo_viirs(chain, adate, cycles_done, args.dry_run)
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
 

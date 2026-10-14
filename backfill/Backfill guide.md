@@ -45,8 +45,8 @@ source summaries / images  ->  MoM products  ->  database upload
    - GloFAS and DFO have no backfill script. Their summaries must already be
      in place.
 2. **MoM products** (GFMS, HWRF, DFO and VIIRS MoM, final alerts, and the HAFS
-   chain): `offline_mom_from_summaries.py --overwrite`. It only reads the summaries and
-   only writes MoM and final alert files, so every step 1 run must be
+   chain): `offline_mom_from_summaries.py --out-dir <folder>`. It only reads the
+   summaries and only writes into that folder, so every step 1 run must be
    finished first.
 3. **Database**: re-upload the regenerated summaries and MoM products with
    the scripts in `database_update/`.
@@ -203,47 +203,56 @@ python backfill/offline_viirs_summaries_from_images.py /root/MoM/Products/VIIRS/
 ### `offline_mom_from_summaries.py` (step 2)
 
 Regenerates the MoM products of the last `--days` days, ending at `--end`,
-from the summaries already in place, for both the HWRF and the HAFS chain.
+from the summaries already in place, for both the HWRF and the HAFS chain,
+into a separate output folder.
 
 - **Offline:** nothing is downloaded and no host is contacted. A cycle whose
   GFMS summary is missing is skipped, because the MoM code would download
-  GFMS. A missing HWRF/HAFS rain summary is never filled in from the hosts:
-  the MoM goes on without the rain once the cycle is 12 h old, as the cron
-  jobs do.
-- **Reads:** the GFMS, GloFAS, HWRF, HAFS, DFO and VIIRS summaries, and the
-  HAFS done markers.
-- **GloFAS:** chosen exactly as the cron jobs choose it, by the same MoM code.
-  The 00 and 06 HWRF/HAFS cycles use the latest GloFAS before that day; the
-  12 and 18 cycles, and the daily GFMS MoM, use that day's GloFAS, or the
-  latest earlier one if it is missing.
-- **Writes, and nothing else:** the MoM and final alert folders.
-  - GFMS MoM: `GFMS/GFMS_MoM/Final_Attributes_YYYYMMDD.csv` and `Attributes_Clean_…`
-  - HWRF MoM, then HWRF+DFO+VIIRS: `HWRF/HWRF_MoM/*_YYYYMMDDHHHWRF*.csv`, for each of the 4 cycles of a day
-  - Final alerts: `Final_Alert/Final_Attributes_YYYYMMDDHHHWRF+MOM+DFO+VIIRSUpdated_PDC.csv`
-  - DFO MoM and VIIRS MoM: the `…18MOM+DFOUpdated.csv` and `…18MOM+DFO+VIIRSUpdated.csv` files of the day
-  - HAFS: the same products, tagged `HAFS`, in `HAFS/HAFS_MoM`,
-    `DFO/DFO_HAFS_MoM`, `VIIRS/VIIRS_HAFS_MoM` and `Final_Alerts_hafs`
+  GFMS. A missing rain summary is never filled in from the hosts.
+- **Reads, never changes:** the GFMS, GloFAS, HWRF, HAFS, DFO and VIIRS
+  summaries under `--input-root` (default `/root/MoM`), in the same layout
+  as `/root/MoM` (`Products/GFMS/GFMS_summary/`, …).
+- **Writes, and nothing else:** the output folder `--out-dir` (required):
+
+  | Folder | Contents |
+  |---|---|
+  | `gfms_mom/` | GFMS MoM: `Final_Attributes_YYYYMMDD.csv`, `Attributes_Clean_…` |
+  | `hwrf_mom/` | HWRF MoM and HWRF+DFO+VIIRS, for each of the 4 cycles of a day (tag `HWRF`) |
+  | `dfo_mom/`, `viirs_mom/` | DFO and VIIRS MoM of the HWRF chain (the `…18MOM+DFOUpdated` / `…18MOM+DFO+VIIRSUpdated` files) |
+  | `hafs_mom/` | HAFS MoM and HAFS+DFO+VIIRS (tag `HAFS`) |
+  | `dfo_hafs_mom/`, `viirs_hafs_mom/` | DFO and VIIRS MoM of the HAFS chain |
+  | `Final_Alerts/` | final alerts of both chains (`…HWRF+MOM+DFO+VIIRSUpdated_PDC.csv`, `…HAFS+MOM+…`) |
 
   The MoM steps' temporary files go to a temporary folder under `/tmp`,
-  removed at the end, not to the processing folders. The log goes to
+  removed at the end. The log goes to
   `backfill/logs/offline_mom_from_summaries_<time>.log`.
-- **`--overwrite`:** deletes these outputs (HWRF and HAFS) for the days in the
-  window first, so they are regenerated. Without it, every step keeps an
-  output that already exists.
-- **HAFS:** only its MoM chain runs. HAFS summaries are never computed here: a
-  cycle that HAFS has not processed yet (no done marker) stops that day's
-  HAFS MoM. Use `offline_hwrf_hafs_summaries_from_backups.py` to recompute HAFS summaries.
-- **Previous day:** the HWRF and HAFS MoM of the day before the window is
-  built first, without alerts, because each final alert pairs with the same
-  cycle of the previous day. `--overwrite` does not delete that day's
-  outputs, so they are kept if they already exist.
+- **Rain:** the MoM of a cycle uses the rain summary of the previous cycle.
+  - HWRF chain: the HWRF summary. With `--hafs-fallback`, a cycle that has
+    no HWRF summary uses the HAFS summary of that cycle instead; the outputs
+    are still tagged `HWRF`, and the log says which source was used. Without
+    either, the MoM goes on without rain once the cycle is 12 h old, as the
+    cron job does.
+  - HAFS chain: a cycle runs only when the HAFS summary of the previous
+    cycle exists.
+- **GloFAS:** chosen exactly as the cron jobs choose it, by the same MoM code.
+  The 00 and 06 cycles use the latest GloFAS before that day; the 12 and 18
+  cycles, and the daily GFMS MoM, use that day's GloFAS, or the latest
+  earlier one if it is missing. Today's GFMS MoM is skipped until today's
+  GloFAS is published.
+- **`--overwrite`** (off by default): deletes the outputs of the days in the
+  window from the output folder first, so they are regenerated. Without it,
+  every step keeps an output that is already there.
+- **Previous day:** the MoM of the day before the window is built first,
+  without alerts, because each final alert pairs with the same cycle of the
+  previous day. `--overwrite` does not delete that day's outputs.
 - **Skips:**
   - cycles without a GFMS summary
-  - the DFO and VIIRS MoM of a day unless all 4 HWRF cycles ran
+  - the DFO and VIIRS MoM of a day unless all 4 cycles of that chain ran
   - cycles that have not happened yet
-- **Stops** if today's GloFAS is not published yet.
 
 ```bash
-python backfill/offline_mom_from_summaries.py --days 7 --dry-run            # show what would run and be removed
-python backfill/offline_mom_from_summaries.py --days 3 --end 20261013 --overwrite
+python backfill/offline_mom_from_summaries.py --days 7 --out-dir /root/MoM/mom_rerun --dry-run
+python backfill/offline_mom_from_summaries.py --days 3 --end 20261013 --out-dir /root/MoM/mom_rerun
+python backfill/offline_mom_from_summaries.py --days 3 --end 20261013 --out-dir /root/MoM/mom_rerun \
+    --hafs-fallback --overwrite --input-root /data/MoM_copy
 ```
