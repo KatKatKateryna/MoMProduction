@@ -13,9 +13,9 @@ offline_summaries_from_images.py
     offline_mom_from_summaries.py reads them from --glofas-dfo-root.
     OUT is then a flat input root for offline_mom_from_summaries.py.
 
-    Sources: --input-root (default /root/MoM). Each folder can be flat
+    Sources: --input-root (default: the parent of PRODUCT_DIR). Each folder can be flat
     (ROOT/gfms_image, ROOT/gfms_summary, ROOT/glofas, ...) or in the layout of
-    /root/MoM (ROOT/Products/GFMS/GFMS_image, ...); the flat one is used if
+    the production root (ROOT/Products/GFMS/GFMS_image, ...); the flat one is used if
     it exists. They are only read. The existing summaries are used to
     continue the GFMS durations, and for the header-only HWRF/HAFS summaries
     of cycles without rain (no image).
@@ -30,10 +30,10 @@ offline_summaries_from_images.py
     replaced.
 
 **EXAMPLE**
-    python backfill/offline_summaries_from_images.py --days 6 --end 20261013 --out-dir /root/MoM/rerun --dry-run
-    python backfill/offline_summaries_from_images.py --days 6 --end 20261013 --out-dir /root/MoM/rerun
-    python backfill/offline_mom_from_summaries.py --days 6 --end 20261013 --input-root /root/MoM/rerun \\
-        --glofas-dfo-root /root/MoM --out-dir /root/MoM/rerun
+    python backfill/offline_summaries_from_images.py --days 6 --end 20261013 --out-dir <rerun folder> --dry-run
+    python backfill/offline_summaries_from_images.py --days 6 --end 20261013 --out-dir <rerun folder>
+    python backfill/offline_mom_from_summaries.py --days 6 --end 20261013 --input-root <rerun folder> \\
+        --glofas-dfo-root <production root> --out-dir <rerun folder>
 """
 
 import argparse

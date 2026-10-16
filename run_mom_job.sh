@@ -12,13 +12,16 @@
 #   run_mom_job.sh -j GFMS
 #   run_mom_job.sh -j DFO --fixdate 20261007
 #
-# Overridable via the environment: CONDA_SH, CONDA_ENV, PROJECT_DIR.
+# Overridable via the environment: CONDA_SH, CONDA_ENV, PROJECT_DIR. The
+# conda base is found as setup.sh finds it (conda info --base, else
+# $HOME/miniconda3).
 
 set -euo pipefail
 
-CONDA_SH="${CONDA_SH:-/root/miniconda3/etc/profile.d/conda.sh}"
+CONDA_SH="${CONDA_SH:-$(conda info --base 2>/dev/null || echo "$HOME/miniconda3")/etc/profile.d/conda.sh}"
 CONDA_ENV="${CONDA_ENV:-myenv}"
-PROJECT_DIR="${PROJECT_DIR:-/root/MoMProduction}"
+# default: the folder of this script (the repository root)
+PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 
 if [ ! -f "$CONDA_SH" ]; then
     echo "run_mom_job.sh: conda profile not found at $CONDA_SH" >&2

@@ -2,17 +2,17 @@
 offline_mom_from_summaries.py
     -- regenerate the MoM products (GFMS, HWRF, DFO, VIIRS MoM and final
        alerts, and the same for the HAFS chain) for the last N days from
-       summaries that already exist locally, into a separate output folder
+       summaries that already exist locally, into --out-dir
 
     Inputs, only read: the GFMS, HWRF, HAFS and VIIRS summaries under
-    --input-root (default /root/MoM), and the GloFAS and DFO summaries under
-    --glofas-dfo-root (default /root/MoM; offline_summaries_from_images.py
+    --input-root (default: the parent of PRODUCT_DIR), and the GloFAS and DFO summaries under
+    --glofas-dfo-root (default: the parent of PRODUCT_DIR; offline_summaries_from_images.py
     does not rebuild them). Each folder can be flat (ROOT/gfms_summary,
     ROOT/glofas, ROOT/dfo_summary, ..., as written by
-    offline_summaries_from_images.py) or in the layout of /root/MoM
+    offline_summaries_from_images.py) or in the production layout
     (ROOT/Products/GFMS/GFMS_summary, ...); the flat one is used if it exists.
 
-    Outputs, all under --out-dir and nowhere else:
+    Outputs, all under --out-dir and nowhere else. A flat OUT:
         OUT/gfms_mom          GFMS MoM
         OUT/hwrf_mom          HWRF MoM and HWRF+DFO+VIIRS        (tag HWRF)
         OUT/dfo_mom           DFO MoM of the HWRF chain
@@ -21,6 +21,11 @@ offline_mom_from_summaries.py
         OUT/dfo_hafs_mom      DFO MoM of the HAFS chain
         OUT/viirs_hafs_mom    VIIRS MoM of the HAFS chain
         OUT/Final_Alerts      final alerts of both chains (…HWRF+MOM… and …HAFS+MOM…)
+    An OUT that has every production MoM folder (the production root, the
+    parent of PRODUCT_DIR) gets the production folders instead, the ones the
+    cron jobs write: Products/GFMS/GFMS_MoM, HWRF/HWRF_MoM, DFO/DFO_MoM,
+    VIIRS/VIIRS_MoM, HAFS/HAFS_MoM, DFO/DFO_HAFS_MoM, VIIRS/VIIRS_HAFS_MoM,
+    the final alert folder of production.cfg and Final_Alerts_hafs.
     An output already in OUT is kept, unless --overwrite: then the outputs of
     the days in the window are deleted from OUT first. The day before the
     window is built too (no alerts), because each final alert pairs with the
@@ -43,9 +48,10 @@ offline_mom_from_summaries.py
     (e.g. the previous GloFAS for the 00 and 06 cycles).
 
 **EXAMPLE**
-    python backfill/offline_mom_from_summaries.py --days 7 --out-dir /root/MoM/mom_rerun --dry-run
-    python backfill/offline_mom_from_summaries.py --days 3 --end 20261012 --out-dir /root/MoM/mom_rerun
-    python backfill/offline_mom_from_summaries.py --days 3 --end 20261012 --out-dir /root/MoM/mom_rerun \\
+    python backfill/offline_mom_from_summaries.py --days 7 --out-dir <rerun folder> --dry-run
+    python backfill/offline_mom_from_summaries.py --days 3 --end 20261012 --out-dir <rerun folder>
+    python backfill/offline_mom_from_summaries.py --days 15 --end 20261015 --out-dir <production root> --overwrite
+    python backfill/offline_mom_from_summaries.py --days 3 --end 20261012 --out-dir <rerun folder> \\
         --hafs-fallback --overwrite --input-root /data/MoM_copy --glofas-dfo-root /data/MoM_copy
 """
 
@@ -74,18 +80,27 @@ from VIIRS_MoM import update_VIIRS_MoM  # noqa: E402
 
 HOURS = ["00", "06", "12", "18"]
 LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
-DEFAULT_ROOT = folder_layout.DEFAULT_ROOT  # /root/MoM
+DEFAULT_ROOT = folder_layout.DEFAULT_ROOT  # parent of PRODUCT_DIR
 PROC_DIRS = ["GFMS_PROC_DIR", "HWRF_PROC_DIR", "DFO_PROC_DIR", "VIIRS_PROC_DIR"]
 INPUT_DIRS = ["GFMS_SUM_DIR", "GLOFAS_DIR", "GLOFAS_SUM_DIR", "DFO_SUM_DIR", "VIIRS_SUM_DIR"]
 OUT_DIRS = ["gfms_mom", "hwrf_mom", "dfo_mom", "viirs_mom", "hafs_mom", "dfo_hafs_mom",
-            "viirs_hafs_mom", "Final_Alerts"]
+            "viirs_hafs_mom", "final_hwrf", "final_hafs"]
 # per chain: rain summaries (settings name, prefix), file tag, output folders
 CHAINS = {
     "HWRF": {"rain": ("HWRF_SUM_DIR", "hwrf"), "tag": "HWRF",
-             "mom": "hwrf_mom", "dfo": "dfo_mom", "viirs": "viirs_mom"},
+             "mom": "hwrf_mom", "dfo": "dfo_mom", "viirs": "viirs_mom", "final": "final_hwrf"},
     "HAFS": {"rain": ("HAFS_SUM_DIR", "hafs"), "tag": "HAFS",
-             "mom": "hafs_mom", "dfo": "dfo_hafs_mom", "viirs": "viirs_hafs_mom"},
+             "mom": "hafs_mom", "dfo": "dfo_hafs_mom", "viirs": "viirs_hafs_mom", "final": "final_hafs"},
 }
+# output folder -> settings folder of the production layout (read before any
+# is changed); in a flat out-dir both final alert folders are Final_Alerts
+OUT_COMMON = {
+    "gfms_mom": "GFMS_MOM_DIR", "hwrf_mom": "HWRF_MOM_DIR", "dfo_mom": "DFO_MOM_DIR",
+    "viirs_mom": "VIIRS_MOM_DIR", "hafs_mom": "HAFS_MOM_DIR", "dfo_hafs_mom": "DFO_HAFS_DIR",
+    "viirs_hafs_mom": "VIIRS_HAFS_DIR", "final_hwrf": "FINAL_MOM_DIR", "final_hafs": "FINAL_HAFS_DIR",
+}
+OUT_COMMON = {name: os.path.relpath(getattr(settings, attr), DEFAULT_ROOT) for name, attr in OUT_COMMON.items()}
+OUT_FLAT = {"final_hwrf": "Final_Alerts", "final_hafs": "Final_Alerts"}
 # settings input folder -> folder_layout name
 GLOFAS_DFO = ["GLOFAS_DIR", "GLOFAS_SUM_DIR", "DFO_SUM_DIR"]
 LAYOUT = {
@@ -111,6 +126,9 @@ class Folders:
         self.input_root = os.path.abspath(input_root)
         self.glofas_dfo_root = os.path.abspath(glofas_dfo_root)
         self.out_dir = os.path.abspath(out_dir)
+        # the production layout when out_dir has every production MoM
+        # folder (OUT_COMMON), else flat
+        self.out_common = all(os.path.isdir(os.path.join(self.out_dir, d)) for d in OUT_COMMON.values())
 
     def input(self, name):
         """settings input folder `name` under the input root (GloFAS and DFO:
@@ -119,7 +137,9 @@ class Folders:
         return folder_layout.folder(root, LAYOUT[name])
 
     def out(self, name):
-        return os.path.join(self.out_dir, name)
+        if self.out_common:
+            return os.path.join(self.out_dir, OUT_COMMON[name])
+        return os.path.join(self.out_dir, OUT_FLAT.get(name, name))
 
     def rain_summary(self, chain, cycle):
         """rain summary of a cycle (YYYYMMDDHH) for a chain"""
@@ -140,7 +160,6 @@ def offline(folders, tmpdir):
         for k in INPUT_DIRS:
             setattr(settings, k, folders.input(k))
         settings.GFMS_MOM_DIR = folders.out("gfms_mom")
-        settings.FINAL_MOM = settings.FINAL_MOM_DIR = folders.out("Final_Alerts")
         # a missing GFMS summary would be downloaded
         GFMS_tool.GFMS_fixdate = _no_download
         # asks the HWRF/HAFS hosts and writes an empty rain summary
@@ -164,6 +183,7 @@ def use_chain(folders, chain, rain_chain=None):
     settings.HWRF_MOM_DIR = folders.out(c["mom"])
     settings.DFO_MOM_DIR = folders.out(c["dfo"])
     settings.VIIRS_MOM_DIR = folders.out(c["viirs"])
+    settings.FINAL_MOM = settings.FINAL_MOM_DIR = folders.out(c["final"])
 
 
 def _getParser():
@@ -190,7 +210,8 @@ def _getParser():
     )
     parser.add_argument(
         "--out-dir", required=True,
-        help="folder the outputs are written to (" + ", ".join(OUT_DIRS) + ")",
+        help="folder the outputs are written to: flat (gfms_mom, hwrf_mom, ..., Final_Alerts) or, "
+             "when it has every production MoM folder (the production root), those folders",
     )
     parser.add_argument(
         "--hafs-fallback", action="store_true",
@@ -227,7 +248,7 @@ def mom_outputs(folders, adate):
             os.path.join(folders.out(c["mom"]), f"*_{adate}[0-9][0-9]{c['tag']}*.csv"),
             os.path.join(folders.out(c["dfo"]), f"*_{adate}18MOM+DFOUpdated.csv"),
             os.path.join(folders.out(c["viirs"]), f"*_{adate}18MOM+DFO+VIIRSUpdated.csv"),
-            os.path.join(folders.out("Final_Alerts"),
+            os.path.join(folders.out(c["final"]),
                          f"Final_Attributes_{adate}[0-9][0-9]{c['tag']}+MOM+DFO+VIIRSUpdated_PDC.csv"),
         ]
     return sorted(f for p in patterns for f in glob.glob(p))
@@ -374,7 +395,7 @@ def main():
     logging.info(
         f"MoM backfill {dates[0]} - {dates[-1]}: input {folders.input_root}, GloFAS/DFO "
         f"{folders.glofas_dfo_root}, output "
-        f"{folders.out_dir}, chains {' '.join(chains)}, hafs_fallback={args.hafs_fallback}, "
+        f"{folders.out_dir} ({'production layout' if folders.out_common else 'flat'}), chains {' '.join(chains)}, hafs_fallback={args.hafs_fallback}, "
         f"overwrite={args.overwrite}, dry_run={args.dry_run}"
     )
 

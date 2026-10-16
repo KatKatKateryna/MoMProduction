@@ -14,9 +14,10 @@
 
 set -euo pipefail
 
-CONDA_SH="${CONDA_SH:-/root/miniconda3/etc/profile.d/conda.sh}"
+CONDA_SH="${CONDA_SH:-$(conda info --base 2>/dev/null || echo "$HOME/miniconda3")/etc/profile.d/conda.sh}"
 CONDA_ENV="${CONDA_ENV:-myenv}"
-PROJECT_DIR="${PROJECT_DIR:-/root/MoMProduction}"
+# default: the repository root, one folder up from this script
+PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 BACKFILL_START="${BACKFILL_START:-20260101}"
 BACKFILL_END="${BACKFILL_END:-20261013}"
 BACKFILL_MAX_DAYS="${BACKFILL_MAX_DAYS:-220}"

@@ -26,7 +26,7 @@ offline_hwrf_hafs_summaries_from_images.py
 Usage:
     python backfill/offline_hwrf_hafs_summaries_from_images.py hwrf IMAGE_DIR OUT_DIR
     python backfill/offline_hwrf_hafs_summaries_from_images.py hafs IMAGE_DIR OUT_DIR \\
-        --summary-dir /root/MoM/Products/HAFS/HAFS_summary --start 20261008 --end 20261013
+        --summary-dir <PRODUCT_DIR>/HAFS/HAFS_summary --start 20261008 --end 20261013
 """
 
 import argparse

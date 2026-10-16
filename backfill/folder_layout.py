@@ -6,7 +6,7 @@ folder_layout.py
     A root can have either layout, folder by folder:
       - flat:   ROOT/gfms_summary, ROOT/viirs_image, ROOT/glofas, ...
                 (what offline_summaries_from_images.py writes)
-      - common: the layout of /root/MoM, e.g. ROOT/Products/GFMS/GFMS_summary,
+      - common: the production layout, e.g. ROOT/Products/GFMS/GFMS_summary,
                 ROOT/Products/GLOFAS
     The flat folder is used when it exists, otherwise the common one.
 """

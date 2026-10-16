@@ -10,10 +10,15 @@ script contacts any host:
 All of them run from the repository root with the conda environment active, e.g.
 
 ```bash
-cd /root/MoMProduction
+cd <project dir>
 conda activate myenv
 python backfill/<script>.py ...
 ```
+
+Placeholders in the examples: `<project dir>` is the repository root,
+`<PRODUCT_DIR>` the products folder of `production.cfg`, `<production root>`
+its parent (the folder holding `Products/`), and `<rerun folder>` any new
+folder for the outputs.
 
 Send the output of long runs to `backfill/logs/` (not kept in git), and run
 them detached so they survive the session:
@@ -49,8 +54,8 @@ source summaries / images  ->  MoM products
      in place.
 2. **MoM products** (GFMS, HWRF, DFO and VIIRS MoM, final alerts, and the HAFS
    chain): `offline_mom_from_summaries.py --out-dir <folder>`. It only reads the
-   summaries and only writes into that folder, so every step 1 run must be
-   finished first.
+   summaries and only writes into that folder (the production root: the
+   production MoM folders), so every step 1 run must be finished first.
 
 Only redo what changed, together with everything after it. For example:
 
@@ -74,7 +79,7 @@ can read as its `--input-root`. Runs the four per-source scripts below in
 parallel, passing the folders, dates and `--overwrite` on to them. GloFAS and
 DFO cannot be rebuilt from images (only the 3-Day DFO image is kept, the
 summary has 4 layers) and are not copied: `offline_mom_from_summaries.py`
-reads them from `--glofas-dfo-root` (default `/root/MoM`).
+reads them from `--glofas-dfo-root` (default: the parent of `PRODUCT_DIR`).
 
 | Output folder | How |
 |---|---|
@@ -82,9 +87,9 @@ reads them from `--glofas-dfo-root` (default `/root/MoM`).
 | `OUT/viirs_summary/` | rebuilt from the VIIRS images (`offline_viirs_summaries_from_images.py`) |
 | `OUT/hwrf_summary/`, `OUT/hafs_summary/` | rebuilt from the HWRF / HAFS images (`offline_hwrf_hafs_summaries_from_images.py`); header-only summaries of cycles without rain (no image) are copied |
 
-- **Sources, only read:** `--input-root` (default `/root/MoM`). Each folder
+- **Sources, only read:** `--input-root` (default: the parent of `PRODUCT_DIR`). Each folder
   can be flat (`ROOT/gfms_image`, `ROOT/gfms_summary`, `ROOT/glofas`, …) or in
-  the layout of `/root/MoM` (`ROOT/Products/GFMS/GFMS_image`, …); the flat
+  the production layout (`ROOT/Products/GFMS/GFMS_image`, …); the flat
   one is used if it exists.
 - **Dates:** the window and the 2 days before it, which the MoM needs (its
   warm-up day, and the previous GloFAS and rain of the 00 and 06 cycles).
@@ -97,10 +102,10 @@ reads them from `--glofas-dfo-root` (default `/root/MoM`).
   HAFS) was byte-identical to the current summaries.
 
 ```bash
-python backfill/offline_summaries_from_images.py --days 6 --end 20261013 --out-dir /root/MoM/rerun --dry-run
-python backfill/offline_summaries_from_images.py --days 6 --end 20261013 --out-dir /root/MoM/rerun
-python backfill/offline_mom_from_summaries.py --days 6 --end 20261013 --input-root /root/MoM/rerun \
-    --glofas-dfo-root /root/MoM --out-dir /root/MoM/rerun
+python backfill/offline_summaries_from_images.py --days 6 --end 20261013 --out-dir <rerun folder> --dry-run
+python backfill/offline_summaries_from_images.py --days 6 --end 20261013 --out-dir <rerun folder>
+python backfill/offline_mom_from_summaries.py --days 6 --end 20261013 --input-root <rerun folder> \
+    --glofas-dfo-root <production root> --out-dir <rerun folder>
 ```
 
 ### `offline_hwrf_hafs_summaries_from_images.py` (step 1, HWRF or HAFS)
@@ -116,8 +121,8 @@ Rebuilds the HWRF or HAFS rainfall summaries from the saved rainfall images
   there is kept unless `--overwrite`.
 
 ```bash
-python backfill/offline_hwrf_hafs_summaries_from_images.py hafs /root/MoM/Products/HAFS/HAFS_image \
-    /root/MoM/rerun/hafs_summary --summary-dir /root/MoM/Products/HAFS/HAFS_summary --start 20261008
+python backfill/offline_hwrf_hafs_summaries_from_images.py hafs <PRODUCT_DIR>/HAFS/HAFS_image \
+    <rerun folder>/hafs_summary --summary-dir <PRODUCT_DIR>/HAFS/HAFS_summary --start 20261008
 ```
 
 ### `offline_gfms_summaries_from_images.py` (step 1, GFMS)
@@ -146,8 +151,8 @@ summaries of 2026-10-10/11 came out byte-identical).
   `GFMS/GFMS_summary/` yourself (replacing the old ones) before step 2.
 
 ```bash
-python backfill/offline_gfms_summaries_from_images.py /root/MoM/Products/GFMS/GFMS_image \
-    /root/MoM/Products/GFMS/GFMS_summary_regenerated --start 20261008 --end 20261013
+python backfill/offline_gfms_summaries_from_images.py <PRODUCT_DIR>/GFMS/GFMS_image \
+    <PRODUCT_DIR>/GFMS/GFMS_summary_regenerated --start 20261008 --end 20261013
 ```
 
 ### `online_gfms_from_host.py` (step 1, GFMS)
@@ -267,8 +272,8 @@ calculation (true cell areas; only pixels coded 141–200 count as flooded).
   `VIIRS/VIIRS_summary/` yourself (replacing the old ones) before step 2.
 
 ```bash
-python backfill/offline_viirs_summaries_from_images.py /root/MoM/Products/VIIRS/VIIRS_image \
-    /root/MoM/Products/VIIRS/VIIRS_summary_new --start 20260601 --end 20261012
+python backfill/offline_viirs_summaries_from_images.py <PRODUCT_DIR>/VIIRS/VIIRS_image \
+    <PRODUCT_DIR>/VIIRS/VIIRS_summary_new --start 20260601 --end 20261012
 ```
 
 ### `offline_mom_from_summaries.py` (step 2)
@@ -282,9 +287,9 @@ into a separate output folder.
   GFMS. A missing rain summary is never filled in from the hosts.
 - **Reads, never changes:** the GFMS, HWRF, HAFS and VIIRS summaries under
   `--input-root`, and the GloFAS and DFO summaries under `--glofas-dfo-root`
-  (both default `/root/MoM`). Each folder can be
+  (both default: the parent of `PRODUCT_DIR`). Each folder can be
   flat (`ROOT/gfms_summary`, `ROOT/glofas`, `ROOT/dfo_summary`, …, as written
-  by `offline_summaries_from_images.py`) or in the layout of `/root/MoM`
+  by `offline_summaries_from_images.py`) or in the production layout
   (`Products/GFMS/GFMS_summary/`, …); the flat one is used if it exists.
 - **Writes, and nothing else:** the output folder `--out-dir` (required):
 
@@ -296,6 +301,15 @@ into a separate output folder.
   | `hafs_mom/` | HAFS MoM and HAFS+DFO+VIIRS (tag `HAFS`) |
   | `dfo_hafs_mom/`, `viirs_hafs_mom/` | DFO and VIIRS MoM of the HAFS chain |
   | `Final_Alerts/` | final alerts of both chains (`…HWRF+MOM+DFO+VIIRSUpdated_PDC.csv`, `…HAFS+MOM+…`) |
+
+  An `--out-dir` that has every one of the production MoM folders below (the
+  production root, the parent of `PRODUCT_DIR` in `production.cfg`) gets
+  those folders, the ones the cron jobs write, instead: `GFMS/GFMS_MoM`, `HWRF/HWRF_MoM`, `DFO/DFO_MoM`,
+  `VIIRS/VIIRS_MoM`, `HAFS/HAFS_MoM`, `DFO/DFO_HAFS_MoM`,
+  `VIIRS/VIIRS_HAFS_MoM`, the final alert folder of `production.cfg`
+  (`Final_Alert`) for the HWRF chain and `Final_Alerts_hafs` for the HAFS
+  chain. With `--overwrite` this deletes the production MoM files of the
+  window first; run with `--dry-run` to see the list.
 
   The MoM steps' temporary files go to a temporary folder under `/tmp`,
   removed at the end. The log goes to
@@ -325,8 +339,9 @@ into a separate output folder.
   - cycles that have not happened yet
 
 ```bash
-python backfill/offline_mom_from_summaries.py --days 7 --out-dir /root/MoM/mom_rerun --dry-run
-python backfill/offline_mom_from_summaries.py --days 3 --end 20261013 --out-dir /root/MoM/mom_rerun
-python backfill/offline_mom_from_summaries.py --days 3 --end 20261013 --out-dir /root/MoM/mom_rerun \
+python backfill/offline_mom_from_summaries.py --days 7 --out-dir <rerun folder> --dry-run
+python backfill/offline_mom_from_summaries.py --days 3 --end 20261013 --out-dir <rerun folder>
+python backfill/offline_mom_from_summaries.py --days 3 --end 20261013 --out-dir <rerun folder> \
     --hafs-fallback --overwrite --input-root /data/MoM_copy
+python backfill/offline_mom_from_summaries.py --days 15 --end 20261015 --out-dir <production root> --overwrite   # production
 ```
