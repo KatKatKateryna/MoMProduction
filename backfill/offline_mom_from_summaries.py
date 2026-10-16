@@ -38,14 +38,37 @@ offline_mom_from_summaries.py
     backfill/logs/.
 
     Rain: the HWRF chain uses the HWRF summary of the previous cycle. With
-    --hafs-fallback, a cycle without an HWRF summary uses the HAFS summary of
-    that cycle instead (outputs still tagged HWRF; the log says which). With
+    --hafs-fallback, when that HWRF summary is missing the HAFS summary of the
+    same (previous) cycle is used instead (outputs still tagged HWRF; the log
+    says which). With
     neither, the MoM goes on without rain once the cycle is 12 h old, as the
     cron job does. The HAFS chain runs a cycle only when the HAFS summary of
     the previous cycle exists.
 
     The GloFAS file of each step is chosen by the MoM code of the cron jobs
     (e.g. the previous GloFAS for the 00 and 06 cycles).
+
+    Replay of the cron timing: the cron job takes the DFO, VIIRS and GloFAS
+    files that exist when it runs a cycle, so which day it uses depends on
+    when they were written. Each cycle is run with the unchanged MoM code
+    against views of the DFO, VIIRS and GloFAS folders that hold only the
+    files that existed at the cycle's cron run, by this schedule (cron of
+    first_setup/setup_crontab.sh, and which run writes each file):
+      - a cycle is run by the first HWRF job after it (2, 7, 13, 19 h), the
+        HAFS chain 30 min later
+      - DFO of D is written by the 03:00 DFO run on D
+      - VIIRS of D by the 12:00 VIIRS run on D+1
+      - GloFAS of D by the 11:00 GFMS run on D
+    This gives 00/06: DFO D-1, VIIRS D-2, GloFAS D-1; 12: DFO D-1,
+    VIIRS D-1, GloFAS D; 18: DFO D, VIIRS D-1, GloFAS D. A day published
+    late by its host (e.g. VIIRS only at the 17:00 run) is not replayed.
+    The rain summary of the previous cycle is used whenever it exists, as the
+    cron job waits for it.
+
+    Order: the GFMS MoM, the HWRF chain and the HAFS chain (MoM,
+    +DFO+VIIRS and final alert of each cycle) run in parallel, each in its
+    own process; then the DFO and VIIRS MoM of each day, one process per
+    chain (they read that chain's 18 MoM and DFO MoM).
 
 **EXAMPLE**
     python backfill/offline_mom_from_summaries.py --days 7 --out-dir <rerun folder> --dry-run
@@ -58,6 +81,8 @@ offline_mom_from_summaries.py
 import argparse
 import contextlib
 import glob
+import multiprocessing
+import re
 import logging
 import os
 import shutil
@@ -108,6 +133,19 @@ LAYOUT = {
     "DFO_SUM_DIR": "dfo_summary", "VIIRS_SUM_DIR": "viirs_summary",
     "HWRF_SUM_DIR": "hwrf_summary", "HAFS_SUM_DIR": "hafs_summary",
 }
+# cycle and publication schedule: see "Cycle and publication schedule" in
+# Backfill guide.md, also for how the times were confirmed
+# cron (first_setup/setup_crontab.sh): the HWRF job runs at these hours and
+# runs the cycles before it; the HAFS job 30 minutes later
+CRON_HOURS = [2, 7, 13, 19]
+CRON_MINUTE = {"HWRF": 0, "HAFS": 30}
+# input folders replayed as of the cycle's run: the day in the file name,
+# and the cron run that writes the file (days after that day, hour)
+REPLAYED = {
+    "DFO_SUM_DIR": (re.compile(r"^DFO_(\d{8})\.csv$"), 0, 3),            # 03:00 DFO run on D
+    "VIIRS_SUM_DIR": (re.compile(r"^VIIRS_Flood_(\d{8})\.csv$"), 1, 12),  # 12:00 VIIRS run on D+1
+    "GLOFAS_DIR": (re.compile(r"^threspoints_(\d{8})00\."), 0, 11),      # 11:00 GFMS run on D
+}
 # every settings value changed here, put back at the end
 PATCHED = PROC_DIRS + INPUT_DIRS + [
     "HWRF_SUM_DIR", "HWRF_SUM_PREFIX", "HWRF_FILE_TAG", "GFMS_MOM_DIR", "HWRF_MOM_DIR",
@@ -145,6 +183,50 @@ class Folders:
         """rain summary of a cycle (YYYYMMDDHH) for a chain"""
         sum_dir, prefix = CHAINS[chain]["rain"]
         return os.path.join(self.input(sum_dir), f"{prefix}.{cycle}rainfall.csv")
+
+
+def run_time(cycle, tag):
+    """when the cron job runs a cycle (YYYYMMDDHH) of a chain"""
+    day = datetime.strptime(cycle[:8], "%Y%m%d")
+    later = [h for h in CRON_HOURS if h > int(cycle[8:])]
+    hours = later[0] if later else 24 + CRON_HOURS[0]
+    return day + timedelta(hours=hours, minutes=CRON_MINUTE[tag])
+
+
+def existed(key, name, when):
+    """True if file `name` of replayed input folder `key` is written by `when`"""
+    rx, days, hour = REPLAYED[key]
+    m = rx.match(name)
+    if not m:
+        return True
+    return datetime.strptime(m.group(1), "%Y%m%d") + timedelta(days=days, hours=hour) <= when
+
+
+def as_of_views(sources, tmpdir, when):
+    """{settings name: folder} with links to the files of the replayed input
+    folders (sources) that existed at `when`"""
+    views = {}
+    for key, src in sources.items():
+        view = os.path.join(tmpdir, "as_of", key)
+        shutil.rmtree(view, ignore_errors=True)
+        os.makedirs(view)
+        for name in os.listdir(src):
+            if existed(key, name, when):
+                os.symlink(os.path.join(src, name), os.path.join(view, name))
+        views[key] = view
+    return views
+
+
+def replayed_inputs(views, adatehour):
+    """the DFO, VIIRS and GloFAS days the MoM code picks from the views"""
+    datestr, hh = adatehour[:8], adatehour[8:]
+    dfo = HWRF_MoM.find_latest_summary(datestr, views["DFO_SUM_DIR"], "DFO_{}.csv", hh)[0]
+    viirs = HWRF_MoM.find_latest_summary(datestr, views["VIIRS_SUM_DIR"], "VIIRS_Flood_{}.csv", hh)[0]
+    glofas = f"threspoints_{datestr}00.csv"
+    # update_HWRF_MoM: the earlier GloFAS before 10 h or when the day's is missing
+    if not os.path.exists(os.path.join(views["GLOFAS_DIR"], glofas)) or int(hh) < 10:
+        glofas = findLatestGlofas(views["GLOFAS_DIR"], adatehour, "csv") or glofas
+    return dfo or "none", viirs or "none", glofas[12:20]
 
 
 @contextlib.contextmanager
@@ -323,7 +405,7 @@ def rain_chain_for(folders, chain, adatehour, hafs_fallback):
     return None
 
 
-def backfill_chain(folders, chain, adate, dry_run, hafs_fallback=False, with_alert=True):
+def backfill_chain(folders, tmpdir, chain, adate, dry_run, hafs_fallback=False, with_alert=True):
     """MoM, +DFO+VIIRS and final alert of the 4 cycles of a day for a chain,
     return the cycles run"""
     now = datetime.now(timezone.utc)
@@ -343,18 +425,32 @@ def backfill_chain(folders, chain, adate, dry_run, hafs_fallback=False, with_ale
             logging.warning(f"{chain} MoM {adatehour}: no {chain} summary of the previous cycle, skipped")
             continue
         source = f", rain from {rain_chain} (no HWRF summary)" if rain_chain != chain else ""
-        logging.info(f"{chain} MoM {adatehour}{source}")
+        # the DFO, VIIRS and GloFAS files as the cron job found them
+        when = run_time(adatehour, CHAINS[chain]["tag"])
+        sources = {key: getattr(settings, key) for key in REPLAYED}
+        views = as_of_views(sources, tmpdir, when)
+        dfo, viirs, glofas = replayed_inputs(views, adatehour)
+        logging.info(f"{chain} MoM {adatehour}{source}: as of {when:%Y-%m-%d %H:%M}: "
+                     f"DFO {dfo}, VIIRS {viirs}, GloFAS {glofas}")
         if dry_run:
             done.append(hh)
             continue
-        # only update_HWRF_MoM reads the rain summary
-        use_chain(folders, chain, rain_chain)
-        ok = run_step(f"{chain} MoM", update_HWRF_MoM, adatehour, workdir=settings.HWRF_PROC_DIR)
-        use_chain(folders, chain)
+        ok = False
+        try:
+            for key, view in views.items():
+                setattr(settings, key, view)
+            # only update_HWRF_MoM reads the rain summary
+            use_chain(folders, chain, rain_chain)
+            ok = run_step(f"{chain} MoM", update_HWRF_MoM, adatehour, workdir=settings.HWRF_PROC_DIR)
+            use_chain(folders, chain)
+            if ok:
+                run_step(f"{chain}+DFO+VIIRS MoM", update_HWRFMoM_DFO_VIIRS, adatehour,
+                         workdir=settings.HWRF_PROC_DIR)
+        finally:
+            for key, src in sources.items():
+                setattr(settings, key, src)
         if not ok:
             continue
-        run_step(f"{chain}+DFO+VIIRS MoM", update_HWRFMoM_DFO_VIIRS, adatehour,
-                 workdir=settings.HWRF_PROC_DIR)
         if with_alert:
             run_step(f"{chain} final alert", final_alert_pdc, adatehour)
         done.append(hh)
@@ -375,6 +471,59 @@ def backfill_dfo_viirs(chain, adate, cycles_done, dry_run):
         run_step(f"{chain} VIIRS MoM", update_VIIRS_MoM, adate, workdir=settings.VIIRS_PROC_DIR)
 
 
+def in_process(name, func):
+    """run func(tmpdir) offline in this process, with its own temporary folder"""
+    multiprocessing.current_process().name = name
+    tmpdir = tempfile.mkdtemp(prefix=f"mom_backfill_{name}_")
+    try:
+        return func(tmpdir)
+    except Exception:
+        logging.exception(f"{name} failed")
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def run_gfms(job):
+    folders, dates, _, args = job
+
+    def work(tmpdir):
+        with offline(folders, tmpdir):
+            for adate in dates:
+                logging.info(f"===== GFMS MoM {adate} =====")
+                backfill_gfms(adate, args.dry_run)
+    return in_process("GFMS", work)
+
+
+def run_chain(job, chain):
+    """MoM, +DFO+VIIRS and final alert of every cycle of a chain; returns
+    {day: cycles run}"""
+    folders, dates, warmup, args = job
+
+    def work(tmpdir):
+        done = {}
+        with offline(folders, tmpdir):
+            use_chain(folders, chain)
+            logging.info(f"===== {chain} chain, warm-up {warmup} =====")
+            backfill_chain(folders, tmpdir, chain, warmup, args.dry_run, args.hafs_fallback, with_alert=False)
+            for adate in dates:
+                logging.info(f"===== {chain} chain {adate} =====")
+                done[adate] = backfill_chain(folders, tmpdir, chain, adate, args.dry_run, args.hafs_fallback)
+        return done
+    return in_process(chain, work) or {}
+
+
+def run_dfo_viirs(job, chain, cycles_done):
+    """DFO and VIIRS MoM of every day of a chain"""
+    folders, dates, _, args = job
+
+    def work(tmpdir):
+        with offline(folders, tmpdir):
+            use_chain(folders, chain)
+            for adate in dates:
+                backfill_dfo_viirs(chain, adate, cycles_done.get(adate, []), args.dry_run)
+    return in_process(f"{chain}-DFO-VIIRS", work)
+
+
 def main():
     args = _getParser().parse_args()
 
@@ -383,10 +532,11 @@ def main():
         LOG_DIR, f"offline_mom_from_summaries_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}.log"
     )
     logging.basicConfig(
-        filename=log_file, format=settings.LOG_FORMAT, level=logging.INFO, force=True
+        filename=log_file, format=settings.LOG_FORMAT.replace("%(module)s", "%(processName)s - %(module)s"),
+        level=logging.INFO, force=True,
     )
     console = logging.StreamHandler(sys.stdout)
-    console.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
+    console.setFormatter(logging.Formatter("%(processName)s %(levelname)s %(message)s"))
     logging.getLogger().addHandler(console)
 
     folders = Folders(args.input_root, args.glofas_dfo_root, args.out_dir)
@@ -414,22 +564,18 @@ def main():
     warmup = (datetime.strptime(dates[0], "%Y%m%d") - timedelta(days=1)).strftime("%Y%m%d")
     logging.info(f"warm-up day for the final alert pairs: {warmup}")
 
-    tmpdir = tempfile.mkdtemp(prefix="mom_backfill_")
-    try:
-        with offline(folders, tmpdir):
-            for adate in dates:
-                logging.info(f"===== GFMS MoM {adate} =====")
-                backfill_gfms(adate, args.dry_run)
-            for chain in chains:
-                use_chain(folders, chain)
-                logging.info(f"===== {chain} chain, warm-up {warmup} =====")
-                backfill_chain(folders, chain, warmup, args.dry_run, args.hafs_fallback, with_alert=False)
-                for adate in dates:
-                    logging.info(f"===== {chain} chain {adate} =====")
-                    cycles_done = backfill_chain(folders, chain, adate, args.dry_run, args.hafs_fallback)
-                    backfill_dfo_viirs(chain, adate, cycles_done, args.dry_run)
-    finally:
-        shutil.rmtree(tmpdir, ignore_errors=True)
+    # the MoM code changes settings and the working folder, so the parallel
+    # parts are processes (forked: they inherit the settings and the log)
+    ctx = multiprocessing.get_context("fork")
+    job = (folders, dates, warmup, args)
+    with ctx.Pool(1 + len(chains)) as pool:
+        phase1 = [pool.apply_async(run_gfms, (job,))]
+        phase1 += [pool.apply_async(run_chain, (job, chain)) for chain in chains]
+        results = [r.get() for r in phase1]
+    cycles_done = dict(zip(chains, results[1:]))
+    with ctx.Pool(len(chains)) as pool:
+        phase2 = [pool.apply_async(run_dfo_viirs, (job, chain, cycles_done[chain])) for chain in chains]
+        [r.get() for r in phase2]
 
     logging.info(f"MoM backfill finished, log: {log_file}")
 

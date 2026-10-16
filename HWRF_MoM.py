@@ -732,6 +732,15 @@ def update_HWRF_MoM(adate):
 def find_latest_summary(datestr, scanfolder, namepattern, hours):
     """find the latest summary data"""
 
+    # NOTE (cron, to adjust): the day used depends on which summaries exist
+    # when the job runs, so it follows the publication times and is not
+    # reproducible (backfill/offline_mom_from_summaries.py replays it with a
+    # fixed schedule). From the production logs (Sep-Oct 2026):
+    #  - VIIRS of D is written on D+1, normally by the 12:00 VIIRS run, at
+    #    times only at 17:00 or a day later; the 18 cycle (run at 19:00)
+    #    therefore never finds VIIRS of D, and the 00/06 cycles take D-2
+    #  - DFO of D is written on D by the 03:00 DFO run, but the 06 and 12
+    #    cycles (run at 07:00 / 13:00) only look from D-1 (startd below)
     # turn the datestr into a real date
     da = datetime.strptime(datestr, "%Y%m%d")
     startd = 1

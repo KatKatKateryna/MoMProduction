@@ -69,6 +69,90 @@ Only redo what changed, together with everything after it. For example:
 The regular cron jobs keep running during a backfill. They only process new
 cycles, so they do not collide with a backfill of past dates.
 
+## Cycle and publication schedule (reference)
+
+What exists when, in production. `offline_mom_from_summaries.py` replays
+the MoM steps with these times (its `CRON_HOURS`, `CRON_MINUTE` and
+`REPLAYED` constants). Times are UTC; D is the data day, c the cycle.
+
+### Cycle schedule (cron, `first_setup/setup_crontab.sh`)
+
+| Job | Runs at | Runs |
+|---|---|---|
+| HWRF | 02:00, 07:00, 13:00, 19:00 | the MoM of the cycles before it: 00 at 02:00, 06 at 07:00, 12 at 13:00, 18 at 19:00 (the MoM of c reads the rain of c − 6 h) |
+| HAFS | 02:30, 07:30, 13:30, 19:30 | the same for the HAFS chain |
+| GFMS | 04:00, 11:00, 14:00, 21:00 | GloFAS download and the daily GFMS MoM |
+| DFO | 03:00, 10:00, 23:00 | DFO summaries; the DFO MoM of D at 23:00 (after the 18 cycle) |
+| VIIRS | 05:00, 12:00, 17:00 | VIIRS summaries; the VIIRS MoM of D once its summary exists |
+
+### Publication schedule
+
+| Input | Published by its host | First in production | Used by the cycles of D |
+|---|---|---|---|
+| HWRF rain of c | — | c + 7 h (10 of 13 cycles), c + 8 h for 18 (next day 02:00) | — (each MoM waits for the rain of c − 6 h) |
+| HAFS rain of c | — | c + 7.5 h (HAFS job), a few cycles days later when the job caught up | — (as HWRF) |
+| GFMS summaries of D (all 8 times) | — | D 02:00 (HWRF job), since Oct 14; before that mostly about 03:30, some days 07:04 | every cycle |
+| GloFAS of D | D 08:55–09:35 | D 11:00 (GFMS run), since Oct 8; before that 14:00 (no 11:00 run then) | 12, 18 (00 and 06 take the previous day by the MoM code) |
+| DFO of D | D, through the morning (files keep being replaced) | D 03:00 run, done about 03:10–03:35 | 18 (00/06/12 look from D−1 by the MoM code) |
+| VIIRS of D | D+1 09:40–11:00, at times later (Oct 14: 15:27) | D+1 12:00 run, done about 12:13; the 17:00 run when published late (Sep 17, Oct 14); Sep 11 and 12 only on Sep 13, Oct 8 only on Oct 10 | none on D; D−1 by 12 and 18, D−2 by 00 and 06 |
+
+Resulting days of the +DFO+VIIRS step (the backfill's replay):
+
+| Cycle | Run | DFO | VIIRS | GloFAS |
+|---|---|---|---|---|
+| 00, 06 | 02:00, 07:00 | D−1 | D−2 | D−1 |
+| 12 | 13:00 | D−1 | D−1 | D |
+| 18 | 19:00 | D | D−1 | D |
+
+The cron job uses whatever exists when it runs, so a late publication
+changes its choice (e.g. 2026101512 took VIIRS D−2 because VIIRS of Oct 14
+came at 17:04). The backfill replays the normal schedule, not those delays.
+
+### How these times were confirmed (Oct 16, 2026)
+
+- **Production logs** (`LOG_DIR` of `production.cfg`, `*_BACKFILL.log`
+  left out): the first `generated` line of each file, i.e. when production
+  first had it, for every DFO, VIIRS, GloFAS and GFMS summary from Sep 1 to
+  Oct 16 (no gaps), and for the HWRF and HAFS rain summaries since Oct 12
+  (the log format before that does not name them). The cron run hours are the
+  `run <job>` lines.
+- **Cycle runs:** the first log line naming each `…<c>HWRF+<D>DFO+<D>VIIRS…`
+  / `…<c>HAFS+…` output gives when the cycle ran and the DFO/VIIRS days it
+  took. Replaying each of the 116 cycles of Sep 20 – Oct 16 at its logged run
+  time with the publication times above gives the same DFO and VIIRS days
+  for all 116.
+- **VIIRS host:** `Last-Modified` of a `HEAD` request on
+  `RIVER-FLDglobal-composite1_<D>_000000.part001.tif` (and `composite_`). For
+  every day it still keeps (Oct 6–15) the summary was made after it, by the
+  next VIIRS run.
+- **GloFAS host:** FTP `MDTM` of `threspoints_<D>00.txt` in the GloFAS
+  folder (credentials from `production.cfg`): 08:55–09:35 on D for every day
+  it still keeps (Oct 9–16).
+- **DFO host:** the file times of the day folders (LAADS `details` API) are
+  not usable: files are replaced during the day, so they show the last
+  version (e.g. Oct 16: summary made at 03:23, every host file now 04:00 or
+  later). The DFO times come from the logs only.
+- The hosts keep only about a week, so older days rest on the logs.
+
+### When data is late or missing
+
+The cron job writes each output once and never redoes it: an output made
+without a late input stays that way. The backfill runs the same MoM code, so
+its fallbacks are the same, but it only sees the files that exist now.
+
+| Input | Cron job | Backfill |
+|---|---|---|
+| HWRF rain of c − 6 h (for the MoM of c) | The MoM of c waits (each HWRF run retries the recent cycles). From 6 h after c − 6 h, if neither the HWRF host nor HAFS lists a storm for it, an empty summary is written and the MoM runs. From 12 h, the MoM runs without rain and stays so. | Uses the summary if it exists now; otherwise runs without rain (the cron result after 12 h). `--hafs-fallback` uses the HAFS summary of that cycle instead. Never asks the hosts, never writes an empty summary. |
+| HAFS rain of c | The HAFS job looks from 5 h after c; with no storm listed by 8 h it writes an empty summary; a storm whose files are still missing at 12 h is left out. The HAFS MoM of c waits until c − 6 h is settled. | The HAFS MoM of c runs only if the HAFS summary of c − 6 h exists; otherwise that cycle is skipped. |
+| GFMS summaries of D | The MoM downloads a missing GFMS summary (`GFMS_fixdate`) before running. If no HWRF data exists for today, the GFMS job runs the 00 cycle chain itself. | A cycle without its GFMS summary is skipped (never downloads). |
+| GloFAS of D | 00 and 06 always take the latest earlier GloFAS. 12 and 18 take D, or the latest earlier one if D is missing; with none at all the HWRF MoM is skipped. The GFMS MoM of D takes the latest earlier one if D is missing. | Same code, on a view that holds only the GloFAS days written by the cycle's run (11:00 on D). Today's GFMS MoM waits for today's GloFAS. |
+| DFO of D | Each DFO run processes every day the host lists that has no summary yet. A day still without data 1 day later (within the last 7 days) gets an all-zero summary, no image (marked in the `filled/` folder of the DFO processing folder). The +DFO+VIIRS step takes the latest DFO from D−1 (D for 18) back to 9 days. The DFO MoM of D waits for the DFO summary of D (real or all-zero). | Same code, on a view that holds only the DFO days written by the cycle's run (03:00 on D); a day missing now is skipped the same way, up to 9 days back. The all-zero summaries the cron wrote are used like real ones; the backfill writes none. |
+| VIIRS of D | Each VIIRS run tries D−1 and D−2 only, so a day not online within 2 days is never processed (no fill). The +DFO+VIIRS step takes the latest VIIRS from D−1 (D for 18) back to 9 days. The VIIRS MoM of D waits for the VIIRS summary of D and the DFO MoM of D. | Same code, on a view that holds only the VIIRS days written by the cycle's run (12:00 on D+1); a missing day is skipped the same way. |
+| No DFO or no VIIRS within 10 days | The +DFO+VIIRS output is not written, so there is no final alert for that cycle. | Same. |
+| Previous day's +DFO+VIIRS of the same cycle | The final alert is not written (no pair). | Same; the day before the window is built first so the first day has its pairs. |
+| All 4 cycles of D (for the DFO MoM of D) | The DFO MoM generates missing cycles itself (`hwrf_workflow`) before running. | The DFO and VIIRS MoM of D run only if all 4 cycles of that chain ran. |
+| A late input (published after its usual time) | The cycles that ran before it use the previous day, and keep it. | Not replayed: an input that exists now is taken as published on its usual schedule. |
+
 ## Scripts
 
 ### `offline_summaries_from_images.py` (step 1, all sources)
@@ -316,7 +400,8 @@ into a separate output folder.
   `backfill/logs/offline_mom_from_summaries_<time>.log`.
 - **Rain:** the MoM of a cycle uses the rain summary of the previous cycle.
   - HWRF chain: the HWRF summary. With `--hafs-fallback`, a cycle that has
-    no HWRF summary uses the HAFS summary of that cycle instead; the outputs
+    no HWRF summary for the previous cycle uses the HAFS summary of that same
+    previous cycle instead; the outputs
     are still tagged `HWRF`, and the log says which source was used. Without
     either, the MoM goes on without rain once the cycle is 12 h old, as the
     cron job does.
@@ -327,6 +412,29 @@ into a separate output folder.
   cycles, and the daily GFMS MoM, use that day's GloFAS, or the latest
   earlier one if it is missing. Today's GFMS MoM is skipped until today's
   GloFAS is published.
+- **Cron timing replayed:** the cron job takes the DFO, VIIRS and GloFAS
+  files that exist when it runs a cycle, so the day it uses depends on when
+  they were written. Each cycle's MoM and +DFO+VIIRS step runs, with the
+  unchanged MoM code, against views of the DFO, VIIRS and GloFAS folders that
+  hold only the files written by the cycle's cron run, by a fixed schedule
+  (cron of `first_setup/setup_crontab.sh`, and which run writes each file, as
+  seen in the production logs of Sep–Oct 2026):
+  - a cycle is run by the first HWRF job after it (2, 7, 13, 19 h), the HAFS
+    chain 30 min later
+  - DFO of D: the 03:00 DFO run on D; VIIRS of D: the 12:00 VIIRS run on
+    D+1; GloFAS of D: the 11:00 GFMS run on D
+
+  | Cycle | Run | DFO | VIIRS | GloFAS |
+  |---|---|---|---|---|
+  | 00, 06 | 02:00, 07:00 | D−1 | D−2 | D−1 |
+  | 12 | 13:00 | D−1 | D−1 | D |
+  | 18 | 19:00 | D | D−1 | D |
+
+  A day its host published late (e.g. VIIRS only at the 17:00 run) is not
+  replayed. The log shows, per cycle, the run time and the days used.
+- **Parallel:** the GFMS MoM, the HWRF chain and the HAFS chain run at the
+  same time, each in its own process; then the DFO and VIIRS MoM of each day,
+  one process per chain.
 - **`--overwrite`** (off by default): deletes the outputs of the days in the
   window from the output folder first, so they are regenerated. Without it,
   every step keeps an output that is already there.
