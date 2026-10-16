@@ -40,7 +40,8 @@ source summaries / images  ->  MoM products
      images), then move the new summaries into `GFMS_summary/` by hand; or
      `online_gfms_from_host.py` (or `online_gfms_from_host.sh`) to download
      the source files again and regenerate both images and summaries
-   - HWRF and HAFS: `offline_hwrf_hafs_summaries_from_backups.py`, or
+   - HWRF and HAFS: `hwrf_hafs_summaries_default_offline.py` (HWRF from the backups; HAFS from
+     the saved images, or downloaded again with `--online`), or
      `online_hwrf_summaries_from_host.py` for HWRF cycles that are not backed up
    - VIIRS: `offline_viirs_summaries_from_images.py`, then move the new summaries into
      `VIIRS_summary/` by hand
@@ -56,7 +57,7 @@ Only redo what changed, together with everything after it. For example:
 | Changed | Rerun |
 |---|---|
 | VIIRS area calculation | VIIRS summaries, then `offline_mom_from_summaries.py` (VIIRS MoM, HWRF+DFO+VIIRS, final alerts, HAFS chain) |
-| HWRF / HAFS rain calculation | `offline_hwrf_hafs_summaries_from_backups.py`, then `offline_mom_from_summaries.py` |
+| HWRF / HAFS rain calculation | `hwrf_hafs_summaries_default_offline.py --overwrite`, then `offline_mom_from_summaries.py` |
 | GFMS calculation | `offline_gfms_summaries_from_images.py` (or `online_gfms_from_host.py`), then `offline_mom_from_summaries.py` |
 | Scoring / weightage only | `offline_mom_from_summaries.py` |
 
@@ -185,37 +186,53 @@ BACKFILL_START=20260101 BACKFILL_END=20261013 backfill/online_gfms_from_host.sh 
     >> backfill/logs/gfms_backfill.log 2>&1
 ```
 
-### `offline_hwrf_hafs_summaries_from_backups.py` (step 1, HWRF and HAFS)
+### `hwrf_hafs_summaries_default_offline.py` (step 1, HWRF and HAFS)
 
-Regenerates the HWRF and HAFS rainfall summaries and images with the current
-code (cell lookup, dateline handling, HAFS track window `WINDOW_KM`).
+Regenerates the HWRF and HAFS rainfall summaries for a window of days with
+the current code (cell lookup, dateline handling, HAFS track window
+`WINDOW_KM`). Offline unless `--online`. `--model hwrf|hafs|both` (default
+both).
 
-- **Reads, never changes:** only the host data backups,
-  `HWRF/HWRF_host_data_backups/hwrf.YYYYMMDD/HH/*.rainfall.ascii.gz` and
-  `HAFS/HAFS_host_data_backups/hfsa.YYYYMMDD/HH/` (storm tracks and rain
-  rates). Cycles without a backup are skipped. The hosts are never contacted.
-- **Writes, overwriting:**
+- **HWRF reads, never changes:** the host data backups,
+  `HWRF/HWRF_host_data_backups/hwrf.YYYYMMDD/HH/*.rainfall.ascii.gz`. Cycles
+  without a backup are skipped. The HWRF host is never contacted.
+- **HAFS reads**, like the other summary scripts, either:
+  - offline (default): the saved image `HAFS/HAFS_image/hafs.YYYYMMDDHHrainfall.tiff`
+    (only read). A cycle without an image is left as it is.
+  - `--online`: the HAFS host (storm list, track and swath file of each
+    storm), downloaded again into a temporary folder in the HAFS `work/`
+    folder that is removed after each cycle. Cycles less than 12 h old
+    (`STORMS_FINAL`) are left for the cron job.
+  The HAFS host data backups are neither read nor written (that code is
+  commented out in the script).
+- **Writes:**
   - `HWRF/HWRF_summary/hwrf.YYYYMMDDHHrainfall.csv` and
     `HWRF/HWRF_image/hwrf.YYYYMMDDHHrainfall.tiff`
-  - `HAFS/HAFS_summary/hafs.YYYYMMDDHHrainfall.csv` and
+  - `HAFS/HAFS_summary/hafs.YYYYMMDDHHrainfall.csv`, and with `--online`
     `HAFS/HAFS_image/hafs.YYYYMMDDHHrainfall.tiff`
+- A cycle that already has a summary is skipped, unless `--overwrite` (then
+  it is recomputed and replaced).
 - A cycle with no rain over any watershed gets a summary with only the header
-  row, and its old image is removed.
+  row. Its old HWRF image is removed; an old HAFS image is kept and reported.
 - A cycle that fails keeps its old summary and image.
 - **Temporary files:** in `hwrf/backfill_work/` and the HAFS `work/` folder,
   under the processing directory; removed at the end.
 - **Not touched:** the backups, the HAFS tracks and done markers, the MoM
   products.
+- `--online` takes about 1–2 minutes per cycle (one ~300 MB swath file per
+  storm).
 
 ```bash
-python backfill/offline_hwrf_hafs_summaries_from_backups.py 20261011 20261013   # first and last day
-python backfill/offline_hwrf_hafs_summaries_from_backups.py 20261011            # up to today
+python backfill/hwrf_hafs_summaries_default_offline.py 20261011 20261013               # first and last day
+python backfill/hwrf_hafs_summaries_default_offline.py 20261011                        # up to today
+python backfill/hwrf_hafs_summaries_default_offline.py 20261011 20261013 --overwrite   # recompute existing summaries
+python backfill/hwrf_hafs_summaries_default_offline.py 20261001 20261008 --model hafs --online
 ```
 
 ### `online_hwrf_summaries_from_host.py` (step 1, HWRF)
 
 Fills in **missing** HWRF summaries and images from the HWRF host, for cycles
-that are not in the backups. Use `offline_hwrf_hafs_summaries_from_backups.py` when a
+that are not in the backups. Use `hwrf_hafs_summaries_default_offline.py` when a
 backup exists.
 
 - **Reads:** the HWRF host's `rainfall.ascii` files, downloaded into the HWRF
