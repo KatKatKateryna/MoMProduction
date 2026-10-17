@@ -70,7 +70,7 @@ RES = 0.05
 NODATA = -999.0
 MM_PER_INCH = 25.4
 # rain is kept within this many km of the storm track at each 3 h step
-BUFFER_KM = 500.0
+BUFFER_KM = 400.0
 # HAFS posts a cycle ~6 h after its time; a cycle with no storm by EMPTY_FINAL
 # is taken as empty, and storm files still missing by STORMS_FINAL are skipped
 PUBLISHED_AFTER = timedelta(hours=5)
