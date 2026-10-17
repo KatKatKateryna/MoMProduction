@@ -208,7 +208,7 @@ def main():
     logging.info(
         f"rain summaries {args.start} - {args.end}: {' '.join(models)}, HAFS "
         f"{'online' if args.online else 'offline'}, overwrite={args.overwrite}, "
-        f"HAFS window {settings.HAFS_WINDOW_KM} km"
+        f"HAFS buffer {HAFS_tool.BUFFER_KM} km"
     )
 
     HAFS_tool.make_dirs()

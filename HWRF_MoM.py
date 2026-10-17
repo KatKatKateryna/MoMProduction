@@ -26,6 +26,12 @@ from utilities import (
 )
 
 
+def _log_hazard(scores):
+    # Hazard_Score 0 is "no hazard": log(0) = -inf gives Severity 0, quietly.
+    with np.errstate(divide="ignore"):
+        return np.log(scores)
+
+
 def mofunc_hwrf(row):
     if row["Severity"] >= 0.8 or row["Hazard_Score"] >= 80:
         return "Warning"
@@ -626,11 +632,13 @@ def update_HWRF_MoM(adate):
     PDC_resilience = read_data(
         os.path.join(settings.BASE_DATA_DIR, "Resilience_Index.csv")
     )
+    # left, not inner: the resilience columns feed no formula, and an inner
+    # join dropped 21 watersheds whose ISO is missing from Resilience_Index.csv
     join1 = pd.merge(
         Attributes,
         PDC_resilience[["ISO", "Resilience_Index", " NormalizedLackofResilience "]],
         on="ISO",
-        how="inner",
+        how="left",
     )
     # Final_Attributes = pd.merge(join1.set_index('pfaf_id'), join0, on='pfaf_id', how='outer')
     Final_Attributes = pd.merge(
@@ -666,7 +674,9 @@ def update_HWRF_MoM(adate):
     except Exception as e:
         if os.path.exists(hwrf_sum):
             logging.warning(f"HWRF merge failed for {adate}, skipping HWRF: {e}")
-    Final_Attributes = Final_Attributes[Final_Attributes.Hazard_Score != 0]
+    # Kept: dropping these also lost the GloFAS/GFMS/rain columns of watersheds
+    # a later source keeps. Culled once, at the end of final_alert_pdc.
+    # Final_Attributes = Final_Attributes[Final_Attributes.Hazard_Score != 0]
     Final_Attributes.drop(
         Final_Attributes.index[
             (Final_Attributes["rfr_score"] == 0) & (Final_Attributes["cfr_score"] == 0)
@@ -699,7 +709,7 @@ def update_HWRF_MoM(adate):
                 )
             ),
             1,
-        ).cdf(np.log(Final_Attributes["Hazard_Score"]))
+        ).cdf(_log_hazard(Final_Attributes["Hazard_Score"]))
     )
     Final_Attributes["Alert"] = Final_Attributes.apply(mofunc_hwrf, axis=1)
     # Final_Attributes["Flag"] = Final_Attributes["Flag"].astype(object)
@@ -966,7 +976,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
         Attributes,
         PDC_resilience[["ISO", "Resilience_Index", " NormalizedLackofResilience "]],
         on="ISO",
-        how="inner",
+        how="left",
     )
     Final_Output = pd.merge(
         join1.set_index("pfaf_id"), Final_Output_0, on="pfaf_id", how="outer"
@@ -978,7 +988,9 @@ def update_HWRFMoM_DFO_VIIRS(adate):
     Final_Output["Hazard_Score"] = Final_Output[["Hazard_Score", "DFOTotal_Score"]].max(
         axis=1
     )
-    Final_Output = Final_Output[Final_Output.Hazard_Score != 0]
+    # Kept: dropping these also lost the GloFAS/GFMS/rain columns of watersheds
+    # a later source keeps. Culled once, at the end of final_alert_pdc.
+    # Final_Output = Final_Output[Final_Output.Hazard_Score != 0]
     Final_Output.drop(
         Final_Output.index[
             (Final_Output["rfr_score"] == 0) & (Final_Output["cfr_score"] == 0)
@@ -1009,7 +1021,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
                 )
             ),
             1,
-        ).cdf(np.log(Final_Output["Hazard_Score"]))
+        ).cdf(_log_hazard(Final_Output["Hazard_Score"]))
     )
     Final_Output["Alert"] = Final_Output.apply(mofunc_dfo, axis=1)
     Final_Output["Flag"] = Final_Output["Flag"].astype(object)
@@ -1021,7 +1033,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
         Attributes,
         PDC_resilience[["ISO", "Resilience_Index", " NormalizedLackofResilience "]],
         on="ISO",
-        how="inner",
+        how="left",
     )
     Attributes_Clean_DFO_Updated = pd.merge(
         join1.set_index("pfaf_id"),
@@ -1170,7 +1182,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
         Attributes,
         PDC_resilience[["ISO", "Resilience_Index", " NormalizedLackofResilience "]],
         on="ISO",
-        how="inner",
+        how="left",
     )
     Final_Output = pd.merge(
         join1.set_index("pfaf_id"), Final_Output_0, on="pfaf_id", how="right"
@@ -1182,7 +1194,9 @@ def update_HWRFMoM_DFO_VIIRS(adate):
     Final_Output["Hazard_Score"] = Final_Output[
         ["Hazard_Score", "VIIRSTotal_Score"]
     ].max(axis=1)
-    Final_Output = Final_Output[Final_Output.Hazard_Score != 0]
+    # Kept: dropping these also lost the GloFAS/GFMS/rain columns of watersheds
+    # a later source keeps. Culled once, at the end of final_alert_pdc.
+    # Final_Output = Final_Output[Final_Output.Hazard_Score != 0]
     Final_Output.drop(
         Final_Output.index[
             (Final_Output["rfr_score"] == 0) & (Final_Output["cfr_score"] == 0)
@@ -1213,7 +1227,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
                 )
             ),
             1,
-        ).cdf(np.log(Final_Output["Hazard_Score"]))
+        ).cdf(_log_hazard(Final_Output["Hazard_Score"]))
     )
     Final_Output["Alert"] = Final_Output.apply(mofunc_viirs, axis=1)
     Final_Output["Flag"] = Final_Output["Flag"].astype(object)
@@ -1224,7 +1238,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
         Attributes,
         PDC_resilience[["ISO", "Resilience_Index", " NormalizedLackofResilience "]],
         on="ISO",
-        how="inner",
+        how="left",
     )
     Attributes_Clean_VIIRS_Updated = pd.merge(
         join1.set_index("pfaf_id"),
@@ -1366,6 +1380,7 @@ def final_alert_pdc(adate):
     joined_df = joined_df.reset_index(level=0)
     PDC_Alert = pd.merge(Union_Attributes, joined_df, on="pfaf_id", how="inner")
     # print(PDC_Alert)
+    # Dead code: these are numeric columns, so == "" never matches.
     PDC_Alert.drop(
         PDC_Alert.index[
             (PDC_Alert["DFOTotal_Score"] == "")
@@ -1381,6 +1396,10 @@ def final_alert_pdc(adate):
     if len(FIDcolumns) > 0:
         print("drop FIDs column")
         PDC_Alert = PDC_Alert.drop(FIDcolumns, axis=1)
+
+    # The chain's only cull: a watershed is published when some source scored
+    # it, but it keeps every column it collected on the way here.
+    PDC_Alert = PDC_Alert[PDC_Alert["Hazard_Score"].fillna(0) != 0]
 
     PDC_Alert.to_csv(fAlert, encoding="Windows-1252")
     logging.info(f"generated final alert: {fAlert}")

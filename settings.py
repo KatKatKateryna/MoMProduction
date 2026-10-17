@@ -81,7 +81,6 @@ HAFS_HOST = config.get(
     "hafs", "HOST", fallback="https://noaa-nws-hafs-pds.s3.amazonaws.com/"
 )
 HAFS_MODEL = config.get("hafs", "MODEL", fallback="hfsa")
-HAFS_WINDOW_KM = config.getfloat("hafs", "WINDOW_KM", fallback=400)
 HAFS_LOOKBACK_DAYS = config.getint("hafs", "LOOKBACK_DAYS", fallback=2)
 HAFS_PROC_DIR = os.path.join(WORKING_DIR, "hafs")
 HAFS_DIR = os.path.join(PRODUCT_DIR, "HAFS")

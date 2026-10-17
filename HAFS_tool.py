@@ -6,7 +6,7 @@ HAFS_tool.py
     For every HAFS cycle, the rain of each storm is taken from its parent
     swath file (average rain rate over 0-3 h, 0-6 h, ... 0-126 h; the 3 h rain
     is the difference of consecutive windows), keeping each 3 h step only
-    within WINDOW_KM of the track segment of that step: a
+    within BUFFER_KM of the track segment of that step: a
     storm-following window like the HWRF moving nest. The storms are merged
     into one 0-126 h total in inches on the HWRF 0.05 deg grid, and summarized
     per watershed with the HWRF calculation:
@@ -69,6 +69,8 @@ HOURS = ["00", "06", "12", "18"]
 RES = 0.05
 NODATA = -999.0
 MM_PER_INCH = 25.4
+# rain is kept within this many km of the storm track at each 3 h step
+BUFFER_KM = 500.0
 # HAFS posts a cycle ~6 h after its time; a cycle with no storm by EMPTY_FINAL
 # is taken as empty, and storm files still missing by STORMS_FINAL are skipped
 PUBLISHED_AFTER = timedelta(hours=5)
@@ -258,12 +260,12 @@ def segment_distance_km(lats, lons, start, end):
 
 
 def near_track(lats, lons, start, end, row_lats=None, col_lons=None):
-    """cells within WINDOW_KM of the track segment start-end. On a regular
+    """cells within BUFFER_KM of the track segment start-end. On a regular
     grid (row_lats, col_lons) only the rows and columns of a box around the
     segment are measured: no cell outside it can be that close (a degree of
     latitude is >= 111 km, a degree of longitude >= 111 km * cos(lat), plus
     a 1 deg margin for the great circle bulging past the end points)"""
-    km = settings.HAFS_WINDOW_KM
+    km = BUFFER_KM
     if row_lats is None:
         return segment_distance_km(lats, lons, start, end) <= km
     dlat = km / 111.19 + 1.0
