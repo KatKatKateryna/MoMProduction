@@ -212,9 +212,16 @@ python backfill/offline_hwrf_hafs_summaries_from_images.py hafs <PRODUCT_DIR>/HA
 ### `offline_gfms_summaries_from_images.py` (step 1, GFMS)
 
 Recomputes the GFMS summaries from the saved GFMS images with the current
-calculation. Each image is a lossless copy of the grid its summary was
-computed from, so the result is the same as a fresh run (checked: 16
-summaries of 2026-10-10/11 came out byte-identical).
+calculation. Each image is a lossless copy of the grid of its time. The cron
+summary of a time is taken from the per-pixel maximum of its grid and the
+grids of the following 96 hours (`GFMS_WINDOW_HOURS` in `GFMS_tool.py`);
+here that maximum is taken over the saved images of those times. Every run
+saves all the grids it downloads, the following 96 hours too, so each image
+is the latest grid the host had for its time (replaced ones are in
+`GFMS/GFMS_images_expired/`); a summary of a past time can therefore differ
+from the one its run wrote. A time near the end of the saved images has
+fewer following images. `--window-hours 0` takes the image
+alone (the calculation before the 96-hour maximum).
 
 - **Reads, never changes:** `Flood_byStor_YYYYMMDDHH.tiff` in IMAGE_DIR,
   normally `GFMS/GFMS_image/`, and the summaries in `--prev-dir`, by default
@@ -244,22 +251,28 @@ python backfill/offline_gfms_summaries_from_images.py <PRODUCT_DIR>/GFMS/GFMS_im
 Regenerates the GFMS images and per-watershed summaries of past days.
 
 - **Reads:** the GFMS `.bin` files, downloaded again from the GFMS host for
-  each 3-hourly time.
-- **Writes, overwriting:** `GFMS/GFMS_image/Flood_byStor_YYYYMMDDHH.tiff` and
-  `GFMS/GFMS_summary/Flood_byStor_YYYYMMDDHH.csv`.
+  each 3-hourly time and for the following 96 hours.
+- **Writes:** `GFMS/GFMS_summary/Flood_byStor_YYYYMMDDHH.csv`, overwriting,
+  each from the per-pixel maximum over its time and the following 96 hours,
+  as the cron job does (for a past time, the grids the host has now, not the
+  forecast it had then). `GFMS/GFMS_image/Flood_byStor_YYYYMMDDHH.tiff` for
+  every grid downloaded, the following 96 hours too: kept when the new one is identical, otherwise the
+  stored one is moved to `GFMS/GFMS_images_expired/` (with the time it was
+  made added to the name if that folder already has one).
 - **Its own state:** `GFMS/GFMS_backfill_state/`. A day gets `YYYYMMDD.done`
   when it is finished, or `.nodata` when the source has nothing for it. Days
-  with a marker are never redone, so delete the markers of the days to run
-  again.
+  with a marker are skipped, unless `--redo`.
 - **Order of days:** oldest first, because each day's flood duration builds
-  on the previous day's 21:00 summary. Only days up to yesterday are done
-  (today's files include forecasts), and at most `--max-days` per run.
+  on the previous day's 21:00 summary. Days up to today, times up to now
+  (today is not marked done), and at most `--max-days` per run.
 - **Temporary files:** the downloaded files in the GFMS processing folder are
-  deleted after each day.
+  deleted after each day, the `.bin` files of the following 96 hours at the
+  end of the run (their images are kept).
 - **Not touched:** GloFAS, the MoM products.
 
 ```bash
 python backfill/online_gfms_from_host.py --start 20260101 --end 20261013 --max-days 220
+python backfill/online_gfms_from_host.py --start 20261001 --end 20261017 --redo
 ```
 
 ### `online_gfms_from_host.sh` (step 1, GFMS)
@@ -268,7 +281,7 @@ A wrapper around `online_gfms_from_host.py`. It activates the conda env, which t
 GFMS images need for `gdal_translate`, and holds a lock
 (`/var/lock/gfms_backfill.lock`) so two runs never overlap. Dates come from
 the `BACKFILL_START`, `BACKFILL_END` and `BACKFILL_MAX_DAYS` environment
-variables. It is not in the crontab; run it by hand:
+variables; `BACKFILL_REDO=1` passes `--redo`. It is not in the crontab; run it by hand:
 
 ```bash
 BACKFILL_START=20260101 BACKFILL_END=20261013 backfill/online_gfms_from_host.sh \

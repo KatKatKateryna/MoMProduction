@@ -4,11 +4,19 @@ offline_gfms_summaries_from_images.py
        offline, with the current calculation
 
     The GFMS image (GFMS_image/Flood_byStor_YYYYMMDDHH.tiff) is a lossless
-    copy of the grid the summary is computed from (the .vrt of the .bin), so
-    the summaries can be rebuilt from the images alone. For every image in
-    IMAGE_DIR this writes OUT_DIR/Flood_byStor_YYYYMMDDHH.csv, the file
+    copy of the grid of its time (the .vrt of the .bin). The cron summary of
+    a time is computed from the per-pixel maximum of that grid and the grids
+    of the following times up to GFMS_WINDOW_HOURS (GFMS_tool.py); here the
+    same maximum is taken over the saved images of those times found in
+    IMAGE_DIR (the whole folder, not only --start/--end). Every run saves the
+    grids it downloads, the following ones too, so each image is the latest
+    grid the host had for its time: for a past summary that can differ from
+    the grid its run used (the replaced ones are in GFMS_images_expired). A
+    time near the end of the saved images has fewer following images.
+    --window-hours 0 takes the image alone. For every image in IMAGE_DIR this writes
+    OUT_DIR/Flood_byStor_YYYYMMDDHH.csv, the file
     GFMS_extract_by_watershed + GFMS_fix_duration write:
-      - area, % of the watershed, mean and max depth from the image (cell
+      - area, % of the watershed, mean and max depth from that maximum (cell
         lookup gfms_cells.py, or the per-watershed masks);
       - GFMS_Duration chained in time order as GFMS_fix_duration does: each
         day's times continue from the previous day's 21 summary (3 h more
@@ -31,6 +39,7 @@ Usage:
     python backfill/offline_gfms_summaries_from_images.py IMAGE_DIR OUT_DIR
     python backfill/offline_gfms_summaries_from_images.py IMAGE_DIR OUT_DIR --start 20261008 --end 20261013
     python backfill/offline_gfms_summaries_from_images.py IMAGE_DIR OUT_DIR --prev-dir /path/to/summaries
+    python backfill/offline_gfms_summaries_from_images.py IMAGE_DIR OUT_DIR --window-hours 0
 """
 
 import argparse
@@ -48,10 +57,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import geopandas  # noqa: E402
 import pandas as pd  # noqa: E402
+from rasterio.io import MemoryFile  # noqa: E402
 
 import gfms_cells  # noqa: E402
 import settings  # noqa: E402
-from GFMS_tool import GFMS_extract_by_mask  # noqa: E402
+from GFMS_tool import GFMS_WINDOW_HOURS, GFMS_extract_by_mask, GFMS_max_grid  # noqa: E402
 from utilities import watersheds_gdb_reader  # noqa: E402
 
 IMAGE_RE = re.compile(r"^Flood_byStor_(\d{10})\.tiff$")
@@ -77,6 +87,29 @@ def find_images(image_dir, start, end):
             continue
         days.setdefault(stamp[:8], {})[stamp[8:]] = path
     return {d: dict(sorted(h.items())) for d, h in sorted(days.items())}
+
+
+def window_paths(stamp, tiff, all_images, window_hours):
+    """the image of stamp and the saved images of the following 3-hourly
+    times up to window_hours"""
+    start = datetime.strptime(stamp, "%Y%m%d%H")
+    paths = [tiff]
+    for hours in range(3, window_hours + 1, 3):
+        later = all_images.get((start + timedelta(hours=hours)).strftime("%Y%m%d%H"))
+        if later:
+            paths.append(later)
+    return paths
+
+
+def window_rows(paths, watersheds):
+    """raw_rows of the per-pixel maximum of the images in paths"""
+    if len(paths) == 1:
+        return raw_rows(paths[0], watersheds)
+    grid, profile = GFMS_max_grid(paths)
+    with MemoryFile() as memfile:
+        with memfile.open(**profile) as dst:
+            dst.write(grid, 1)
+        return raw_rows(memfile.name, watersheds)
 
 
 def use_lookup():
@@ -170,6 +203,10 @@ def main():
         help="summaries to continue the durations from (only read; default: GFMS_summary/)",
     )
     parser.add_argument(
+        "--window-hours", type=int, default=GFMS_WINDOW_HOURS,
+        help=f"maximum over the image and the following hours (default {GFMS_WINDOW_HOURS}, 0 = the image alone)",
+    )
+    parser.add_argument(
         "--overwrite", action="store_true",
         help="recompute and replace summaries already in OUT_DIR (default: keep them)",
     )
@@ -183,6 +220,7 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
 
     days = find_images(image_dir, args.start, args.end)
+    all_images = {d + h: p for d, hours in find_images(image_dir, None, None).items() for h, p in hours.items()}
     logging.info(f"GFMS summaries from {image_dir} to {out_dir}: {len(days)} days, durations continued from {prev_dir}")
     watersheds = watersheds_gdb_reader()
 
@@ -208,7 +246,9 @@ def main():
                 kept.append(day + hh)
             else:
                 try:
-                    df = as_read_back(raw_rows(tiff, watersheds))
+                    paths = window_paths(day + hh, tiff, all_images, args.window_hours)
+                    df = as_read_back(window_rows(paths, watersheds))
+                    logging.info(f"{day}{hh}: maximum of {len(paths)} images")
                 except Exception:
                     logging.exception(f"{day}{hh}: failed, skipped (the next time continues from the one before)")
                     failed.append(day + hh)

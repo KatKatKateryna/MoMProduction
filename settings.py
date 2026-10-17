@@ -38,6 +38,8 @@ GFMS_PROC_DIR = os.path.join(WORKING_DIR, config.get("processing_dir", "gfms"))
 GFMS_DIR = os.path.join(PRODUCT_DIR, config.get("products_dir", "GFMS"))
 GFMS_SUM_DIR = os.path.join(GFMS_DIR, "GFMS_summary")
 GFMS_IMG_DIR = os.path.join(GFMS_DIR, "GFMS_image")
+# stored images replaced by a newer, different one
+GFMS_IMG_EXPIRED_DIR = os.path.join(GFMS_DIR, "GFMS_images_expired")
 GFMS_MOM_DIR = os.path.join(GFMS_DIR, "GFMS_MoM")
 
 # config DFO directory

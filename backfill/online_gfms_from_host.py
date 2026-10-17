@@ -13,20 +13,30 @@ when the summary CSV is absent, so the normal job will never regenerate these.
 Each run walks forward from --start, finds the earliest day not yet done in
 this pass, and processes at most --max-days such days. A day is done once its
 marker is written to GFMS_backfill_state/, so existing images and summaries
-inside the range are regenerated and overwritten, oldest day first (each day's
-durations build on the previous day's recomputed 21z summary).
---end caps the range: nothing after it is ever looked at. Dates that are not
-yet settled are excluded regardless of --end.
+inside the range are regenerated, oldest day first (each day's durations
+build on the previous day's recomputed 21z summary). Summaries are
+overwritten, each from the per-pixel maximum over its time and the following
+GFMS_WINDOW_HOURS (as GFMS_processing does; for a past time these are the
+grids the host has now, not the forecast it had then). An image is kept when
+the new one is identical, otherwise the stored one is moved to
+GFMS_images_expired/.
+--end caps the range: nothing after it is ever looked at. Times after now
+are never processed; today is done up to now and not marked done, so a later
+run redoes it. --redo also takes the days already marked done or skipped
+(their markers are rewritten).
 
 Usage:
     python backfill/online_gfms_from_host.py                        # 20260101 .. 20261013
     python backfill/online_gfms_from_host.py --start 20260101 --end 20261013 --max-days 220
+    python backfill/online_gfms_from_host.py --start 20261001 --end 20261017 --redo
 """
 
 import argparse
 import glob
 import os
+import shutil
 import sys
+import tempfile
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -36,7 +46,7 @@ import requests
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import settings  # noqa: E402
-from GFMS_tool import GFMS_data_extractor, GFMS_fix_duration
+from GFMS_tool import GFMS_data_extractor, GFMS_fix_duration  # noqa: E402
 
 BINHOURS = ["00", "03", "06", "09", "12", "15", "18", "21"]
 
@@ -52,12 +62,6 @@ def log(msg):
     """timestamped line, flushed so `tail -f` on the cron log stays live"""
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     print(f"[{stamp}] {msg}", flush=True)
-
-
-def tiff_path(real_date, binhour):
-    return os.path.join(
-        settings.GFMS_IMG_DIR, f"Flood_byStor_{real_date}{binhour}.tiff"
-    )
 
 
 def day_is_done(real_date):
@@ -112,36 +116,47 @@ def cleanup_proc_files(real_date):
     return len(files)
 
 
-def find_days_to_process(start_date, end_date, max_days):
+def prune_window(window_dir, day):
+    """remove the window files of times before day (no longer needed)"""
+    first = f"Flood_byStor_{day.strftime('%Y%m%d')}00"
+    for f in os.listdir(window_dir):
+        if f[:len(first)] < first:
+            os.remove(os.path.join(window_dir, f))
+
+
+def find_days_to_process(start_date, end_date, max_days, redo=False):
     """earliest-first list of days not yet done, within the range"""
-    # the source publishes forecasts ahead of time, but only backfill dates
-    # that are safely complete; --end caps that, it does not extend it
-    settled = datetime.now(timezone.utc).replace(
+    # the source publishes forecasts ahead of time; only up to today (its
+    # times up to now), --end caps that, it does not extend it
+    today = datetime.now(timezone.utc).replace(
         hour=0, minute=0, second=0, microsecond=0
-    ) - timedelta(days=1)
-    last_date = min(end_date, settled)
+    )
+    last_date = min(end_date, today)
 
     days = []
     cursor = start_date
     while cursor <= last_date and len(days) < max_days:
         real_date = cursor.strftime("%Y%m%d")
-        if not day_is_done(real_date) and not day_is_skipped(real_date):
+        if redo or (not day_is_done(real_date) and not day_is_skipped(real_date)):
             days.append(cursor)
         cursor += timedelta(days=1)
     return days
 
 
-def process_day(day):
+def process_day(day, window_dir):
     """regenerate images + summaries for one day; returns per-file timings"""
     real_date = day.strftime("%Y%m%d")
     day_start = time.monotonic()
     log(f"DAY {real_date} start")
+    prune_window(window_dir, day)
 
     produced = []
     timings = []
     errors = 0
+    now = datetime.now(timezone.utc)
+    binhours = [h for h in BINHOURS if day + timedelta(hours=int(h)) <= now]
 
-    for binhour in BINHOURS:
+    for binhour in binhours:
         bin_file = f"Flood_byStor_{real_date}{binhour}.bin"
         proc_csv = os.path.join(
             settings.GFMS_PROC_DIR, bin_file.replace(".bin", ".csv")
@@ -151,19 +166,16 @@ def process_day(day):
             os.remove(proc_csv)
 
         t0 = time.monotonic()
-        started = time.time()
         try:
-            GFMS_data_extractor(bin_file)
+            image_status = GFMS_data_extractor(bin_file, window_dir)
         except Exception as exc:
             log(f"  {bin_file} FAILED: {exc}")
             errors += 1
             continue
         elapsed = time.monotonic() - t0
 
-        # an existing image is overwritten in place; only a fresh one counts
-        tiff = tiff_path(real_date, binhour)
-        made_tiff = os.path.exists(tiff) and os.path.getmtime(tiff) >= started - 1
-        if made_tiff:
+        # new, replaced (old one expired) or the same as the stored one
+        if image_status is not None:
             produced.append(binhour)
             timings.append(elapsed)
             log(f"  {real_date}{binhour} ok {elapsed:6.1f}s")
@@ -203,7 +215,10 @@ def process_day(day):
 
     removed = cleanup_proc_files(real_date)
     log(f"  removed {removed} processing file(s)")
-    mark_done(real_date, len(produced))
+    if len(binhours) == len(BINHOURS):
+        mark_done(real_date, len(produced))
+    else:
+        log(f"  {real_date} done up to {real_date}{binhours[-1]}, not marked done")
 
     total = time.monotonic() - day_start
     per_file = (sum(timings) / len(timings)) if timings else 0.0
@@ -226,6 +241,10 @@ def main():
     parser.add_argument(
         "--max-days", type=int, default=220, help="maximum days per run"
     )
+    parser.add_argument(
+        "--redo", action="store_true",
+        help="also redo the days already marked done or skipped",
+    )
     args = parser.parse_args()
 
     start_date = datetime.strptime(args.start, "%Y%m%d").replace(tzinfo=timezone.utc)
@@ -242,7 +261,7 @@ def main():
         f"backfill start: {args.start}..{args.end}, max {args.max_days} days/run"
     )
 
-    days = find_days_to_process(start_date, end_date, args.max_days)
+    days = find_days_to_process(start_date, end_date, args.max_days, args.redo)
     if not days:
         log("nothing to backfill - all days complete")
         return 0
@@ -253,12 +272,17 @@ def main():
     )
 
     all_timings = []
-    for day in days:
-        timings = process_day(day)
-        if timings is None:
-            # later days build on this one's summaries, so stop here
-            break
-        all_timings.extend(timings)
+    # window files, downloaded once per run (the host rewrites them)
+    window_dir = tempfile.mkdtemp(prefix="window_", dir=settings.GFMS_PROC_DIR)
+    try:
+        for day in days:
+            timings = process_day(day, window_dir)
+            if timings is None:
+                # later days build on this one's summaries, so stop here
+                break
+            all_timings.extend(timings)
+    finally:
+        shutil.rmtree(window_dir, ignore_errors=True)
 
     total = time.monotonic() - run_start
     n = len(all_timings)

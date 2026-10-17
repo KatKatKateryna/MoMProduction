@@ -10,7 +10,7 @@
 # Runs backfill/online_gfms_from_host.py only -- no GloFAS, HWRF, DFO, VIIRS or composite work.
 #
 # Overridable via the environment: CONDA_SH, CONDA_ENV, PROJECT_DIR,
-# BACKFILL_START, BACKFILL_END, BACKFILL_MAX_DAYS.
+# BACKFILL_START, BACKFILL_END, BACKFILL_MAX_DAYS, BACKFILL_REDO (1 = --redo).
 
 set -euo pipefail
 
@@ -21,6 +21,7 @@ PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 BACKFILL_START="${BACKFILL_START:-20260101}"
 BACKFILL_END="${BACKFILL_END:-20261013}"
 BACKFILL_MAX_DAYS="${BACKFILL_MAX_DAYS:-220}"
+BACKFILL_REDO="${BACKFILL_REDO:-0}"
 
 LOCK_FILE="/var/lock/gfms_backfill.lock"
 
@@ -60,7 +61,13 @@ fi
 cd "$PROJECT_DIR"
 mkdir -p backfill/logs
 
+REDO_ARG=()
+if [ "$BACKFILL_REDO" = "1" ]; then
+    REDO_ARG=(--redo)
+fi
+
 exec python backfill/online_gfms_from_host.py \
     --start "$BACKFILL_START" \
     --end "$BACKFILL_END" \
-    --max-days "$BACKFILL_MAX_DAYS"
+    --max-days "$BACKFILL_MAX_DAYS" \
+    "${REDO_ARG[@]}"

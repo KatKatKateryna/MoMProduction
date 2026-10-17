@@ -6,6 +6,18 @@ Download and process GFMS and GloFAS data
 Two main function:
     * GFMS_cron : run the daily cron job
     * GFMS_cron_fix: rerun cron-job for a given date
+
+The summary of a 3-hourly GFMS time is taken from the per-pixel maximum of
+the grids at that time and the following 3-hourly times up to
+GFMS_WINDOW_HOURS ahead (the host publishes ~4 days of forecast), as far as
+the host has them. Only the times that have come are summarized; a later
+run makes the others. The following grids are downloaded again on every run
+(the host rewrites its files); their .bin files go to a temporary folder that
+is removed afterwards.
+
+Every grid downloaded, of a summarized time or a following one, is saved as
+an image. An image is only replaced when the new grid differs from the
+stored one; the stored one is then moved to GFMS_images_expired.
 """
 
 import csv
@@ -14,7 +26,9 @@ import json
 import logging
 import math
 import os
+import shutil
 import sys
+import tempfile
 import time
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
@@ -41,6 +55,9 @@ WATERSHEDS = None
 # per-watershed summaries from the precomputed cell lookup (gfms_cells.py);
 # False = the original per-watershed masks
 GFMS_CELL_LOOKUP = True
+
+# summary = per-pixel maximum over the time and the following hours
+GFMS_WINDOW_HOURS = 96
 
 # no need for cron-job
 # from progressbar import progress
@@ -302,14 +319,18 @@ def GloFAS_process():
     return processing_dates
 
 
+def GFMS_url(bin_file):
+    """host url of a given bin file"""
+    datestr = bin_file.split("_")[2]
+    baseurl = settings.config.get("gfms", "HOST")
+    return f"{baseurl.rstrip('/')}/{datestr[:4]}/{datestr[:6]}/{bin_file}"
+
+
 def GFMS_download(bin_file):
     """download a given bin file"""
 
     # find download url
-    datestr = bin_file.split("_")[2]
-    baseurl = settings.config.get("gfms", "HOST")
-    dataurl = f"{baseurl.rstrip('/')}/{datestr[:4]}/{datestr[:6]}"
-    download_data_url = f"{dataurl.rstrip('/')}/{bin_file}"
+    download_data_url = GFMS_url(bin_file)
 
     # check if .bin is already downloaded
     binfile_local = os.path.join(settings.GFMS_PROC_DIR, bin_file)
@@ -336,6 +357,13 @@ def GFMS_download(bin_file):
         open(binfile_local, "wb").write(r.content)
         logging.info(f"Download: {bin_file}")
         print(f"Download: {bin_file}")
+
+    return GFMS_write_vrt(binfile_local)
+
+
+def GFMS_write_vrt(binfile_local):
+    """write the .hdr and .vrt of a downloaded bin file, return the vrt"""
+    vrt_file = binfile_local.replace(".bin", ".vrt")
 
     # generate header file
     hdr_header = """NCOLS 2458
@@ -392,9 +420,76 @@ def GFMS_download(bin_file):
 
     # generate VRT file
     with open(vrt_file, "w") as f:
-        f.write(vrt_template.format(bin_file))
+        f.write(vrt_template.format(os.path.basename(binfile_local)))
 
     return vrt_file
+
+
+def GFMS_window_vrt(bin_file, window_dir):
+    """download a bin file of the window into window_dir (once per run),
+    return its vrt, or None if the host does not have it"""
+    binfile_local = os.path.join(window_dir, bin_file)
+    vrt_file = binfile_local.replace(".bin", ".vrt")
+    if os.path.exists(vrt_file):
+        return vrt_file
+    if os.path.exists(binfile_local + ".missing"):
+        return None
+    try:
+        r = requests.get(GFMS_url(bin_file), timeout=300)
+        r.raise_for_status()
+        if len(r.content) < 7000000:
+            raise ValueError(f"only {len(r.content)} bytes")
+    except Exception as e:
+        # past the end of the forecast the host answers 404
+        if not (isinstance(e, requests.HTTPError) and e.response.status_code == 404):
+            logging.warning(f"GFMS window file not used: {bin_file}: {e}")
+        open(binfile_local + ".missing", "w").close()
+        return None
+    with open(binfile_local, "wb") as f:
+        f.write(r.content)
+    vrt_file = GFMS_write_vrt(binfile_local)
+    GFMS_save_image(vrt_file)
+    return vrt_file
+
+
+def GFMS_max_grid(paths):
+    """per-pixel maximum of GFMS grids, with the profile of the first; dry
+    cells are nodata (-9999), below every depth, so a plain maximum"""
+    with rasterio.open(paths[0]) as src:
+        grid = src.read(1)
+        profile = {
+            "driver": "GTiff", "width": src.width, "height": src.height,
+            "count": 1, "dtype": "float32", "crs": src.crs,
+            "transform": src.transform, "nodata": src.nodata,
+        }
+    for path in paths[1:]:
+        with rasterio.open(path) as src:
+            np.maximum(grid, src.read(1), out=grid)
+    return grid, profile
+
+
+def GFMS_window_max(vrt_file, window_dir):
+    """per-pixel maximum of the grid of vrt_file and of the grids of the
+    following 3-hourly times up to GFMS_WINDOW_HOURS, those the host has;
+    written to a tiff in window_dir, whose path is returned"""
+    stamp = os.path.basename(vrt_file)[len("Flood_byStor_"):-len(".vrt")]
+    start = datetime.strptime(stamp, "%Y%m%d%H")
+    paths, used = [vrt_file], []
+    for hours in range(3, GFMS_WINDOW_HOURS + 1, 3):
+        stamp_h = (start + timedelta(hours=hours)).strftime("%Y%m%d%H")
+        window_vrt = GFMS_window_vrt(f"Flood_byStor_{stamp_h}.bin", window_dir)
+        if window_vrt is not None:
+            paths.append(window_vrt)
+            used.append(hours)
+    grid, profile = GFMS_max_grid(paths)
+    logging.info(
+        f"GFMS {stamp}: maximum of {len(used) + 1} grids, "
+        f"up to +{used[-1] if used else 0} h of {GFMS_WINDOW_HOURS} h"
+    )
+    max_tiff = os.path.join(window_dir, f"Flood_byStor_{stamp}_max.tiff")
+    with rasterio.open(max_tiff, "w", **profile) as dst:
+        dst.write(grid, 1)
+    return max_tiff
 
 
 def GFMS_extract_by_mask(vrt_file, mask_json):
@@ -450,8 +545,9 @@ def GFMS_extract_by_mask(vrt_file, mask_json):
     return d
 
 
-def GFMS_extract_by_watershed(vrt_file):
-    """extract and summary"""
+def GFMS_extract_by_watershed(vrt_file, window_dir=None):
+    """extract and summary; with window_dir, of the maximum over the window
+    (GFMS_window_max) instead of vrt_file alone"""
 
     # load watersheds data
     global WATERSHEDS  # declare global before potential Write
@@ -482,6 +578,9 @@ def GFMS_extract_by_watershed(vrt_file):
     else:
         # already processed,
         return
+
+    if window_dir and os.path.exists(vrt_file):
+        vrt_file = GFMS_window_max(vrt_file, window_dir)
 
     # fast path: precomputed watershed cells (gfms_cells.py), same rows
     if GFMS_CELL_LOOKUP and os.path.exists(vrt_file):
@@ -556,31 +655,80 @@ def GFMS_extract_by_watershed(vrt_file):
     return
 
 
-def GFMS_data_extractor(bin_file):
-    """extract data from a given binfile"""
+def GFMS_data_extractor(bin_file, window_dir=None):
+    """extract data from a given binfile (see GFMS_extract_by_watershed
+    for window_dir); returns the image status of GFMS_store_image, or None
+    without an image"""
 
     # download GFMS binfile, generate vrt file
     vrt_file = GFMS_download(bin_file)
 
     # extract data by watershed
     logging.info(f"processing: {vrt_file}")
-    GFMS_extract_by_watershed(vrt_file)
+    GFMS_extract_by_watershed(vrt_file, window_dir)
 
     if not os.path.exists(vrt_file):
         print(f"VRT not found: {bin_file}")
-        return
+        return None
 
+    return GFMS_save_image(vrt_file)
+
+
+def GFMS_save_image(vrt_file):
+    """save the grid of vrt_file as GFMS_IMG_DIR/<name>.tiff (see
+    GFMS_store_image); returns its status, or None if it failed"""
     # generate tiff from bin file
     tiff_name = os.path.basename(vrt_file).replace(".vrt", ".tiff")
     tiff_file = os.path.join(settings.GFMS_IMG_DIR, tiff_name)
+    # made in the processing folder (same disk: putting it in place is a
+    # rename), the image folder is public
+    new_tiff = os.path.join(settings.GFMS_PROC_DIR, "new_" + tiff_name)
 
-    gdalcmd = f'gdal_translate -co TILED=YES -co COMPRESS=LZW -of GTiff "{vrt_file}" "{tiff_file}"'
+    gdalcmd = f'gdal_translate -co TILED=YES -co COMPRESS=LZW -of GTiff "{vrt_file}" "{new_tiff}"'
     if os.system(gdalcmd) != 0:
         logging.error(f"gdal_translate failed: {tiff_file}")
-    else:
-        logging.info(f"generated: {tiff_file}")
+        if os.path.exists(new_tiff):
+            os.remove(new_tiff)
+        return None
 
-    return
+    return GFMS_store_image(new_tiff, tiff_file)
+
+
+def GFMS_same_image(tiff_a, tiff_b):
+    """same grid, position, nodata and values"""
+    try:
+        with rasterio.open(tiff_a) as a, rasterio.open(tiff_b) as b:
+            if (a.shape, a.transform, a.crs, a.nodata) != (b.shape, b.transform, b.crs, b.nodata):
+                return False
+            return np.array_equal(a.read(1), b.read(1), equal_nan=True)
+    except rasterio.errors.RasterioIOError:
+        # an unreadable stored image is replaced
+        return False
+
+
+def GFMS_store_image(new_tiff, tiff_file):
+    """put new_tiff in place of tiff_file, unless the stored image is the
+    same (then new_tiff is dropped); a stored image that differs is moved to
+    GFMS_IMG_EXPIRED_DIR, never deleted. Returns "new", "unchanged" or
+    "replaced"."""
+    status = "new"
+    if os.path.exists(tiff_file):
+        if GFMS_same_image(new_tiff, tiff_file):
+            os.remove(new_tiff)
+            logging.info(f"unchanged, kept: {tiff_file}")
+            return "unchanged"
+        os.makedirs(settings.GFMS_IMG_EXPIRED_DIR, exist_ok=True)
+        expired = os.path.join(settings.GFMS_IMG_EXPIRED_DIR, os.path.basename(tiff_file))
+        if os.path.exists(expired):
+            # expired before: this one is named after the time it was made
+            made = datetime.fromtimestamp(os.path.getmtime(tiff_file), timezone.utc)
+            expired = expired.replace(".tiff", made.strftime("_%Y%m%dT%H%M%S.tiff"))
+        shutil.move(tiff_file, expired)
+        logging.info(f"expired: {tiff_file} -> {expired}")
+        status = "replaced"
+    shutil.move(new_tiff, tiff_file)
+    logging.info(f"generated: {tiff_file}")
+    return status
 
 
 def GFMS_fix_duration(csv0, csvlist):
@@ -625,34 +773,40 @@ def GFMS_fix_duration(csv0, csvlist):
 def GFMS_processing(proc_dates_list):
     """process GFMS data with a given list of dates"""
 
+    # the window files are downloaded again on every run: the host rewrites them
+    window_dir = tempfile.mkdtemp(prefix="window_", dir=settings.GFMS_PROC_DIR)
+    try:
+        _GFMS_processing(proc_dates_list, window_dir)
+    finally:
+        shutil.rmtree(window_dir, ignore_errors=True)
+
+
+def _GFMS_processing(proc_dates_list, window_dir):
     binhours = ["00", "03", "06", "09", "12", "15", "18", "21"]
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     for data_date in proc_dates_list:
         real_date = data_date[:-2]
 
         fix_list = []
         for binhour in binhours:
+            # only the times that have come: a later run makes the others
+            if datetime.strptime(real_date + binhour, "%Y%m%d%H") > now:
+                break
             bin_file = "Flood_byStor_" + real_date + binhour + ".bin"
             new_csv = "Flood_byStor_" + real_date + binhour + ".csv"
             # print(os.path.join(settings.GFMS_SUM_DIR, new_csv))
             if not os.path.exists(os.path.join(settings.GFMS_SUM_DIR, new_csv)):
                 fix_list.append(new_csv)
                 # process bin file, generate .csv - some might be missing
-                GFMS_data_extractor(bin_file)
+                GFMS_data_extractor(bin_file, window_dir)
 
         # run duration caculation
-        # find the previous one, previous day 21 hour
-        previous_date = datetime.strptime(real_date, "%Y%m%d") - timedelta(days=1)
-        base0 = "Flood_byStor_" + previous_date.strftime("%Y%m%d") + "21.csv"
-        # fix_list = ["Flood_byStor_" + real_date + x + ".csv" for x in binhours]
-
-        # check if the base0 exists(+any of the time bins),
-        # if not, use the first one of the current day(+other time bins)
-        # if no missing time bins - summaries already exist
-        if (
-            os.path.exists(os.path.join(settings.GFMS_SUM_DIR, base0))
-            and len(fix_list) > 0
-        ) or len(fix_list) > 1:
-            # call fix duration
+        # durations continue from the summary 3 h before the first new one
+        # (a run may make only part of the day); if that one does not exist,
+        # GFMS_fix_duration starts from the first new one
+        if fix_list:
+            first = datetime.strptime(fix_list[0][13:23], "%Y%m%d%H")
+            base0 = "Flood_byStor_" + (first - timedelta(hours=3)).strftime("%Y%m%d%H") + ".csv"
             GFMS_fix_duration(base0, fix_list)
         else:
             logging.info(f"GFMS summary already exists for: {real_date}")
