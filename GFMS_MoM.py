@@ -10,6 +10,52 @@ import settings
 from utilities import read_data
 
 
+GFMS_SCORE_FIELDS = [
+    "GFMS_area_score",
+    "GFMS_perc_area_score",
+    "MeanD_Score",
+    "MaxD_Score",
+    "Duration_Score",
+    "Sum_Score",
+]
+
+
+def _gfms_score(value, wt, min_pt, max_pt):
+    """min_pt per wt of value, capped at max_pt"""
+    if float(value) / float(wt) > float(max_pt):
+        return str(float(max_pt))
+    return str(float(min_pt) * float(value) / float(wt))
+
+
+def gfms_scores(gfms_csv, out_csv):
+    """the GFMS summary gfms_csv with the GFMS_SCORE_FIELDS added, scored
+    with GFMS_Weightage.csv, written to out_csv; used by the GFMS MoM
+    (flood_severity) and the HWRF/HAFS MoM (update_HWRF_MoM)"""
+    weightage = read_data(os.path.join(settings.BASE_DATA_DIR, "GFMS_Weightage.csv"))
+    w = {c: weightage[c][0] for c in weightage.columns}
+    with open(gfms_csv, "r", encoding="UTF-8") as GFMS_file, open(
+        out_csv, "w", newline="\n", encoding="utf-8"
+    ) as csvfile:
+        GFMS_w_score = csv.writer(csvfile)
+        for row_count, row in enumerate(csv.reader(GFMS_file)):
+            if row_count == 0:
+                # ['pfaf_id', 'GFMS_TotalArea_km', 'GFMS_perc_Area', 'GFMS_MeanDepth', 'GFMS_MaxDepth', 'GFMS_Duration']
+                GFMS_w_score.writerow(row + GFMS_SCORE_FIELDS)
+                continue
+            area, perc_area, mean_depth, max_depth, duration = row[1:6]
+            scores = [
+                _gfms_score(area, w["GFMS_Area_wt"], w["GFMS_Area_Min_pt"], w["GFMS_Area_max_pt"]),
+                _gfms_score(perc_area, w["GFMS_percArea_wt"], w["GFMS_percArea_Minpt"], w["GFMS_percArea_Maxpt"]),
+                _gfms_score(mean_depth, w["GFMS_Meandepth_wt"], w["GFMS_Meandepth_Minpt"], w["GFMS_Meandepth_Maxpt"]),
+                _gfms_score(max_depth, w["GFMS_Maxdepth_wt"], w["GFMS_Maxdepth_Minpt"], w["GFMS_Maxdepth_Maxpt"]),
+                _gfms_score(duration, w["GFMS_Duration_wt"], w["GFMS_Duration_Minpt"], w["GFMS_Duration_Maxpt"]),
+            ]
+            Sum_Score = str(
+                float(scores[0]) + float(scores[1]) + float(scores[2]) + float(scores[3]) + float(scores[4])
+            )
+            GFMS_w_score.writerow(row + scores + [Sum_Score])
+
+
 def mofunc_gfms(row):
     if row["Severity"] >= 0.8 or row["Hazard_Score"] >= 80:
         return "Warning"
@@ -53,115 +99,11 @@ def flood_severity(GFMS_Table, GloFas_Table, adate):
         "TwtyYScore",
         "Sum_Score",
     ]
-    add_field_GFMS = [
-        "GFMS_area_score",
-        "GFMS_perc_area_score",
-        "MeanD_Score",
-        "MaxD_Score",
-        "Duration_Score",
-        "Sum_Score",
-    ]
 
-    #  Reading GFMS Table with latest data having duration score
-    with open(GFMS_Table, "r", encoding="UTF-8") as GFMS_file:
-        GFMS_reader = csv.reader(GFMS_file)
-        # shall put in GFMS_PROC_DIR
-        GFMS_w_score_csv = "GFMS_w_score_{}.csv".format(adate)
-        GFMS_w_score_csv = os.path.join(settings.GFMS_PROC_DIR, GFMS_w_score_csv)
-        csvfile = open(GFMS_w_score_csv, "w", newline="\n", encoding="utf-8")
-        GFMS_w_score = csv.writer(csvfile)
-        row_count = 1
-        # csv_writer = csv.writer(write_obj)
-
-        for row in GFMS_reader:
-            # first row stores the headers, atm they are:
-            # ['pfaf_id', 'GFMS_TotalArea_km', 'GFMS_perc_Area', 'GFMS_MeanDepth', 'GFMS_MaxDepth', 'GFMS_Duration']
-            if row_count == 1:
-                # add new headers for scores
-                for x in add_field_GFMS:
-                    row.append(x)
-                row_count = row_count + 1
-
-            else:
-                # unpack the row values
-                (
-                    _,
-                    GFMS_TotalArea_km,
-                    GFMS_perc_Area,
-                    GFMS_MeanDepth,
-                    GFMS_MaxDepth,
-                    GFMS_Duration,
-                ) = row
-
-                if float(GFMS_TotalArea_km) / float(weightage.GFMS_Area_wt[0]) > float(
-                    weightage.GFMS_Area_max_pt[0]
-                ):
-                    GFMS_area_score = str(float(weightage.GFMS_Area_max_pt[0]))
-                else:
-                    GFMS_area_score = str(
-                        float(weightage.GFMS_Area_Min_pt[0])
-                        * float(GFMS_TotalArea_km)
-                        / float(weightage.GFMS_Area_wt[0])
-                    )
-                if float(GFMS_perc_Area) / float(weightage.GFMS_percArea_wt[0]) > float(
-                    weightage.GFMS_percArea_Maxpt[0]
-                ):
-                    GFMS_perc_area_score = str(float(weightage.GFMS_percArea_Maxpt[0]))
-                else:
-                    GFMS_perc_area_score = str(
-                        float(weightage.GFMS_percArea_Minpt[0])
-                        * float(GFMS_perc_Area)
-                        / float(weightage.GFMS_percArea_wt[0])
-                    )
-                if float(GFMS_MeanDepth) / float(
-                    weightage.GFMS_Meandepth_wt[0]
-                ) > float(weightage.GFMS_Meandepth_Maxpt[0]):
-                    MeanD_Score = str(float(weightage.GFMS_Meandepth_Maxpt[0]))
-                else:
-                    MeanD_Score = str(
-                        float(weightage.GFMS_Meandepth_Minpt[0])
-                        * float(GFMS_MeanDepth)
-                        / float(weightage.GFMS_Meandepth_wt[0])
-                    )
-                if float(GFMS_MaxDepth) / float(weightage.GFMS_Maxdepth_wt[0]) > float(
-                    weightage.GFMS_Maxdepth_Maxpt[0]
-                ):
-                    MaxD_Score = str(float(weightage.GFMS_Maxdepth_Maxpt[0]))
-                else:
-                    MaxD_Score = str(
-                        float(weightage.GFMS_Maxdepth_Minpt[0])
-                        * float(GFMS_MaxDepth)
-                        / float(weightage.GFMS_Maxdepth_wt[0])
-                    )
-                if float(GFMS_Duration) / float(weightage.GFMS_Duration_wt[0]) > float(
-                    weightage.GFMS_Duration_Maxpt[0]
-                ):
-                    Duration_Score = str(float(weightage.GFMS_Duration_Maxpt[0]))
-                else:
-                    Duration_Score = str(
-                        float(weightage.GFMS_Duration_Minpt[0])
-                        * float(GFMS_Duration)
-                        / float(weightage.GFMS_Duration_wt[0])
-                    )
-                Sum_Score = str(
-                    float(GFMS_area_score)
-                    + float(GFMS_perc_area_score)
-                    + float(MeanD_Score)
-                    + float(MaxD_Score)
-                    + float(Duration_Score)
-                )
-                score_field = [
-                    GFMS_area_score,
-                    GFMS_perc_area_score,
-                    MeanD_Score,
-                    MaxD_Score,
-                    Duration_Score,
-                    Sum_Score,
-                ]
-                for x in score_field:
-                    row.append(x)
-            GFMS_w_score.writerow(row)
-    csvfile.close()
+    GFMS_w_score_csv = os.path.join(
+        settings.GFMS_PROC_DIR, "GFMS_w_score_{}.csv".format(adate)
+    )
+    gfms_scores(GFMS_Table, GFMS_w_score_csv)
     # GFMS Done
 
     # Reading GloFas Table
