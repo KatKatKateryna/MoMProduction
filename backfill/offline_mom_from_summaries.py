@@ -100,7 +100,7 @@ import HWRF_MoM  # noqa: E402
 from DFO_MoM import update_DFO_MoM  # noqa: E402
 from GFMS_MoM import flood_severity  # noqa: E402
 from HWRF_MoM import final_alert_pdc, update_HWRF_MoM, update_HWRFMoM_DFO_VIIRS  # noqa: E402
-from utilities import findLatestGlofas  # noqa: E402
+from utilities import find_latest_glofas, find_latest_viirs  # noqa: E402
 from VIIRS_MoM import update_VIIRS_MoM  # noqa: E402
 
 HOURS = ["00", "06", "12", "18"]
@@ -221,11 +221,11 @@ def replayed_inputs(views, adatehour):
     """the DFO, VIIRS and GloFAS days the MoM code picks from the views"""
     datestr, hh = adatehour[:8], adatehour[8:]
     dfo = HWRF_MoM.find_latest_summary(datestr, views["DFO_SUM_DIR"], "DFO_{}.csv", hh)[0]
-    viirs = HWRF_MoM.find_latest_summary(datestr, views["VIIRS_SUM_DIR"], "VIIRS_Flood_{}.csv", hh)[0]
+    viirs = find_latest_viirs(views["VIIRS_SUM_DIR"], datestr, hh)[0]
     glofas = f"threspoints_{datestr}00.csv"
     # update_HWRF_MoM: the earlier GloFAS before 10 h or when the day's is missing
     if not os.path.exists(os.path.join(views["GLOFAS_DIR"], glofas)) or int(hh) < 10:
-        glofas = findLatestGlofas(views["GLOFAS_DIR"], adatehour, "csv") or glofas
+        glofas = find_latest_glofas(views["GLOFAS_DIR"], adatehour, "csv") or glofas
     return dfo or "none", viirs or "none", glofas[12:20]
 
 
@@ -346,7 +346,7 @@ def glofas_for_gfms(adate):
     glofascsv = os.path.join(settings.GLOFAS_DIR, f"threspoints_{adate}00.csv")
     if os.path.exists(glofascsv):
         return glofascsv
-    glofas_latest = findLatestGlofas(settings.GLOFAS_DIR, adate, "csv")
+    glofas_latest = find_latest_glofas(settings.GLOFAS_DIR, adate, "csv")
     if glofas_latest:
         logging.warning(f"GloFAS for {adate}: using the previous {glofas_latest}")
         return os.path.join(settings.GLOFAS_DIR, glofas_latest)

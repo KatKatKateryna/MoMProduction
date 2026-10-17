@@ -17,7 +17,8 @@ import scipy.stats
 import settings
 from GFMS_MoM import gfms_scores
 from utilities import (
-    findLatestGlofas,
+    find_latest_glofas,
+    find_latest_viirs,
     get_current_processing_datehour,
     get_latestitems,
     hafs_storms,
@@ -167,7 +168,7 @@ def update_HWRF_MoM(adate):
 
     # if it's processed early in the day, older Glofas file will be used
     if not os.path.exists(glofas_sum) or int(adate[8:10]) < 10:
-        glofas_latest = findLatestGlofas(settings.GLOFAS_DIR, adate, "csv")
+        glofas_latest = find_latest_glofas(settings.GLOFAS_DIR, adate, "csv")
         if glofas_latest:
             glofas_sum = os.path.join(settings.GLOFAS_DIR, glofas_latest)
             logging.warning(
@@ -653,15 +654,13 @@ def update_HWRF_MoM(adate):
 
 
 def find_latest_summary(datestr, scanfolder, namepattern, hours):
-    """find the latest summary data"""
+    """find the latest summary data (DFO), from the start day of the cycle
+    back; VIIRS: utilities.find_latest_viirs"""
 
     # NOTE (cron, to adjust): the day used depends on which summaries exist
     # when the job runs, so it follows the publication times and is not
     # reproducible (backfill/offline_mom_from_summaries.py replays it with a
     # fixed schedule). From the production logs (Sep-Oct 2026):
-    #  - VIIRS of D is written on D+1, normally by the 12:00 VIIRS run, at
-    #    times only at 17:00 or a day later; the 18 cycle (run at 19:00)
-    #    therefore never finds VIIRS of D, and the 00/06 cycles take D-2
     #  - DFO of D is written on D by the 03:00 DFO run, but the 06 and 12
     #    cycles (run at 07:00 / 13:00) only look from D-1 (startd below)
     # turn the datestr into a real date
@@ -704,8 +703,8 @@ def update_HWRFMoM_DFO_VIIRS(adate):
     )
     if dfo_date == "":
         return
-    [viirs_date, summary_viirs_all] = find_latest_summary(
-        datestr, settings.VIIRS_SUM_DIR, "VIIRS_Flood_{}.csv", hourstr
+    [viirs_date, summary_viirs_all] = find_latest_viirs(
+        settings.VIIRS_SUM_DIR, datestr, hourstr
     )
     if viirs_date == "":
         return

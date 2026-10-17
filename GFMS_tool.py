@@ -47,7 +47,7 @@ from GFMS_MoM import flood_severity
 # from HWRF_MoM import update_HWRF_MoM, update_HWRFMoM_DFO_VIIRS, final_alert_pdc
 from HWRF_MoM import hwrf_workflow
 import settings
-from utilities import findLatestGlofas, hwrf_today, watersheds_gdb_reader
+from utilities import find_latest_glofas, hwrf_today, watersheds_gdb_reader
 
 load_dotenv()
 WATERSHEDS = None
@@ -822,7 +822,7 @@ def _GFMS_processing(proc_dates_list, window_dir):
 
         # in case of glofascsv data is missing, use the latest
         if not os.path.exists(glofascsv):
-            glofas_latest = findLatestGlofas(settings.GLOFAS_DIR, data_date, "csv")
+            glofas_latest = find_latest_glofas(settings.GLOFAS_DIR, data_date, "csv")
             glofascsv = os.path.join(settings.GLOFAS_DIR, glofas_latest)
             logging.warning(
                 f"GloFAS threspoints_{data_date}.csv not published yet, falling "

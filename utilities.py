@@ -71,7 +71,7 @@ def hour_diff(adate1, adate2):
     return dhours
 
 
-def findLatestGlofas(apath, adate, atype):
+def find_latest_glofas(apath, adate, atype):
     """return the latest GloFAS file dated BEFORE adate (YYYYMMDD[HH])"""
     target = f"threspoints_{adate[:8]}00.{atype}"
     candidates = [
@@ -81,7 +81,7 @@ def findLatestGlofas(apath, adate, atype):
     ]
     return max(candidates) if candidates else ""
 
-def findLatestHwrf(apath, adate, atype):
+def find_latest_hwrf(apath, adate, atype):
     """return the latest HWRF rainfall file dated BEFORE adate (YYYYMMDDHH)"""
     target = f"hwrf.{adate[:10]}rainfall.{atype}"
     candidates = [
@@ -90,6 +90,22 @@ def findLatestHwrf(apath, adate, atype):
         if os.path.basename(f) < target
     ]
     return max(candidates) if candidates else ""
+
+
+def find_latest_viirs(apath, adate, hours):
+    """return [YYYYMMDD, path] of the latest VIIRS summary for an HWRF/HAFS
+    cycle (adate YYYYMMDD, hours its HH): from D-2 back for the 00/06
+    cycles, from D-1 back for the 12/18 cycles; ["", ""] if none"""
+    # VIIRS of D is published on D+1 (~10:00-11:15 UTC) and written by the
+    # 12:00 VIIRS run, at times only at 17:00 or a day later
+    da = datetime.strptime(adate[:8], "%Y%m%d")
+    startd = 2 if hours in ("00", "06") else 1
+    for i in range(startd, 10):
+        cdatestr = (da - timedelta(days=i)).strftime("%Y%m%d")
+        cfile = os.path.join(apath, f"VIIRS_Flood_{cdatestr}.csv")
+        if os.path.exists(cfile):
+            return [cdatestr, cfile]
+    return ["", ""]
 
 
 def get_latestitems(afolder, numofitems=7):
@@ -202,7 +218,7 @@ def main():
     print("{} - {} = {} hours".format(da1, da2, dhours))
 
     print("==> find latest")
-    lastest_csv = findLatestGlofas(settings.GLOFAS_SUM_DIR, da2, "csv")
+    lastest_csv = find_latest_glofas(settings.GLOFAS_SUM_DIR, da2, "csv")
     print(lastest_csv)
 
     print("==> get lastest items")
