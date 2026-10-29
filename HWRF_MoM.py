@@ -1273,9 +1273,9 @@ def final_alert_pdc(adate):
         print("drop FIDs column")
         PDC_Alert = PDC_Alert.drop(FIDcolumns, axis=1)
 
-    # Not culled: watersheds no source scored are published too, with an
-    # empty Alert.
-    # PDC_Alert = PDC_Alert[PDC_Alert["Hazard_Score"].fillna(0) != 0]
+    # The chain's only cull: a watershed is published when some source scored
+    # it, but it keeps every column it collected on the way here.
+    PDC_Alert = PDC_Alert[PDC_Alert["Hazard_Score"].fillna(0) != 0]
 
     PDC_Alert.to_csv(fAlert, encoding="Windows-1252")
     logging.info(f"generated final alert: {fAlert}")
