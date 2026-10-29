@@ -196,7 +196,7 @@ def update_VIIRS_MoM(adate):
         Attributes,
         PDC_resilience[["ISO", "Resilience_Index", " NormalizedLackofResilience "]],
         on="ISO",
-        how="inner",
+        how="left",
     )
     Final_Output = pd.merge(
         join1.set_index("pfaf_id"), Final_Output_0, on="pfaf_id", how="right"
@@ -250,7 +250,7 @@ def update_VIIRS_MoM(adate):
         Attributes,
         PDC_resilience[["ISO", "Resilience_Index", " NormalizedLackofResilience "]],
         on="ISO",
-        how="inner",
+        how="left",
     )
     Attributes_Clean_VIIRS_Updated = pd.merge(
         join1.set_index("pfaf_id"),
