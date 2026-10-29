@@ -111,6 +111,135 @@ def GloFAS_download():
     return job_list
 
 
+# station text fields, in file order before the country: fixed and dynamic
+# files order them differently
+GLOFAS_TEXT_FIELDS = {
+    False: ["Basin", "Location", "Station"],
+    True: ["Station", "Basin", "Location"],
+}
+
+
+def _is_number(value):
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
+
+
+def GloFAS_read_points(txt_file, dynamic=False):
+    """GloFAS stations of a threspoints (dynamic=False) or threspointsDyn
+    (dynamic=True) text file
+
+    The files are unquoted csv whose station and country names can hold
+    commas ("Moldova, Republic of", "Al Furat, Euphrates, Firat"), and the
+    position of lon/lat among the "-" placeholders varies from line to line,
+    so a line is read from its end: Alert_level, 20/5/2 yr EPS,
+    Days_until_peak, one unused number, then lon and lat as the two numbers
+    among the three fields before it, then upstream area, country code and
+    continent (a few dynamic lines have the country code one field later,
+    without the upstream area). The names are what lies between the station
+    ID and the continent. An empty or missing file has no stations."""
+    columns = (
+        ["Point No", "ID"]
+        + GLOFAS_TEXT_FIELDS[dynamic]
+        + ["Country", "Continent", "Country_code", "Upstream area", "Lon", "Lat"]
+        + ["Days_until_peak", "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr", "Alert_level"]
+    )
+    rows = []
+    if os.path.exists(txt_file):
+        with open(txt_file, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                raw = line.rstrip("\r\n").split(",")
+                p = [x.strip() for x in raw]
+                if len(p) < 18:
+                    if line.strip():
+                        logging.warning(f"GloFAS line skipped in {txt_file}: {line.strip()}")
+                    continue
+                lon, lat = [x for x in p[-9:-6] if _is_number(x)][:2]
+                if p[-10] in ("-", "NA") or _is_number(p[-10]):
+                    country_code, upstream = p[-11], p[-10]
+                else:
+                    country_code, upstream = p[-10], "-"
+                # a comma inside a name: the piece after it starts with a space
+                names = []
+                for piece, raw_piece in zip(p[2:-12], raw[2:-12]):
+                    if names and raw_piece.startswith(" "):
+                        names[-1] = names[-1] + ", " + piece
+                    else:
+                        names.append(piece)
+                country = names[-1]
+                text = names[:-1]
+                if len(text) > 3:
+                    text = [text[0], ", ".join(text[1:-1]), text[-1]]
+                text = text + ["-"] * (3 - len(text))
+                rows.append(
+                    [p[0], p[1]]
+                    + text
+                    + [country, p[-12], country_code, upstream, lon, lat]
+                    + p[-5:]
+                )
+    df = pd.DataFrame(rows, columns=columns)
+    numeric = ["Point No", "Lon", "Lat", "Days_until_peak", "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr", "Alert_level"]
+    df[numeric] = df[numeric].apply(pd.to_numeric)
+    # "NA" and "-" when not known
+    df["Upstream area"] = pd.to_numeric(df["Upstream area"], errors="coerce")
+    df = df.astype({"Point No": int, "Days_until_peak": int, "Alert_level": int})
+    return df
+
+
+def GloFAS_stations(fixed_sites, dyn_sites, data_date):
+    """the fixed and dynamic GloFAS stations of data_date with the pfaf_id of
+    the watershed they are in"""
+    global WATERSHEDS
+    if WATERSHEDS is None:
+        WATERSHEDS = watersheds_gdb_reader()
+
+    fixed_data = GloFAS_read_points(fixed_sites, dynamic=False)
+    dyn_data = GloFAS_read_points(dyn_sites, dynamic=True)
+    logging.info(
+        f"GloFAS {data_date}: {len(fixed_data)} fixed, {len(dyn_data)} dynamic stations"
+    )
+    total_data = pd.concat([fixed_data, dyn_data], ignore_index=True)
+
+    # create a geopanda dataset
+    gdf = geopandas.GeoDataFrame(
+        total_data,
+        geometry=geopandas.points_from_xy(total_data.Lon, total_data.Lat),
+    )
+    gdf.crs = "EPSG:4326"
+    # generate sindex
+    gdf.sindex
+
+    # sjoin
+    gdf_watersheds = geopandas.sjoin(gdf, WATERSHEDS, predicate="within")
+    gdf_watersheds.rename(columns={"index_right": "pfaf_id"}, inplace=True)
+
+    forcast_time = datetime.strptime(data_date[:8], "%Y%m%d")
+    # add column "Forecast Date"
+    gdf_watersheds["Forecast Date"] = forcast_time.isoformat()
+
+    # convert "GloFAS_2yr","GloFAS_5yr","GloFAS_20y" to 0~100
+    if gdf_watersheds["GloFAS_2yr"].max() <= 1.0:
+        gdf_watersheds["GloFAS_2yr"] = gdf_watersheds["GloFAS_2yr"] * 100
+        gdf_watersheds["GloFAS_5yr"] = gdf_watersheds["GloFAS_5yr"] * 100
+        gdf_watersheds["GloFAS_20yr"] = gdf_watersheds["GloFAS_20yr"] * 100
+    gdf_watersheds = gdf_watersheds.astype(
+        {"GloFAS_2yr": int, "GloFAS_5yr": int, "GloFAS_20yr": int}
+    )
+
+    # fill max_EPS
+    gdf_watersheds["max_EPS"] = gdf_watersheds.apply(
+        lambda row: str(row["GloFAS_2yr"])
+        + "/"
+        + str(row["GloFAS_5yr"])
+        + "/"
+        + str(row["GloFAS_20yr"]),
+        axis=1,
+    )
+    return gdf_watersheds
+
+
 def GloFAS_process():
     """process glofas data"""
 
@@ -119,11 +248,6 @@ def GloFAS_process():
     if len(processing_dates) == 0:
         logging.info("no new glofas file to process!")
         sys.exit()
-
-    # load watersheds data
-    global WATERSHEDS  # declare global before potential Write
-    if WATERSHEDS is None:
-        WATERSHEDS = watersheds_gdb_reader()
 
     for data_date in processing_dates:
 
@@ -142,147 +266,7 @@ def GloFAS_process():
         dyn_sites = os.path.join(
             settings.GLOFAS_PROC_DIR, "threspointsDyn_" + data_date + ".txt"
         )
-        # read fixed station data
-        header_fixed_19 = [
-            "Point No",
-            "ID",
-            "Basin",
-            "Location",
-            "Station",
-            "Country",
-            "Continent",
-            "Country_code",
-            "Upstream area",
-            "unknown_1",
-            "Lon",
-            "Lat",
-            "empty",
-            "unknown_2",
-            "Days_until_peak",
-            "GloFAS_2yr",
-            "GloFAS_5yr",
-            "GloFAS_20yr",
-            "Alert_level",
-        ]
-        header_fixed_18 = [
-            "Point No",
-            "ID",
-            "Basin",
-            "Location",
-            "Station",
-            "Country",
-            "Continent",
-            "Country_code",
-            "Upstream area",
-            "Lon",
-            "Lat",
-            "empty",
-            "unknown_2",
-            "Days_until_peak",
-            "GloFAS_2yr",
-            "GloFAS_5yr",
-            "GloFAS_20yr",
-            "Alert_level",
-        ]
-        fixed_data = pd.read_csv(fixed_sites, header=None, on_bad_lines="skip")
-        fixed_data_col = len(fixed_data.axes[1])
-        if fixed_data_col == 19:
-            fixed_data.columns = header_fixed_19
-        elif fixed_data_col == 18:
-            fixed_data.columns = header_fixed_18
-
-        # read dynamic station data
-        header_dyn_19 = [
-            "Point No",
-            "ID",
-            "Station",
-            "Basin",
-            "Location",
-            "Country",
-            "Continent",
-            "Country_code",
-            "unknown_1",
-            "Upstream area",
-            "Lon",
-            "Lat",
-            "empty",
-            "unknown_2",
-            "Days_until_peak",
-            "GloFAS_2yr",
-            "GloFAS_5yr",
-            "GloFAS_20yr",
-            "Alert_level",
-        ]
-        header_dyn_18 = [
-            "Point No",
-            "ID",
-            "Station",
-            "Basin",
-            "Location",
-            "Country",
-            "Continent",
-            "Country_code",
-            "Upstream area",
-            "Lon",
-            "Lat",
-            "empty",
-            "unknown_2",
-            "Days_until_peak",
-            "GloFAS_2yr",
-            "GloFAS_5yr",
-            "GloFAS_20yr",
-            "Alert_level",
-        ]
-        dyn_data = pd.read_csv(dyn_sites, header=None, on_bad_lines="skip")
-        dyn_data_col = len(dyn_data.axes[1])
-        if dyn_data_col == 19:
-            dyn_data.columns = header_dyn_19
-        elif dyn_data_col == 18:
-            dyn_data.columns = header_dyn_18
-
-        # merge two datasets with same headers list
-        if fixed_data_col == dyn_data_col:
-            total_data = pd.concat([fixed_data, dyn_data], sort=True)
-        else:
-            total_data = fixed_data
-            print("dyn_data is ignored")
-
-        # create a geopanda dataset
-        gdf = geopandas.GeoDataFrame(
-            total_data,
-            geometry=geopandas.points_from_xy(total_data.Lon, total_data.Lat),
-        )
-        gdf.crs = "EPSG:4326"
-        # generate sindex
-        gdf.sindex
-
-        # sjoin
-        gdf_watersheds = geopandas.sjoin(gdf, WATERSHEDS, predicate="within")
-        gdf_watersheds.rename(columns={"index_right": "pfaf_id"}, inplace=True)
-
-        forcast_time = (fixed_sites.split("_")[1]).replace("00.txt", "")
-        forcast_time = datetime.strptime(forcast_time, "%Y%m%d")
-        # add column "Forecast Date"
-        gdf_watersheds["Forecast Date"] = forcast_time.isoformat()
-
-        # convert "GloFAS_2yr","GloFAS_5yr","GloFAS_20y" to 0~100
-        if gdf_watersheds["GloFAS_2yr"].max() <= 1.0:
-            gdf_watersheds["GloFAS_2yr"] = gdf_watersheds["GloFAS_2yr"] * 100
-            gdf_watersheds["GloFAS_5yr"] = gdf_watersheds["GloFAS_5yr"] * 100
-            gdf_watersheds["GloFAS_20yr"] = gdf_watersheds["GloFAS_20yr"] * 100
-        gdf_watersheds = gdf_watersheds.astype(
-            {"GloFAS_2yr": int, "GloFAS_5yr": int, "GloFAS_20yr": int}
-        )
-
-        # fill max_EPS
-        gdf_watersheds["max_EPS"] = gdf_watersheds.apply(
-            lambda row: str(row["GloFAS_2yr"])
-            + "/"
-            + str(row["GloFAS_5yr"])
-            + "/"
-            + str(row["GloFAS_20yr"]),
-            axis=1,
-        )
+        gdf_watersheds = GloFAS_stations(fixed_sites, dyn_sites, data_date)
 
         # write out csv file
         out_columns = [
