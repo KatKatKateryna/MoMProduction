@@ -297,11 +297,13 @@ def flood_severity(GFMS_Table, GloFas_Table, adate):
     PDC_resilience = read_data(
         os.path.join(settings.BASE_DIR, "data", "Resilience_Index.csv")
     )
+    # left, not inner: an inner join dropped the 21 watersheds whose ISO is
+    # missing from Resilience_Index.csv (as in HWRF_MoM)
     join1 = pd.merge(
         Attributes,
         PDC_resilience[["ISO", "Resilience_Index", " NormalizedLackofResilience "]],
         on="ISO",
-        how="inner",
+        how="left",
     )
     Final_Attributes = pd.merge(
         join1.set_index("pfaf_id"), join, on="pfaf_id", how="outer"
