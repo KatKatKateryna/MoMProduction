@@ -63,6 +63,20 @@ GFMS_WINDOW_HOURS = 96
 # from progressbar import progress
 
 
+def _glofas_station_lines(txt_file):
+    """the number of lines of a GloFAS text file that are stations (18 or
+    more fields ending in the alert level); 0 for a missing file"""
+    if not os.path.exists(txt_file):
+        return 0
+    count = 0
+    with open(txt_file, "r", encoding="utf-8", errors="replace") as f:
+        for line in f:
+            p = line.strip().split(",")
+            if len(p) >= 18 and p[-1].strip().isdigit():
+                count += 1
+    return count
+
+
 def GloFAS_download():
     """download glofas data from ftp"""
     ftpsite = {}
@@ -104,8 +118,17 @@ def GloFAS_download():
         if "threspoints_" in txt:
             job_list.append((txt.split(".")[0]).replace("threspoints_", ""))
 
-        with open(save_txt, "wb") as fp:
+        # downloaded next to it first: a file without station lines (empty,
+        # blank, an error page) never replaces a local copy that has some;
+        # a file with any station line always replaces it
+        tmp_txt = save_txt + ".part"
+        with open(tmp_txt, "wb") as fp:
             ftp.retrbinary("RETR " + txt, fp.write)
+        if _glofas_station_lines(tmp_txt) == 0 and _glofas_station_lines(save_txt) > 0:
+            logging.warning(f"GloFAS host sent {txt} without stations, keeping the local copy")
+            os.remove(tmp_txt)
+        else:
+            os.replace(tmp_txt, save_txt)
 
     ftp.quit()
     return job_list
