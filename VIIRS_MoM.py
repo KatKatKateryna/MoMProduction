@@ -10,12 +10,10 @@ import logging
 import os
 import sys
 
-import numpy as np
 import pandas as pd
-import scipy.stats
 
 import settings
-from utilities import read_data
+from utilities import read_data, severity_from_hazard_and_risk_scores
 
 
 def mofunc_viirs(row):
@@ -208,7 +206,9 @@ def update_VIIRS_MoM(adate):
     Final_Output["Hazard_Score"] = Final_Output[
         ["Hazard_Score", "VIIRSTotal_Score"]
     ].max(axis=1)
-    Final_Output = Final_Output[Final_Output.Hazard_Score != 0]
+    # Kept: dropping these also lost the GloFAS/GFMS columns of watersheds
+    # a later source keeps. Culled once, at the end of final_alert_pdc.
+    # Final_Output = Final_Output[Final_Output.Hazard_Score != 0]
     Final_Output.drop(
         Final_Output.index[
             (Final_Output["rfr_score"] == 0) & (Final_Output["cfr_score"] == 0)
@@ -230,17 +230,7 @@ def update_VIIRS_MoM(adate):
     ]
     Final_Output[cols] = Final_Output[cols].apply(pd.to_numeric, errors="coerce")
     
-    Final_Output = Final_Output.assign(
-        Severity=lambda x: scipy.stats.norm(
-            np.log(
-                100
-                - Final_Output[["Scaled_Riverine_Risk", "Scaled_Coastal_Risk"]].max(
-                    axis=1
-                )
-            ),
-            1,
-        ).cdf(np.log(Final_Output["Hazard_Score"]))
-    )
+    Final_Output["Severity"] = severity_from_hazard_and_risk_scores(Final_Output)
     Final_Output["Alert"] = Final_Output.apply(mofunc_viirs, axis=1)
     Final_Output["Flag"] = Final_Output["Flag"].astype(object)
     Final_Output.loc[Final_Output["Alert"] == "Information", "Flag"] = ""

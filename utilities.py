@@ -12,8 +12,10 @@ import re
 from datetime import date, datetime, timedelta, timezone
 
 import geopandas
+import numpy as np
 import pandas as pd
 import requests
+import scipy.stats
 
 import settings
 
@@ -48,6 +50,23 @@ def read_data(datafile) -> pd.DataFrame:
     df = pd.read_csv(datafile)
     # df = pd.DataFrame(df)
     return df
+
+
+def severity_from_hazard_and_risk_scores(df):
+    """Severity of each row of df, from its Hazard_Score and the larger of its
+    Scaled_Riverine_Risk and Scaled_Coastal_Risk"""
+    # Hazard 0 means no hazard: Severity 0, the formula only for Hazard > 0
+    scored = df["Hazard_Score"] != 0
+    result = pd.Series(0.0, index=df.index)
+    result[scored] = scipy.stats.norm(
+        # Risk 100 (score 5): ln(0) = -inf, numpy warns, and Severity is 1 for any Hazard > 0
+        np.log(
+            100
+            - df.loc[scored, ["Scaled_Riverine_Risk", "Scaled_Coastal_Risk"]].max(axis=1)
+        ),
+        1,
+    ).cdf(np.log(df.loc[scored, "Hazard_Score"]))
+    return result
 
 
 def from_today(adate):

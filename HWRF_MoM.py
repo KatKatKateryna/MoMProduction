@@ -12,7 +12,6 @@ from datetime import date, datetime, timedelta, timezone
 import numpy as np
 import pandas as pd
 import requests
-import scipy.stats
 
 import settings
 from GFMS_MoM import gfms_scores
@@ -24,14 +23,9 @@ from utilities import (
     hafs_storms,
     hwrf_today,
     read_data,
+    severity_from_hazard_and_risk_scores,
     write_empty_rain_summary,
 )
-
-
-def _log_hazard(scores):
-    # Hazard_Score 0 is "no hazard": log(0) = -inf gives Severity 0, quietly.
-    with np.errstate(divide="ignore"):
-        return np.log(scores)
 
 
 def mofunc_hwrf(row):
@@ -614,17 +608,7 @@ def update_HWRF_MoM(adate):
         pd.to_numeric, errors="coerce"
     )
 
-    Final_Attributes = Final_Attributes.assign(
-        Severity=lambda x: scipy.stats.norm(
-            np.log(
-                100
-                - Final_Attributes[["Scaled_Riverine_Risk", "Scaled_Coastal_Risk"]].max(
-                    axis=1
-                )
-            ),
-            1,
-        ).cdf(_log_hazard(Final_Attributes["Hazard_Score"]))
-    )
+    Final_Attributes["Severity"] = severity_from_hazard_and_risk_scores(Final_Attributes)
     Final_Attributes["Alert"] = Final_Attributes.apply(mofunc_hwrf, axis=1)
     # Final_Attributes["Flag"] = Final_Attributes["Flag"].astype(object)
     Final_Attributes.loc[Final_Attributes["Alert"] == "Information", "Flag"] = ""
@@ -924,17 +908,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
     ]
     Final_Output[cols] = Final_Output[cols].apply(pd.to_numeric, errors="coerce")
 
-    Final_Output = Final_Output.assign(
-        Severity=lambda x: scipy.stats.norm(
-            np.log(
-                100
-                - Final_Output[["Scaled_Riverine_Risk", "Scaled_Coastal_Risk"]].max(
-                    axis=1
-                )
-            ),
-            1,
-        ).cdf(_log_hazard(Final_Output["Hazard_Score"]))
-    )
+    Final_Output["Severity"] = severity_from_hazard_and_risk_scores(Final_Output)
     Final_Output["Alert"] = Final_Output.apply(mofunc_dfo, axis=1)
     Final_Output["Flag"] = Final_Output["Flag"].astype(object)
     Final_Output.loc[Final_Output["Alert"] == "Information", "Flag"] = ""
@@ -1130,17 +1104,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
     ]
     Final_Output[cols] = Final_Output[cols].apply(pd.to_numeric, errors="coerce")
 
-    Final_Output = Final_Output.assign(
-        Severity=lambda x: scipy.stats.norm(
-            np.log(
-                100
-                - Final_Output[["Scaled_Riverine_Risk", "Scaled_Coastal_Risk"]].max(
-                    axis=1
-                )
-            ),
-            1,
-        ).cdf(_log_hazard(Final_Output["Hazard_Score"]))
-    )
+    Final_Output["Severity"] = severity_from_hazard_and_risk_scores(Final_Output)
     Final_Output["Alert"] = Final_Output.apply(mofunc_viirs, axis=1)
     Final_Output["Flag"] = Final_Output["Flag"].astype(object)
     Final_Output.loc[Final_Output["Alert"] == "Information", "Flag"] = ""
@@ -1309,9 +1273,9 @@ def final_alert_pdc(adate):
         print("drop FIDs column")
         PDC_Alert = PDC_Alert.drop(FIDcolumns, axis=1)
 
-    # The chain's only cull: a watershed is published when some source scored
-    # it, but it keeps every column it collected on the way here.
-    PDC_Alert = PDC_Alert[PDC_Alert["Hazard_Score"].fillna(0) != 0]
+    # Not culled: watersheds no source scored are published too, with an
+    # empty Alert.
+    # PDC_Alert = PDC_Alert[PDC_Alert["Hazard_Score"].fillna(0) != 0]
 
     PDC_Alert.to_csv(fAlert, encoding="Windows-1252")
     logging.info(f"generated final alert: {fAlert}")

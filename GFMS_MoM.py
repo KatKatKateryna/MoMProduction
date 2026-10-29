@@ -2,13 +2,10 @@ import csv
 import os
 
 import logging
-import numpy as np
 import pandas as pd
-import scipy.stats
 
 import settings
-from utilities import read_data
-
+from utilities import read_data, severity_from_hazard_and_risk_scores
 
 GFMS_SCORE_FIELDS = [
     "GFMS_area_score",
@@ -324,7 +321,9 @@ def flood_severity(GFMS_Table, GloFas_Table, adate):
     )
     # Final_Attributes = Final_Attributes.assign(
     # Scaled_Riverine_Risk=lambda x: Final_Attributes['rfr_score'] * 20 * Final_Attributes[' NormalizedLackofResilience '])
-    Final_Attributes = Final_Attributes[Final_Attributes.Hazard_Score != 0]
+    # Kept: dropping these also lost the GloFAS/GFMS columns of watersheds
+    # a later source keeps. Culled once, at the end of final_alert_pdc.
+    # Final_Attributes = Final_Attributes[Final_Attributes.Hazard_Score != 0]
     Final_Attributes.drop(
         Final_Attributes.index[
             (Final_Attributes["rfr_score"] == 0) & (Final_Attributes["cfr_score"] == 0)
@@ -337,7 +336,9 @@ def flood_severity(GFMS_Table, GloFas_Table, adate):
     Final_Attributes = Final_Attributes.assign(
         Scaled_Coastal_Risk=lambda x: Final_Attributes["cfr_score"] * 20
     )
-    Final_Attributes = Final_Attributes[Final_Attributes.Hazard_Score != 0]
+    # Kept: dropping these also lost the GloFAS/GFMS columns of watersheds
+    # a later source keeps. Culled once, at the end of final_alert_pdc.
+    # Final_Attributes = Final_Attributes[Final_Attributes.Hazard_Score != 0]
     
     ################# TypeError: loop of ufunc does not support argument 0 of type float which has no callable log method
     
@@ -351,17 +352,7 @@ def flood_severity(GFMS_Table, GloFas_Table, adate):
     ]
     Final_Attributes[cols] = Final_Attributes[cols].apply(pd.to_numeric, errors="coerce")
 
-    Final_Attributes = Final_Attributes.assign(
-        Severity=lambda x: scipy.stats.norm(
-            np.log(
-                100
-                - Final_Attributes[["Scaled_Riverine_Risk", "Scaled_Coastal_Risk"]].max(
-                    axis=1
-                )
-            ),
-            1,
-        ).cdf(np.log(Final_Attributes["Hazard_Score"]))
-    )
+    Final_Attributes["Severity"] = severity_from_hazard_and_risk_scores(Final_Attributes)
 
     Final_Attributes["Alert"] = Final_Attributes.apply(mofunc_gfms, axis=1)
     # Final_Attributes['Mod_Alert'] = Final_Attributes.apply(func, axis=1)
