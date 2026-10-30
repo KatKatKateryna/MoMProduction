@@ -40,6 +40,16 @@ from HWRF_MoM import batchrun_HWRF_MoM
 from HWRF_tool import HWRF_cron
 from VIIRS_MoM import batchrun_VIIRS_MoM
 from VIIRS_tool import VIIRS_cron
+from utilities import run_label
+
+# the cron schedule of each job, as first_setup/setup_crontab.sh installs it
+CRON_SCHEDULE = {
+    "GFMS": [4, 11, 14, 21],
+    "HWRF": [2, 7, 13, 19],
+    "DFO": [3, 10, 23],
+    "VIIRS": [5, 12, 17],
+    "HAFS": ["02:30", "07:30", "13:30", "19:30"],
+}
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -78,7 +88,7 @@ def _getParser():
 
 def run_job(cronjob):
     """run various cron job"""
-    logging.info(f"run {cronjob}")
+    logging.info(f"run {cronjob} ({run_label(CRON_SCHEDULE.get(cronjob, []))})")
     logging.info(f"main PID: {os.getpid()}")
     if cronjob == "GFMS":
         GFMS_cron()

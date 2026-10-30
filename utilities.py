@@ -80,6 +80,35 @@ def from_today(adate):
     return delta.days
 
 
+def is_cron_time(schedule, now=None, minutes=5):
+    """True if now is at a time of schedule or up to minutes after it (cron
+    starts a job at its minute, never before): hours (5) or "HH:MM" ("13:30"),
+    in the server's local time as cron reads them"""
+    now = now or datetime.now()
+    now_min = now.hour * 60 + now.minute
+    for t in schedule:
+        hour, minute = (int(x) for x in str(t).split(":")) if ":" in str(t) else (int(t), 0)
+        # minutes since the scheduled time; across midnight 0:02 is 4 after 23:58
+        if (now_min - (hour * 60 + minute)) % (24 * 60) <= minutes:
+            return True
+    return False
+
+
+def run_label(schedule, now=None):
+    """"cronjob_HHMM_YYYYMMDDTHHMM" (the scheduled time) for a run at a time
+    of schedule, otherwise "backfill_YYYYMMDDTHHMM" (the time now)"""
+    now = now or datetime.now()
+    for t in schedule:
+        if is_cron_time([t], now):
+            hour, minute = (int(x) for x in str(t).split(":")) if ":" in str(t) else (int(t), 0)
+            # the scheduled time at or before now: across midnight, the day before
+            scheduled = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            if scheduled > now:
+                scheduled -= timedelta(days=1)
+            return f"cronjob_{scheduled:%H%M}_{scheduled:%Y%m%dT%H%M}"
+    return f"backfill_{now:%Y%m%dT%H%M}"
+
+
 def hour_diff(adate1, adate2):
     """find the hour difference bewteen to date string"""
     # data format YYYYMMDDHH
