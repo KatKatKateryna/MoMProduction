@@ -26,6 +26,15 @@ import settings
 
 load_dotenv()
 
+# setting GITHUB_REPO / GITHUB_ALERTS_TOKEN on Linux:
+#   - for cron: add them to .env in the repository root, which
+#     load_dotenv() above reads; cron jobs do not load ~/.bashrc or ~/.profile
+#         GITHUB_REPO=owner/name
+#         GITHUB_ALERTS_TOKEN=github_pat_...
+#   - for the current shell only (e.g. a manual --dry-run):
+#         export GITHUB_REPO=owner/name
+#         export GITHUB_ALERTS_TOKEN=github_pat_...
+
 API = "https://api.github.com"
 REPO = os.getenv("GITHUB_REPO")
 BRANCH = "main"
