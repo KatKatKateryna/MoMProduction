@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 
 $RepoUrl = "https://github.com/Blu-H/MoMProduction.git"
 $RepoDir = "$HOME\MoMProduction"
-$RepoBranch = "dev"
+$RepoBranch = "prod"
 $PythonVersionRequired = "3.12"
 
 Set-TimeZone -Id "UTC"

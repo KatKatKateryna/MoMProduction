@@ -19,7 +19,7 @@
 set -euo pipefail
 
 CONDA_SH="${CONDA_SH:-$(conda info --base 2>/dev/null || echo "$HOME/miniconda3")/etc/profile.d/conda.sh}"
-CONDA_ENV="${CONDA_ENV:-myenv}"
+CONDA_ENV="${CONDA_ENV:-momenv}"
 # default: the folder of this script (the repository root)
 PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 

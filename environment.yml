@@ -1,4 +1,4 @@
-name: myenv
+name: momenv
 channels:
   - conda-forge
 dependencies:

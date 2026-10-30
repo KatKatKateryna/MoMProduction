@@ -7,15 +7,15 @@ set -o pipefail
 # CONFIG
 ############################
 
-REPO_URL="https://github.com/KatKatKateryna/MoMProduction.git"
+REPO_URL="https://github.com/Blu-H/MoMProduction.git"
 REPO_DIR="$HOME/MoMProduction"
-REPO_BRANCH="db_structure"
+REPO_BRANCH="prod"
 if command -v conda >/dev/null 2>&1; then
     CONDA_DIR="$(conda info --base)"
 else
     CONDA_DIR="$HOME/miniconda3"
 fi
-CONDA_ENV_NAME="myenv"
+CONDA_ENV_NAME="momenv"
 MINICONDA_INSTALLER="Miniconda3-latest-Linux-x86_64.sh"
 MINICONDA_URL="https://repo.anaconda.com/miniconda/$MINICONDA_INSTALLER"
 
@@ -60,11 +60,7 @@ if [ "$IS_GITHUB_ACTIONS" = false ]; then
 
     if [ ! -d "$REPO_DIR/.git" ]; then
         echo "Cloning repository..."
-        cd "$HOME"
-        git clone "$REPO_URL"
-        cd "$REPO_DIR"
-        git switch "$REPO_BRANCH"
-        cd "$HOME"
+        git clone --branch "$REPO_BRANCH" --single-branch --depth 1 "$REPO_URL" "$REPO_DIR"
     else
         echo "Repository exists. Resetting to origin/$REPO_BRANCH..."
         cd "$REPO_DIR"
@@ -132,13 +128,19 @@ fi
 conda activate "$CONDA_ENV_NAME"
 
 echo "Installing libgdal-hdf4 in environment..."
-conda install -c conda-forge libgdal-hdf4 -y
+conda install -c conda-forge libgdal-hdf4=3.12.2 --no-update-deps -y
 
 ############################
 # RUN INITIALIZE.PY
 ############################
 
-python initialize.py
+python initialize.py # make sure MoM folder is created
+
+############################
+# Run NGINX server for MoM data
+############################
+
+sudo bash ./first_setup/install_nginx_mom_prod.sh
 
 ############################
 # TODO: replace env vars
