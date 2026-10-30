@@ -22,6 +22,9 @@ import logging
 import os
 import sys
 
+# point PROJ at GDAL's own proj.db in a Windows .venv; before any PROJ-dependent import
+import processing.proj_env  # noqa: F401
+
 # needed to add gdal tp PATH, so that "gdal" console commands are accessible through os.system or subprocess
 # even in the modules that don't import Python gdal bindings (especially for Windows .venv)
 from osgeo import gdal

@@ -3,10 +3,11 @@ gfms_cells.py
     -- fast GFMS per-watershed summaries from a precomputed cell lookup
 
     GFMS_extract_by_watershed cuts the GFMS grid out once per watershed
-    (~5,000 rasterio masks, ~5 minutes per 3-hourly file). The cells each
+    (~5,000 cut-outs, ~5 minutes per 3-hourly file). The cells each
     watershed covers never change, so they are computed once here, with the
-    same masking (rasterio.mask, crop=True, pixel centres), and saved with the
-    cell areas to data/gfms_watershed_cells.npz. A summary then reads the grid
+    same masking (cell_shares: every cell the watershed overlaps, weighted by
+    the exact share of the cell inside it), and saved with the covered cell
+    areas to data/gfms_watershed_cells.npz. A summary then reads the grid
     once and takes each watershed's cells from the lookup.
 
     Every cell inside a watershed is kept in the lookup, whatever its value;
@@ -14,8 +15,8 @@ gfms_cells.py
     the file's nodata), so cells that are dry, wet or missing on a given day
     are all handled. The summary rows are identical to the original ones.
 
-    With the switch on, the first GFMS run builds the lookup (~3 minutes) and
-    rebuilds it when the watershed shapefile changes. It is only used for a
+    With the switch on, the first GFMS run builds the lookup (~2 minutes) and
+    rebuilds it when the watershed shapefile or MASK_METHOD changes. It is only used for a
     file with the same GFMS grid (size, position, cell size); otherwise, or if
     the build fails, GFMS falls back to the original per-watershed masks.
     The file is generated, not kept in git.
@@ -26,31 +27,30 @@ gfms_cells.py
     python -m processing.gfms.gfms_cells    # build (or rebuild) the lookup by hand
 """
 
-import json
 import logging
 import math
 import os
 import sys
 import time
 
-import geopandas
 import numpy as np
-import pandas as pd
 import rasterio
+import shapely
 from rasterio import Affine
-from rasterio.io import MemoryFile
-from rasterio.mask import mask
 
 import settings
 from processing.utilities import shapefile_fingerprint, watersheds_gdb_reader
 
 CELLS_FILE = os.path.join(settings.BASE_DATA_DIR, "gfms_watershed_cells.npz")
 
-# the GFMS grid as GFMS_download writes it in the .vrt
-GRID_WIDTH = 4916
-GRID_HEIGHT = 1600
-GRID_TRANSFORM = Affine(0.0625, 0.0, -127.25, 0.0, -0.0625, 50.0)
+# the GFMS grid as GFMS_download writes it in the .vrt (the bin's own grid)
+GRID_WIDTH = 2458
+GRID_HEIGHT = 800
+GRID_TRANSFORM = Affine(0.125, 0.0, -127.25, 0.0, -0.125, 50.0)
 GRID_NODATA = -9999.0
+
+# saved in the lookup: one built with another masking is rebuilt
+MASK_METHOD = "exact cell shares"
 
 _LOOKUP = None
 
@@ -59,49 +59,56 @@ def grid_signature(width, height, transform):
     return [int(width), int(height)] + [float(x) for x in tuple(transform)[:6]]
 
 
+def cell_shares(geometry, transform, width, height):
+    """row, col and share (0-1] of every grid cell the geometry overlaps: the
+    exact part of the cell's area inside the geometry, 1 for inner cells"""
+    minx, miny, maxx, maxy = geometry.bounds
+    col0 = max(int(math.floor((minx - transform.c) / transform.a)), 0)
+    col1 = min(int(math.ceil((maxx - transform.c) / transform.a)), width)
+    row0 = max(int(math.floor((maxy - transform.f) / transform.e)), 0)
+    row1 = min(int(math.ceil((miny - transform.f) / transform.e)), height)
+    if col0 >= col1 or row0 >= row1:
+        # outside the grid
+        return np.zeros(0, np.int64), np.zeros(0, np.int64), np.zeros(0)
+    rows, cols = np.mgrid[row0:row1, col0:col1]
+    rows, cols = rows.ravel(), cols.ravel()
+    left = transform.c + cols * transform.a
+    top = transform.f + rows * transform.e
+    boxes = shapely.box(left, top + transform.e, left + transform.a, top)
+    shapely.prepare(geometry)
+    overlap = shapely.intersects(geometry, boxes)
+    rows, cols, boxes = rows[overlap], cols[overlap], boxes[overlap]
+    shares = np.ones(len(boxes))
+    # the intersection is only computed for the cells on the boundary
+    edge = ~shapely.contains_properly(geometry, boxes)
+    cell_area = transform.a * -transform.e
+    shares[edge] = shapely.area(shapely.intersection(boxes[edge], geometry)) / cell_area
+    # cells only touching the geometry along an edge or corner cover nothing
+    keep = shares > 0
+    return rows[keep], cols[keep], np.minimum(shares[keep], 1.0)
+
+
+def covered_areas(rows, shares, transform):
+    """km2 of the cells covered by the geometry, at the cell centre latitude"""
+    lats = transform.f + (rows + 0.5) * transform.e
+    return 111.111 * 111.111 * np.cos(lats * (math.pi / 180.0)) * transform.a * -transform.e * shares
+
+
 def build():
-    """cells and cell areas of every watershed, with the original masking"""
+    """cells and covered cell areas of every watershed (cell_shares)"""
     watersheds = watersheds_gdb_reader()
     pfaf_ids = watersheds.index.tolist()
-    profile = {
-        "driver": "GTiff", "width": GRID_WIDTH, "height": GRID_HEIGHT, "count": 1,
-        "dtype": "float32", "crs": "EPSG:4326", "transform": GRID_TRANSFORM,
-        "nodata": GRID_NODATA,
-    }
-    # every cell valid, so the mask alone decides which cells are kept
-    full = np.ones((GRID_HEIGHT, GRID_WIDTH), np.float32)
 
     offsets = [0]
     cells, areas = [], []
     t0 = time.monotonic()
-    with MemoryFile() as memfile:
-        with memfile.open(**profile) as dst:
-            dst.write(full, 1)
-        with memfile.open() as src:
-            px, py = src.res
-            for pfaf_id in pfaf_ids:
-                # same geometry hand-over and mask call as GFMS_extract_by_mask
-                mask_json = json.loads(
-                    geopandas.GeoSeries([watersheds.loc[pfaf_id, "geometry"]]).to_json()
-                )
-                try:
-                    out_image, out_transform = mask(
-                        src, [mask_json["features"][0]["geometry"]], crop=True
-                    )
-                except ValueError:
-                    # 'Input shapes do not overlap raster.'
-                    offsets.append(offsets[-1])
-                    continue
-                data = out_image[0]
-                row, col = np.where(data != src.nodata)
-                T1 = out_transform * Affine.translation(0.5, 0.5)
-                lons, lats = T1 * (col, row)
-                area = 111.111 * 111.111 * np.cos(lats * (math.pi / 180.0)) * px * py
-                row_off = int(round((out_transform.f - GRID_TRANSFORM.f) / GRID_TRANSFORM.e))
-                col_off = int(round((out_transform.c - GRID_TRANSFORM.c) / GRID_TRANSFORM.a))
-                cells.append((row + row_off).astype(np.int64) * GRID_WIDTH + (col + col_off))
-                areas.append(np.asarray(area, np.float64))
-                offsets.append(offsets[-1] + len(row))
+    for pfaf_id in pfaf_ids:
+        row, col, shares = cell_shares(
+            watersheds.loc[pfaf_id, "geometry"], GRID_TRANSFORM, GRID_WIDTH, GRID_HEIGHT
+        )
+        cells.append(row * GRID_WIDTH + col)
+        areas.append(covered_areas(row, shares, GRID_TRANSFORM))
+        offsets.append(offsets[-1] + len(row))
 
     # unique name: two GFMS processes may build at the same time
     tmp = f"{CELLS_FILE}.{os.getpid()}.part.npz"
@@ -113,6 +120,7 @@ def build():
         areas=np.concatenate(areas) if areas else np.zeros(0, np.float64),
         grid=np.asarray(grid_signature(GRID_WIDTH, GRID_HEIGHT, GRID_TRANSFORM)),
         shapefile=np.asarray(shapefile_fingerprint()),
+        method=np.asarray(MASK_METHOD),
     )
     os.replace(tmp, CELLS_FILE)
     logging.info(f"GFMS cell lookup saved: {CELLS_FILE}, {len(pfaf_ids)} watersheds, "
@@ -127,6 +135,12 @@ def read_lookup():
         lookup = {k: z[k] for k in z.files}
     if str(lookup["shapefile"]) != shapefile_fingerprint():
         logging.info("GFMS cell lookup was built for another watershed shapefile")
+        return None
+    if str(lookup.get("method", "pixel centres")) != MASK_METHOD:
+        logging.info("GFMS cell lookup was built with another masking")
+        return None
+    if lookup["grid"].tolist() != grid_signature(GRID_WIDTH, GRID_HEIGHT, GRID_TRANSFORM):
+        logging.info("GFMS cell lookup was built for another grid")
         return None
     return lookup
 
@@ -178,17 +192,16 @@ def summary_rows(vrt_file, watersheds):
         GFMS_MaxDepth = 0.0
         GFMS_Duration = 0
         if valid.any():
-            data_points = pd.DataFrame(
-                {"intensity": values[valid], "area": areas[s:e][valid]}
-            )
-            GFMS_TotalArea = data_points["area"].sum()
+            depth, area = values[valid], areas[s:e][valid]
+            GFMS_TotalArea = area.sum()
             if GFMS_TotalArea > 100.0:
                 GFMS_Duration = 3
             GFMS_Area_percent = (
                 GFMS_TotalArea / watersheds.loc[pfaf_id]["area_km2"] * 100
             )
-            GFMS_MeanDepth = data_points["intensity"].mean()
-            GFMS_MaxDepth = data_points["intensity"].max()
+            # weighted by the covered area: a sliver of a cell counts as little
+            GFMS_MeanDepth = np.average(depth, weights=area)
+            GFMS_MaxDepth = depth.max()
         rows.append([
             pfaf_id,
             GFMS_TotalArea,

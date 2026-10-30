@@ -22,9 +22,7 @@ stored one; the stored one is then moved to GFMS_images_expired.
 
 import csv
 import glob
-import json
 import logging
-import math
 import os
 import shutil
 import sys
@@ -40,9 +38,10 @@ import rasterio
 import requests
 import zipfile
 from rasterio import Affine  # or from affine import Affine
-from rasterio.mask import mask
+from rasterio.windows import Window
 
 from processing.gfms.GFMS_MoM import flood_severity
+from processing.gfms.gfms_cells import cell_shares, covered_areas
 
 # from HWRF_MoM import update_HWRF_MoM, update_HWRFMoM_DFO_VIIRS, final_alert_pdc
 from processing.hwrf.HWRF_MoM import hwrf_workflow
@@ -410,42 +409,18 @@ def GFMS_write_vrt(binfile_local):
     with open(header_file, "w") as f:
         f.write(hdr_header)
 
-    # generate vrt file
-    vrt_template = """<VRTDataset rasterXSize="4916" rasterYSize="1600" subClass="VRTWarpedDataset">
-  <GeoTransform> -1.2725000000000000e+02,  6.2500000000000000e-02,  0.0000000000000000e+00,  5.0000000000000000e+01,  0.0000000000000000e+00, -6.2500000000000000e-02</GeoTransform>
-  <VRTRasterBand dataType="Float32" band="1" subClass="VRTWarpedRasterBand">
+    # generate vrt file: the bin's own 0.125 degree grid, not resampled, in
+    # WGS 84 (EPSG:4326, as WKT so reading it needs no proj.db lookup)
+    vrt_template = """<VRTDataset rasterXSize="2458" rasterYSize="800">
+  <SRS dataAxisToSRSAxisMapping="2,1">GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AXIS["Latitude",NORTH],AXIS["Longitude",EAST],AUTHORITY["EPSG","4326"]]</SRS>
+  <GeoTransform>-127.25, 0.125, 0, 50, 0, -0.125</GeoTransform>
+  <VRTRasterBand dataType="Float32" band="1">
     <NoDataValue>-9999</NoDataValue>
+    <SimpleSource>
+      <SourceFilename relativeToVRT="1">{}</SourceFilename>
+      <SourceBand>1</SourceBand>
+    </SimpleSource>
   </VRTRasterBand>
-  <BlockXSize>512</BlockXSize>
-  <BlockYSize>128</BlockYSize>
-  <GDALWarpOptions>
-    <WarpMemoryLimit>6.71089e+07</WarpMemoryLimit>
-    <ResampleAlg>NearestNeighbour</ResampleAlg>
-    <WorkingDataType>Float32</WorkingDataType>
-    <Option name="INIT_DEST">NO_DATA</Option>
-    <SourceDataset relativeToVRT="1">{}</SourceDataset>
-    <Transformer>
-      <ApproxTransformer>
-        <MaxError>0.125</MaxError>
-        <BaseTransformer>
-          <GenImgProjTransformer>
-            <SrcGeoTransform>-127.25,0.125,0,50,0,-0.125</SrcGeoTransform>
-            <SrcInvGeoTransform>1018,8,0,400,0,-8</SrcInvGeoTransform>
-            <DstGeoTransform>-127.25,0.0625,0,50,0,-0.0625</DstGeoTransform>
-            <DstInvGeoTransform>2036,16,0,800,0,-16</DstInvGeoTransform>
-          </GenImgProjTransformer>
-        </BaseTransformer>
-      </ApproxTransformer>
-    </Transformer>
-    <BandList>
-      <BandMapping src="1" dst="1">
-        <SrcNoDataReal>-9999</SrcNoDataReal>
-        <SrcNoDataImag>0</SrcNoDataImag>
-        <DstNoDataReal>-9999</DstNoDataReal>
-        <DstNoDataImag>0</DstNoDataImag>
-      </BandMapping>
-    </BandList>
-  </GDALWarpOptions>
 </VRTDataset>"""
 
     # generate VRT file
@@ -527,56 +502,43 @@ def GFMS_window_max(vrt_file, window_dir):
     return max_tiff
 
 
-def GFMS_extract_by_mask(vrt_file, mask_json):
-    """extract data for a single watershed"""
-
-    # print(vrt_file)
-    # print(mask_json['features'][0]['geometry'])
+def GFMS_extract_by_mask(vrt_file, geometry):
+    """extract data for a single watershed: every cell it overlaps, with
+    "area" the km2 of the cell inside it (cell_shares, as the cell lookup)"""
 
     try:
         with rasterio.open(vrt_file) as src:
-            out_image, out_transform = mask(
-                src, [mask_json["features"][0]["geometry"]], crop=True
-            )
-    except rasterio.errors.RasterioIOError as er:  # e.g. if file doesn't exist
+            row, col, shares = cell_shares(geometry, src.transform, src.width, src.height)
+            if len(row) == 0:
+                # outside the grid
+                return pd.DataFrame()
+            # read only the window of the watershed's cells
+            row0, col0 = row.min(), col.min()
+            window = Window(col0, row0, col.max() - col0 + 1, row.max() - row0 + 1)
+            values = src.read(1, window=window)[row - row0, col - col0]
+            no_data = src.nodata
+            transform = src.transform
+    except rasterio.errors.RasterioIOError:  # e.g. if file doesn't exist
         logging.warning(f"RasterioIOError: {vrt_file}")
-        src = None
-        return pd.DataFrame()
-    except ValueError as e:
-        #'Input shapes do not overlap raster.'
-        # print(e)
-        src = None
-        # return empty dataframe
         return pd.DataFrame()
 
-    # extract data
-    no_data = src.nodata
-    # extract the values of the masked array
-    # print(out_image)
-    data = out_image[0]
-    # extract the row, columns of the valid values
-    row, col = np.where(
-        data != no_data
-    )  # rows and column indices e.g. (array([0, 1, 1]), array([1, 0, 2]))
-    point_value = np.extract(data != no_data, data)
-    if len(point_value) == 0:
-        src = None
-        # return empty dataframe
+    valid = values != no_data
+    if not valid.any():
         return pd.DataFrame()
+    row, col, shares = row[valid], col[valid], shares[valid]
 
-    T1 = out_transform * Affine.translation(0.5, 0.5)  # reference the pixel centre
-    px, py = src.res
-
-    lons, lats = T1 * (col, row)  # pixel indices (row, col) to lon, lat
-    areas = 111.111 * 111.111 * np.cos(lats * (math.pi / 180.0)) * px * py
+    lons, lats = (transform * Affine.translation(0.5, 0.5)) * (col, row)  # cell centres
     d = geopandas.GeoDataFrame(
-        {"col": col, "row": row, "intensity": point_value, "area": areas},
+        {
+            "col": col,
+            "row": row,
+            "intensity": values[valid],
+            "share": shares,
+            "area": covered_areas(row, shares, transform),
+        },
         geometry=geopandas.points_from_xy(lons, lats),
         crs="EPSG:4326",
     )
-
-    # first 2 points
-    src = None
     return d
 
 
@@ -653,10 +615,7 @@ def GFMS_extract_by_watershed(vrt_file, window_dir=None):
 
             # plot check
             if os.path.exists(vrt_file):
-                watershed_json = json.loads(
-                    geopandas.GeoSeries([WATERSHEDS.loc[pfaf_id, "geometry"]]).to_json()
-                )
-                data_points = GFMS_extract_by_mask(vrt_file, watershed_json)
+                data_points = GFMS_extract_by_mask(vrt_file, WATERSHEDS.loc[pfaf_id, "geometry"])
 
             # write summary to a csv file
             # a watershed without flooded cells gets 0s, not the previous one's values
@@ -672,7 +631,8 @@ def GFMS_extract_by_watershed(vrt_file, window_dir=None):
                 GFMS_Area_percent = (
                     GFMS_TotalArea / WATERSHEDS.loc[pfaf_id]["area_km2"] * 100
                 )
-                GFMS_MeanDepth = data_points["intensity"].mean()
+                # weighted by the covered area: a sliver of a cell counts as little
+                GFMS_MeanDepth = np.average(data_points["intensity"], weights=data_points["area"])
                 GFMS_MaxDepth = data_points["intensity"].max()
 
             results_list = [
