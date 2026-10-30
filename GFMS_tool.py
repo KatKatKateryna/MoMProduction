@@ -263,6 +263,52 @@ def GloFAS_stations(fixed_sites, dyn_sites, data_date):
     return gdf_watersheds
 
 
+def GloFAS_write(data_date):
+    """the GloFAS csv and geojson of data_date from its downloaded fixed and
+    dynamic station files, written over any existing ones"""
+    out_csv = os.path.join(settings.GLOFAS_DIR, "threspoints_" + data_date + ".csv")
+    out_geojson = os.path.join(settings.GLOFAS_DIR, "threspoints_" + data_date + ".geojson")
+    logging.info(f"processing GLoFAS: {data_date}")
+    fixed_sites = os.path.join(
+        settings.GLOFAS_PROC_DIR, "threspoints_" + data_date + ".txt"
+    )
+    dyn_sites = os.path.join(
+        settings.GLOFAS_PROC_DIR, "threspointsDyn_" + data_date + ".txt"
+    )
+    gdf_watersheds = GloFAS_stations(fixed_sites, dyn_sites, data_date)
+
+    # write out csv file
+    out_columns = [
+        "Point No",
+        "Station",
+        "Basin",
+        "Country",
+        "Lat",
+        "Lon",
+        "Upstream area",
+        "Forecast Date",
+        "max_EPS",
+        "GloFAS_2yr",
+        "GloFAS_5yr",
+        "GloFAS_20yr",
+        "Alert_level",
+        "Days_until_peak",
+        "pfaf_id",
+    ]
+    gdf_watersheds.to_csv(
+        out_csv, index=False, columns=out_columns, float_format="%.3f"
+    )
+    logging.info(f"generated: {out_csv}")
+
+    # write to excel
+    # out_excel = glofasdata + "threspoints_" + data_date + ".xlsx"
+    # gdf_watersheds.to_excel(out_excel,index=False,columns=out_columns,sheet_name='Sheet_name_1')
+
+    # to geojson
+    gdf_watersheds.to_file(out_geojson, driver="GeoJSON")
+    logging.info(f"generated: {out_geojson}")
+
+
 def GloFAS_process():
     """process glofas data"""
 
@@ -282,45 +328,7 @@ def GloFAS_process():
         if os.path.exists(out_csv) and os.path.exists(out_geojson):
             continue
 
-        logging.info(f"processing GLoFAS: {data_date}")
-        fixed_sites = os.path.join(
-            settings.GLOFAS_PROC_DIR, "threspoints_" + data_date + ".txt"
-        )
-        dyn_sites = os.path.join(
-            settings.GLOFAS_PROC_DIR, "threspointsDyn_" + data_date + ".txt"
-        )
-        gdf_watersheds = GloFAS_stations(fixed_sites, dyn_sites, data_date)
-
-        # write out csv file
-        out_columns = [
-            "Point No",
-            "Station",
-            "Basin",
-            "Country",
-            "Lat",
-            "Lon",
-            "Upstream area",
-            "Forecast Date",
-            "max_EPS",
-            "GloFAS_2yr",
-            "GloFAS_5yr",
-            "GloFAS_20yr",
-            "Alert_level",
-            "Days_until_peak",
-            "pfaf_id",
-        ]
-        gdf_watersheds.to_csv(
-            out_csv, index=False, columns=out_columns, float_format="%.3f"
-        )
-        logging.info(f"generated: {out_csv}")
-
-        # write to excel
-        # out_excel = glofasdata + "threspoints_" + data_date + ".xlsx"
-        # gdf_watersheds.to_excel(out_excel,index=False,columns=out_columns,sheet_name='Sheet_name_1')
-
-        # to geojson
-        gdf_watersheds.to_file(out_geojson, driver="GeoJSON")
-        logging.info(f"generated: {out_geojson}")
+        GloFAS_write(data_date)
 
     # return a list date to be processed with GFMS
     return processing_dates
