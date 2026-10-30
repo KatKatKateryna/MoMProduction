@@ -219,7 +219,7 @@ def process_rain(adate, TC_Rain):
     filename = "hwrf." + adate + "rainfall.vrt"
     raintiff = filename.replace(".vrt", ".tiff")
     vrt = gdal.BuildVRT(filename, TC_Rain_tiff)
-    gdal.Translate(raintiff, vrt)
+    gdal.Translate(raintiff, vrt, creationOptions=["COMPRESS=LZW", "TILED=YES"])
     vrt = None
 
     # no need

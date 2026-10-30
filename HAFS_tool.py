@@ -412,6 +412,7 @@ def write_tiff(path, grid, top, left):
     with rasterio.open(
         path, "w", driver="GTiff", height=out.shape[0], width=out.shape[1], count=1,
         dtype="float64", crs="EPSG:4326", transform=transform, nodata=NODATA,
+        compress="lzw", tiled=True,
     ) as dst:
         dst.write(out, 1)
 
