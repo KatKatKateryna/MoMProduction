@@ -18,8 +18,8 @@
 
 set -euo pipefail
 
-# default: the repository root, one folder up from this script
-PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+# default: the folder of this script (the repository root)
+PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 RUNNER="$PROJECT_DIR/run_mom_job.sh"
 LOG_DIR="$PROJECT_DIR/logs"
 
