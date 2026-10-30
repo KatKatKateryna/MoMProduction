@@ -4,10 +4,9 @@ HAFS_tool.py
        workflow (MoM_run.py -j HAFS) and never inside it
 
     For every HAFS cycle, the rain of each storm is taken from its parent
-    swath file (average rain rate over 0-3 h, 0-6 h, ... 0-126 h; the 3 h rain
-    is the difference of consecutive windows), keeping each 3 h step only
-    within BUFFER_KM of the track segment of that step: a
-    storm-following window like the HWRF moving nest. The storms are merged
+    swath file: the 0-126 h average rain rate record alone, over the whole
+    parent domain (the 3 h steps within BUFFER_KM of the track are commented
+    out in storm_rain). The storms are merged
     into one 0-126 h total in inches on the HWRF 0.05 deg grid, and summarized
     per watershed with the HWRF calculation:
         HAFS/HAFS_image/hafs.YYYYMMDDHHrainfall.tiff
@@ -289,8 +288,8 @@ def near_track(lats, lons, start, end, row_lats=None, col_lons=None):
 
 
 def storm_rain(cycle, storm, track):
-    """0-126 h storm-following rain (inches) of one storm on a 0.05 deg grid:
-    (grid, top, left), grid NaN outside the window"""
+    """0-126 h rain (inches) of one storm over its whole parent domain on a
+    0.05 deg grid: (grid, top, left)"""
     path = rain_file(cycle, storm)
     with open(path, "rb") as tmp:
         # first pass: where the 0-N h average rain rates are
@@ -308,46 +307,67 @@ def storm_rain(cycle, storm, track):
         if not rates:
             raise RuntimeError(f"no rain rates in {path}")
 
-        # second pass: 3 h rain, kept within the window around the track
-        # segment the storm moves along during the step
-        positions = {t["fhour"]: (t["lat"], t["lon"]) for t in track}
-        total = window = lats = lons = None
-        prev_acc, prev_hour, skipped = None, 0, 0
-        for hour, offset in sorted(rates):
-            tmp.seek(offset)
-            gid = eccodes.codes_grib_new_from_file(tmp)
-            try:
-                if lats is None:
-                    shape = (eccodes.codes_get(gid, "Nj"), eccodes.codes_get(gid, "Ni"))
-                    lats = eccodes.codes_get_array(gid, "latitudes").reshape(shape)
-                    lons = norm_lons(eccodes.codes_get_array(gid, "longitudes").reshape(shape))
-                    total = np.zeros(shape)
-                    window = np.zeros(shape, bool)
-                    prev_acc = np.zeros(shape)
-                    # regular grid: rows of one latitude, columns of one longitude
-                    row_lats = col_lons = None
-                    if (np.array_equal(lats, np.broadcast_to(lats[:, :1], shape))
-                            and np.array_equal(lons, np.broadcast_to(lons[:1, :], shape))):
-                        row_lats, col_lons = lats[:, 0], lons[0, :]
-                values = eccodes.codes_get_values(gid).reshape(lats.shape)
-                if eccodes.codes_get(gid, "bitmapPresent"):
-                    values = np.where(values == eccodes.codes_get(gid, "missingValue"), np.nan, values)
-            finally:
-                eccodes.codes_release(gid)
-            acc = values * hour * 3600  # kg m-2 = mm over 0-hour
-            step = np.clip(acc - prev_acc, 0, None)  # GRIB packing noise can go < 0
-            prev_acc = acc
-            start, end = positions.get(prev_hour), positions.get(hour)
-            prev_hour = hour
-            if start is None:
-                skipped += 1
-                continue
-            # past the end of the track the step keeps only its start
-            near = near_track(lats, lons, start, end or start, row_lats, col_lons)
-            total += np.where(near & np.isfinite(step), step, 0)
-            window |= near
-    if skipped:
-        logging.info(f"HAFS {storm} {cycle}: {skipped} steps beyond the end of the track skipped")
+        # step by step (3 h rain within the buffer around the track), replaced
+        # by the 0-126 h record below
+        # # second pass: 3 h rain, kept within the window around the track
+        # # segment the storm moves along during the step
+        # positions = {t["fhour"]: (t["lat"], t["lon"]) for t in track}
+        # total = window = lats = lons = None
+        # prev_acc, prev_hour, skipped = None, 0, 0
+        # for hour, offset in sorted(rates):
+        #     tmp.seek(offset)
+        #     gid = eccodes.codes_grib_new_from_file(tmp)
+        #     try:
+        #         if lats is None:
+        #             shape = (eccodes.codes_get(gid, "Nj"), eccodes.codes_get(gid, "Ni"))
+        #             lats = eccodes.codes_get_array(gid, "latitudes").reshape(shape)
+        #             lons = norm_lons(eccodes.codes_get_array(gid, "longitudes").reshape(shape))
+        #             total = np.zeros(shape)
+        #             window = np.zeros(shape, bool)
+        #             prev_acc = np.zeros(shape)
+        #             # regular grid: rows of one latitude, columns of one longitude
+        #             row_lats = col_lons = None
+        #             if (np.array_equal(lats, np.broadcast_to(lats[:, :1], shape))
+        #                     and np.array_equal(lons, np.broadcast_to(lons[:1, :], shape))):
+        #                 row_lats, col_lons = lats[:, 0], lons[0, :]
+        #         values = eccodes.codes_get_values(gid).reshape(lats.shape)
+        #         if eccodes.codes_get(gid, "bitmapPresent"):
+        #             values = np.where(values == eccodes.codes_get(gid, "missingValue"), np.nan, values)
+        #     finally:
+        #         eccodes.codes_release(gid)
+        #     acc = values * hour * 3600  # kg m-2 = mm over 0-hour
+        #     step = np.clip(acc - prev_acc, 0, None)  # GRIB packing noise can go < 0
+        #     prev_acc = acc
+        #     # the buffer around the track is off: every step is kept over the
+        #     # whole parent domain
+        #     # start, end = positions.get(prev_hour), positions.get(hour)
+        #     # prev_hour = hour
+        #     # if start is None:
+        #     #     skipped += 1
+        #     #     continue
+        #     # # past the end of the track the step keeps only its start
+        #     # near = near_track(lats, lons, start, end or start, row_lats, col_lons)
+        #     near = np.ones(lats.shape, bool)
+        #     total += np.where(near & np.isfinite(step), step, 0)
+        #     window |= near
+        # if skipped:
+        #     logging.info(f"HAFS {storm} {cycle}: {skipped} steps beyond the end of the track skipped")
+
+        # the 0-126 h record alone: the host's total over the whole parent domain
+        hour, offset = max(rates)
+        tmp.seek(offset)
+        gid = eccodes.codes_grib_new_from_file(tmp)
+        try:
+            shape = (eccodes.codes_get(gid, "Nj"), eccodes.codes_get(gid, "Ni"))
+            lats = eccodes.codes_get_array(gid, "latitudes").reshape(shape)
+            lons = norm_lons(eccodes.codes_get_array(gid, "longitudes").reshape(shape))
+            values = eccodes.codes_get_values(gid).reshape(shape)
+            if eccodes.codes_get(gid, "bitmapPresent"):
+                values = np.where(values == eccodes.codes_get(gid, "missingValue"), np.nan, values)
+        finally:
+            eccodes.codes_release(gid)
+    total = values * hour * 3600  # kg m-2 = mm over 0-hour
+    window = np.ones(shape, bool)
     if not window.any():
         raise RuntimeError(f"HAFS {storm} {cycle}: storm window is empty")
 

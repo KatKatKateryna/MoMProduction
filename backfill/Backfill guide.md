@@ -291,8 +291,8 @@ BACKFILL_START=20260101 BACKFILL_END=20261013 backfill/online_gfms_from_host.sh 
 ### `hwrf_hafs_summaries_default_offline.py` (step 1, HWRF and HAFS)
 
 Regenerates the HWRF and HAFS rainfall summaries for a window of days with
-the current code (cell lookup, dateline handling, HAFS track buffer
-`BUFFER_KM`). Offline unless `--online`. `--model hwrf|hafs|both` (default
+the current code (cell lookup, dateline handling; the HAFS track buffer
+`BUFFER_KM` is off, the whole parent domain is kept). Offline unless `--online`. `--model hwrf|hafs|both` (default
 both).
 
 - **HWRF reads, never changes:** the host data backups,
