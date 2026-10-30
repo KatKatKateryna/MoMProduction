@@ -1182,7 +1182,7 @@ def final_alert_pdc(adate):
     fAlert = (
         f"Final_Attributes_{adate}{settings.HWRF_FILE_TAG}+MOM+DFO+VIIRSUpdated_PDC.csv"
     )
-    fAlert = os.path.join(settings.FINAL_MOM, fAlert)
+    fAlert = os.path.join(settings.FINAL_MOM_DIR, fAlert)
     # check if final alert is already generatated
     if os.path.exists(fAlert):
         logging.info(f"mathing HWRF output already exists: {adate}")

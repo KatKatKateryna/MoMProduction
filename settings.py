@@ -73,7 +73,6 @@ HWRF_BACKUP_DIR = os.path.join(HWRF_DIR, "HWRF_host_data_backups")
 HWRF_TIME_DELAY = 6
 
 # final product
-FINAL_MOM = os.path.join(PRODUCT_DIR, config.get("products_dir", "FINAL"))
 FINAL_MOM_DIR = os.path.join(PRODUCT_DIR, config.get("products_dir", "FINAL"))
 
 # config HAFS (optional, independent of the HWRF workflow; off unless the

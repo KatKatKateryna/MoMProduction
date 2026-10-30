@@ -5,6 +5,8 @@
 # Usage:
 #   chmod +x setup_crontab.sh   # make executable (only needed once)
 #   ./setup_crontab.sh
+#   Or just:
+#   bash ./setup_crontab.sh
 #
 # Jobs are launched through run_mom_job.sh, which activates the conda
 # environment before calling MoM_run.py. Calling the env's python by absolute
