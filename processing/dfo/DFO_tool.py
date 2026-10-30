@@ -446,6 +446,7 @@ def fill_missing_dates():
 def DFO_cron():
     """cron job to process DFO"""
 
+    # DFO reached EOL in September 2026
     try:
         datelist = generate_procesing_list()
     except Exception:
@@ -463,20 +464,31 @@ def DFO_cron():
 
     logging.info(f"dates to process: {sorted(datelist.values())}")
     for key in datelist:
-        logging.info(f"download: {key} ({datelist[key]})")
-        if not dfo_download(key):
-            logging.warning(
-                f"download failed for {key} ({datelist[key]}), skipping: the "
+        # a failed or broken date never stops the run: it stays unprocessed,
+        # is retried on the next run and filled by fill_missing_dates below
+        try:
+            logging.info(f"download: {key} ({datelist[key]})")
+            if not dfo_download(key):
+                logging.warning(
+                    f"download failed for {key} ({datelist[key]}), skipping: the "
+                    "date stays unprocessed and is retried on the next run"
+                )
+                continue
+
+            logging.info(f"download finished: {key}")
+            logging.info(f"processing: {key} ({datelist[key]})")
+            DFO_process(key, datelist[key])
+            # run DFO_MoM
+            update_DFO_MoM(datelist[key])
+            logging.info(f"processing finished: {key}")
+        except Exception:
+            logging.exception(
+                f"processing failed for {key} ({datelist[key]}), skipping: the "
                 "date stays unprocessed and is retried on the next run"
             )
-            continue
-        
-        logging.info(f"download finished: {key}")
-        logging.info(f"processing: {key} ({datelist[key]})")
-        DFO_process(key, datelist[key])
-        # run DFO_MoM
-        update_DFO_MoM(datelist[key])
-        logging.info(f"processing finished: {key}")
+        finally:
+            # DFO_process works inside the download folder
+            os.chdir(settings.BASE_DIR)
 
     fill_missing_dates()
     return
