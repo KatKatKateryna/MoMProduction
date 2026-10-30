@@ -1,8 +1,8 @@
 # Mainly for custom illustrations of selected storms, not a cron-style backfill.
 """
-online_hafs_images_from_host.py
-    -- download HAFS rainfall for chosen storms and cycles and produce only the
-       HAFS_image TIFF, the chosen storms merged per cycle as in HAFS_tool.py
+hafs_images_from_host_default_offline.py
+    -- HAFS rainfall images for chosen storms (or all) and cycles: only the
+       HAFS_image TIFF, the storms merged per cycle as in HAFS_tool.py
        (no summary, no MoM / Final_Attributes update)
 
     The rain kept is one 0-N h accumulation record of the swath file over the
@@ -12,16 +12,22 @@ online_hafs_images_from_host.py
     own cycle; --hours 126 gives the whole forecast storm total instead. The
     track is not used at all, a storm only needs its swath file.
 
-    The host data used is kept in <out-root>/HAFS_host_data_backups (host
-    layout, as HAFS_tool.py keeps it), the images go to <out-root>/HAFS_image
-    or to --img-dir. <out-root>/HAFS_work holds only the temporary files of
-    the swath downloads (deleted as each one is read), whatever --img-dir is.
-    A storm missing from a cycle is skipped; a cycle with none of the storms
-    gets no image.
+    By default only the HAFS host data backups are read
+    (settings.HAFS_BACKUP_DIR) and the host is never contacted: the storms of
+    a cycle are those with a rain file there. With --online the swath files
+    are downloaded from the host instead, kept in
+    <out-root>/HAFS_host_data_backups (host layout, as HAFS_tool.py keeps
+    them); <out-root>/HAFS_work holds only the temporary files of the
+    downloads (deleted as each one is read). The images go to
+    <out-root>/HAFS_image or to --img-dir. Without --storms (or with
+    --storms all) every storm of a cycle is taken. A storm missing from a
+    cycle is skipped; a cycle with none of the storms gets no image.
 
 Usage:
-    python backfill/online_hafs_images_from_host.py --out-root <backup root> \\
-        --start 2025100600 --end 2025101218 --storms 16e 17e 90e --hours 6
+    python backfill/hafs_images_from_host_default_offline.py --out-root <out root> \\
+        --start 2026101300 --end 2026101518 --hours 126
+    python backfill/hafs_images_from_host_default_offline.py --out-root <out root> \\
+        --start 2025100600 --end 2025101218 --storms 16e 17e 90e --hours 6 --online
 """
 
 import argparse
@@ -115,15 +121,28 @@ def storm_rain(cycle, storm, hours):
     return total[ri, ci] / MM_PER_INCH, top, left
 
 
+def backup_storms(cycle):
+    """storms with a rain file in the backups for cycle (no host access)"""
+    folder = os.path.dirname(HAFS_tool.backup_path(cycle, "x"))
+    suffix = f".{cycle}.{settings.HAFS_MODEL}.parent.swath.prate.grb2"
+    if not os.path.isdir(folder):
+        return []
+    return sorted(f[: -len(suffix)] for f in os.listdir(folder) if f.endswith(suffix))
+
+
 def main():
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--out-root", required=True, help="HAFS_image and host backups go here")
+    parser.add_argument("--out-root", required=True,
+                        help="HAFS_image (and with --online the downloaded host data) go here")
     parser.add_argument("--start", required=True, help="first cycle YYYYMMDDHH")
     parser.add_argument("--end", required=True, help="last cycle YYYYMMDDHH")
     parser.add_argument("--img-dir", help="images here instead of <out-root>/HAFS_image")
-    parser.add_argument("--storms", nargs="+", required=True, help="storm ids, e.g. 16e 17e")
+    parser.add_argument("--storms", nargs="+", default=["all"],
+                        help="storm ids, e.g. 16e 17e (default: all)")
+    parser.add_argument("--online", action="store_true",
+                        help="download from the host (default: the backups only, never the host)")
     parser.add_argument("--hours", type=int, default=6,
                         help="accumulation 0-HOURS h of each cycle, multiple of 3 (default 6)")
     parser.add_argument("--overwrite", action="store_true", help="replace existing images")
@@ -135,11 +154,17 @@ def main():
     logging.basicConfig(stream=sys.stdout, format=settings.LOG_FORMAT, level=logging.INFO, force=True)
 
     img_dir = args.img_dir or os.path.join(args.out_root, "HAFS_image")
-    # host data and temporary swath files on the output disk, not the production one
-    settings.HAFS_BACKUP_DIR = os.path.join(args.out_root, "HAFS_host_data_backups")
-    HAFS_tool.WORK_DIR = os.path.join(args.out_root, "HAFS_work")
-    for d in (img_dir, settings.HAFS_BACKUP_DIR, HAFS_tool.WORK_DIR):
-        os.makedirs(d, exist_ok=True)
+    if args.online:
+        # host data and temporary swath files on the output disk, not the production one
+        settings.HAFS_BACKUP_DIR = os.path.join(args.out_root, "HAFS_host_data_backups")
+        HAFS_tool.WORK_DIR = os.path.join(args.out_root, "HAFS_work")
+        os.makedirs(settings.HAFS_BACKUP_DIR, exist_ok=True)
+        os.makedirs(HAFS_tool.WORK_DIR, exist_ok=True)
+    os.makedirs(img_dir, exist_ok=True)
+    logging.info(
+        f"HAFS images {args.start} - {args.end}, 0-{args.hours} h, storms {' '.join(args.storms)}, "
+        f"{'online' if args.online else 'offline'}, backups {settings.HAFS_BACKUP_DIR}, images {img_dir}"
+    )
 
     wanted = {s.lower() for s in args.storms}
     cycle = args.start
@@ -149,10 +174,12 @@ def main():
             logging.info(f"HAFS {cycle}: image exists, skipped")
             cycle = shift_cycle(cycle, 6)
             continue
-        storms = [s for s in list_storms(cycle) if s in wanted]
+        storms = list_storms(cycle) if args.online else backup_storms(cycle)
+        if "all" not in wanted:
+            storms = [s for s in storms if s in wanted]
         grids = []
         for storm in storms:
-            if not exists(f"{cycle_url(cycle)}{storm}.{cycle}.{settings.HAFS_MODEL}.parent.swath.grb2"):
+            if args.online and not exists(f"{cycle_url(cycle)}{storm}.{cycle}.{settings.HAFS_MODEL}.parent.swath.grb2"):
                 logging.warning(f"HAFS {cycle}: {storm} swath file missing, skipped")
                 continue
             grid, top, left = storm_rain(cycle, storm, args.hours)
@@ -166,7 +193,8 @@ def main():
             os.replace(part, out)
             logging.info(f"HAFS {cycle}: image {os.path.basename(out)} ({' '.join(storms)})")
         else:
-            logging.info(f"HAFS {cycle}: none of {' '.join(sorted(wanted))}, no image")
+            logging.info(f"HAFS {cycle}: none of {' '.join(sorted(wanted))}"
+                         f"{'' if args.online else ' in the backups'}, no image")
         cycle = shift_cycle(cycle, 6)
 
 
