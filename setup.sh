@@ -57,9 +57,14 @@ fi
 if [ "$IS_GITHUB_ACTIONS" = false ]; then
     echo "Setting up repository..."
 
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+
     if [ ! -d "$REPO_DIR/.git" ]; then
         echo "Cloning repository..."
         git clone --branch "$REPO_BRANCH" --single-branch --depth 1 "$REPO_URL" "$REPO_DIR"
+    elif [ "$SCRIPT_DIR" = "$(cd "$REPO_DIR" && pwd -P)" ]; then
+        # running from the checkout itself: keep its current branch and changes
+        echo "Running from $REPO_DIR - skipping repository reset."
     else
         echo "Repository exists. Resetting to origin/$REPO_BRANCH..."
         cd "$REPO_DIR"
