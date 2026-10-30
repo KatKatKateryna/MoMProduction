@@ -9,7 +9,7 @@ set -o pipefail
 
 REPO_URL="https://github.com/Blu-H/MoMProduction.git"
 REPO_DIR="$HOME/MoMProduction"
-REPO_BRANCH="operational_2026_prep"
+REPO_BRANCH="prod"
 if command -v conda >/dev/null 2>&1; then
     CONDA_DIR="$(conda info --base)"
 else
@@ -119,6 +119,7 @@ else
     echo "Creating environment..."
     conda env create -n "$CONDA_ENV_NAME" -f environment.yml
 fi
+# to delete later: conda env remove -n <env_name>
 
 ############################
 # ACTIVATE ENV

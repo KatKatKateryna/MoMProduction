@@ -44,5 +44,12 @@ fi
 cd "$PROJECT_DIR"
 mkdir -p logs
 
-# exec so the PID MoM_run.py reports is the real one and signals reach Python.
-exec python MoM_run.py "$@"
+# not exec'd, so the alert push below still runs; the job's exit status is kept.
+status=0
+python MoM_run.py "$@" || status=$?
+
+# push the new final alerts to GitHub (skipped when no token is configured);
+# a failed push never changes the job's exit status
+python -m processing.push_alerts || echo "run_mom_job.sh: push_alerts failed" >&2
+
+exit "$status"
