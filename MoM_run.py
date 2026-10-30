@@ -40,7 +40,7 @@ from processing.hwrf.HWRF_MoM import batchrun_HWRF_MoM
 from processing.hwrf.HWRF_tool import HWRF_cron
 from processing.viirs.VIIRS_MoM import batchrun_VIIRS_MoM
 from processing.viirs.VIIRS_tool import VIIRS_cron
-from utilities import run_label
+from processing.utilities import run_label
 
 # the cron schedule of each job, as first_setup/setup_crontab.sh installs it
 CRON_SCHEDULE = {

@@ -131,7 +131,7 @@ production.cfg
 */watershed_shp/*.shp
 
 *.lock
-.vscode/*
+.vscode*
 *.tiff
 *.out
 *.conf

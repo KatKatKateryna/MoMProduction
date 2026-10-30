@@ -47,7 +47,7 @@ from processing.gfms.GFMS_MoM import flood_severity
 # from HWRF_MoM import update_HWRF_MoM, update_HWRFMoM_DFO_VIIRS, final_alert_pdc
 from processing.hwrf.HWRF_MoM import hwrf_workflow
 import settings
-from utilities import find_latest_glofas, hwrf_today, watersheds_gdb_reader
+from processing.utilities import find_latest_glofas, hwrf_today, watersheds_gdb_reader
 
 load_dotenv()
 WATERSHEDS = None

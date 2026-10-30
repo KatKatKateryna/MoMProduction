@@ -15,7 +15,7 @@ import requests
 
 import settings
 from processing.gfms.GFMS_MoM import gfms_scores
-from utilities import (
+from processing.utilities import (
     find_latest_glofas,
     find_latest_viirs,
     get_current_processing_datehour,

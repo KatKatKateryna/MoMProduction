@@ -62,7 +62,7 @@ from rasterio.transform import from_origin
 import eccodes  # isort: skip
 
 import settings
-from utilities import RAIN_SUMMARY_HEADERS, hafs_storms, write_empty_rain_summary
+from processing.utilities import RAIN_SUMMARY_HEADERS, hafs_storms, write_empty_rain_summary
 
 HOURS = ["00", "06", "12", "18"]
 RES = 0.05
@@ -441,7 +441,7 @@ def summarize(raintiff, output_csv, grid, top, left):
     """per-watershed summary with the HWRF calculation; True if any watershed
     has rain"""
     from processing.hwrf.HWRF_tool import HWRF_extract_by_mask
-    from utilities import watersheds_gdb_reader
+    from processing.utilities import watersheds_gdb_reader
 
     watersheds = watersheds_gdb_reader()
 

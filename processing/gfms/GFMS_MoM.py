@@ -5,7 +5,7 @@ import logging
 import pandas as pd
 
 import settings
-from utilities import read_data, severity_from_hazard_and_risk_scores
+from processing.utilities import read_data, severity_from_hazard_and_risk_scores
 
 GFMS_SCORE_FIELDS = [
     "GFMS_area_score",

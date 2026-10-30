@@ -31,7 +31,7 @@ from osgeo import gdal
 from rasterio.mask import mask
 
 import settings
-from utilities import read_data, watersheds_gdb_reader
+from processing.utilities import read_data, watersheds_gdb_reader
 from processing.viirs.viirs_cells import flood_area_km2, is_flood
 from processing.viirs.VIIRS_MoM import update_VIIRS_MoM
 

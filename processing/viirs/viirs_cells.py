@@ -43,7 +43,7 @@ from rasterio.mask import raster_geometry_mask
 from rasterio.windows import Window
 
 import settings
-from utilities import shapefile_fingerprint, watersheds_gdb_reader
+from processing.utilities import shapefile_fingerprint, watersheds_gdb_reader
 
 CELLS_FILE = os.path.join(settings.BASE_DATA_DIR, "viirs_watershed_runs.npz")
 

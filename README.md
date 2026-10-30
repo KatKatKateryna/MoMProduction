@@ -175,9 +175,9 @@ MoM
 ```
 MoM_run.py
 settings.py
-utilities.py
 initialize.py
 processing
+├── utilities.py
 ├── gfms
 │   ├── GFMS_tool.py
 │   ├── GFMS_MoM.py
@@ -197,7 +197,7 @@ processing
     └── viirs_cells.py
 ```
 Run the pipeline modules from the repository root, e.g. `python -m processing.hafs.HAFS_tool`
-(running them by file path fails, because they import `settings` and `utilities` from the root).
+(running them by file path fails, because they import `settings` from the root and `processing` as a package).
 The data required is in data folder:
 ```
 data

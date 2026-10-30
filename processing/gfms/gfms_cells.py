@@ -42,7 +42,7 @@ from rasterio.io import MemoryFile
 from rasterio.mask import mask
 
 import settings
-from utilities import shapefile_fingerprint, watersheds_gdb_reader
+from processing.utilities import shapefile_fingerprint, watersheds_gdb_reader
 
 CELLS_FILE = os.path.join(settings.BASE_DATA_DIR, "gfms_watershed_cells.npz")
 

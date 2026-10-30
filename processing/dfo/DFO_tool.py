@@ -30,7 +30,7 @@ from osgeo import gdal
 
 from processing.dfo.DFO_MoM import update_DFO_MoM
 import settings
-from utilities import from_today, watersheds_gdb_reader
+from processing.utilities import from_today, watersheds_gdb_reader
 
 load_dotenv()
 

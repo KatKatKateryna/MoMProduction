@@ -15,7 +15,7 @@ import pandas as pd
 
 import settings
 from processing.hwrf.HWRF_MoM import hwrf_workflow
-from utilities import read_data, severity_from_hazard_and_risk_scores
+from processing.utilities import read_data, severity_from_hazard_and_risk_scores
 
 
 def mofunc_dfo(row):
