@@ -21,13 +21,14 @@ systemd-timesyncd.service active: yes
                  RTC in local TZ: no
 ```
 ## 1. Setup Python environment
-All installation steps are packaged into Linux and Windows installers:
+All installation steps are packaged into Linux and Windows Powershell installers:
 ```
-setup.sh
+bash ./setup.sh
 ```
 or
 ```
-setup.ps1
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\setup.ps1
 ```
 This includes Python installation/update, repo cloning, conda installation and custom venv creation and activation. 
 
