@@ -125,7 +125,9 @@ def GloFAS_download():
         with open(tmp_txt, "wb") as fp:
             ftp.retrbinary("RETR " + txt, fp.write)
         if _glofas_station_lines(tmp_txt) == 0 and _glofas_station_lines(save_txt) > 0:
-            logging.warning(f"GloFAS host sent {txt} without stations, keeping the local copy")
+            logging.warning(
+                f"GloFAS host sent {txt} without stations, keeping the local copy"
+            )
             os.remove(tmp_txt)
         else:
             os.replace(tmp_txt, save_txt)
@@ -177,7 +179,9 @@ def GloFAS_read_points(txt_file, dynamic=False):
                 p = [x.strip() for x in raw]
                 if len(p) < 18:
                     if line.strip():
-                        logging.warning(f"GloFAS line skipped in {txt_file}: {line.strip()}")
+                        logging.warning(
+                            f"GloFAS line skipped in {txt_file}: {line.strip()}"
+                        )
                     continue
                 lon, lat = [x for x in p[-9:-6] if _is_number(x)][:2]
                 if p[-10] in ("-", "NA") or _is_number(p[-10]):
@@ -203,7 +207,16 @@ def GloFAS_read_points(txt_file, dynamic=False):
                     + p[-5:]
                 )
     df = pd.DataFrame(rows, columns=columns)
-    numeric = ["Point No", "Lon", "Lat", "Days_until_peak", "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr", "Alert_level"]
+    numeric = [
+        "Point No",
+        "Lon",
+        "Lat",
+        "Days_until_peak",
+        "GloFAS_2yr",
+        "GloFAS_5yr",
+        "GloFAS_20yr",
+        "Alert_level",
+    ]
     df[numeric] = df[numeric].apply(pd.to_numeric)
     # "NA" and "-" when not known
     df["Upstream area"] = pd.to_numeric(df["Upstream area"], errors="coerce")
@@ -263,6 +276,54 @@ def GloFAS_stations(fixed_sites, dyn_sites, data_date):
     return gdf_watersheds
 
 
+def GloFAS_write(data_date):
+    """the GloFAS csv and geojson of data_date from its downloaded fixed and
+    dynamic station files, written over any existing ones"""
+    out_csv = os.path.join(settings.GLOFAS_DIR, "threspoints_" + data_date + ".csv")
+    out_geojson = os.path.join(
+        settings.GLOFAS_DIR, "threspoints_" + data_date + ".geojson"
+    )
+    logging.info(f"processing GLoFAS: {data_date}")
+    fixed_sites = os.path.join(
+        settings.GLOFAS_PROC_DIR, "threspoints_" + data_date + ".txt"
+    )
+    dyn_sites = os.path.join(
+        settings.GLOFAS_PROC_DIR, "threspointsDyn_" + data_date + ".txt"
+    )
+    gdf_watersheds = GloFAS_stations(fixed_sites, dyn_sites, data_date)
+
+    # write out csv file
+    out_columns = [
+        "Point No",
+        "Station",
+        "Basin",
+        "Country",
+        "Lat",
+        "Lon",
+        "Upstream area",
+        "Forecast Date",
+        "max_EPS",
+        "GloFAS_2yr",
+        "GloFAS_5yr",
+        "GloFAS_20yr",
+        "Alert_level",
+        "Days_until_peak",
+        "pfaf_id",
+    ]
+    gdf_watersheds.to_csv(
+        out_csv, index=False, columns=out_columns, float_format="%.3f"
+    )
+    logging.info(f"generated: {out_csv}")
+
+    # write to excel
+    # out_excel = glofasdata + "threspoints_" + data_date + ".xlsx"
+    # gdf_watersheds.to_excel(out_excel,index=False,columns=out_columns,sheet_name='Sheet_name_1')
+
+    # to geojson
+    gdf_watersheds.to_file(out_geojson, driver="GeoJSON")
+    logging.info(f"generated: {out_geojson}")
+
+
 def GloFAS_process():
     """process glofas data"""
 
@@ -282,45 +343,7 @@ def GloFAS_process():
         if os.path.exists(out_csv) and os.path.exists(out_geojson):
             continue
 
-        logging.info(f"processing GLoFAS: {data_date}")
-        fixed_sites = os.path.join(
-            settings.GLOFAS_PROC_DIR, "threspoints_" + data_date + ".txt"
-        )
-        dyn_sites = os.path.join(
-            settings.GLOFAS_PROC_DIR, "threspointsDyn_" + data_date + ".txt"
-        )
-        gdf_watersheds = GloFAS_stations(fixed_sites, dyn_sites, data_date)
-
-        # write out csv file
-        out_columns = [
-            "Point No",
-            "Station",
-            "Basin",
-            "Country",
-            "Lat",
-            "Lon",
-            "Upstream area",
-            "Forecast Date",
-            "max_EPS",
-            "GloFAS_2yr",
-            "GloFAS_5yr",
-            "GloFAS_20yr",
-            "Alert_level",
-            "Days_until_peak",
-            "pfaf_id",
-        ]
-        gdf_watersheds.to_csv(
-            out_csv, index=False, columns=out_columns, float_format="%.3f"
-        )
-        logging.info(f"generated: {out_csv}")
-
-        # write to excel
-        # out_excel = glofasdata + "threspoints_" + data_date + ".xlsx"
-        # gdf_watersheds.to_excel(out_excel,index=False,columns=out_columns,sheet_name='Sheet_name_1')
-
-        # to geojson
-        gdf_watersheds.to_file(out_geojson, driver="GeoJSON")
-        logging.info(f"generated: {out_geojson}")
+        GloFAS_write(data_date)
 
     # return a list date to be processed with GFMS
     return processing_dates
@@ -465,9 +488,14 @@ def GFMS_max_grid(paths):
     with rasterio.open(paths[0]) as src:
         grid = src.read(1)
         profile = {
-            "driver": "GTiff", "width": src.width, "height": src.height,
-            "count": 1, "dtype": "float32", "crs": src.crs,
-            "transform": src.transform, "nodata": src.nodata,
+            "driver": "GTiff",
+            "width": src.width,
+            "height": src.height,
+            "count": 1,
+            "dtype": "float32",
+            "crs": src.crs,
+            "transform": src.transform,
+            "nodata": src.nodata,
         }
     for path in paths[1:]:
         with rasterio.open(path) as src:
@@ -479,7 +507,7 @@ def GFMS_window_max(vrt_file, window_dir):
     """per-pixel maximum of the grid of vrt_file and of the grids of the
     following 3-hourly times up to GFMS_WINDOW_HOURS, those the host has;
     written to a tiff in window_dir, whose path is returned"""
-    stamp = os.path.basename(vrt_file)[len("Flood_byStor_"):-len(".vrt")]
+    stamp = os.path.basename(vrt_file)[len("Flood_byStor_") : -len(".vrt")]
     start = datetime.strptime(stamp, "%Y%m%d%H")
     paths, used = [vrt_file], []
     for hours in range(3, GFMS_WINDOW_HOURS + 1, 3):
@@ -705,7 +733,12 @@ def GFMS_same_image(tiff_a, tiff_b):
     """same grid, position, nodata and values"""
     try:
         with rasterio.open(tiff_a) as a, rasterio.open(tiff_b) as b:
-            if (a.shape, a.transform, a.crs, a.nodata) != (b.shape, b.transform, b.crs, b.nodata):
+            if (a.shape, a.transform, a.crs, a.nodata) != (
+                b.shape,
+                b.transform,
+                b.crs,
+                b.nodata,
+            ):
                 return False
             return np.array_equal(a.read(1), b.read(1), equal_nan=True)
     except rasterio.errors.RasterioIOError:
@@ -729,7 +762,9 @@ def GFMS_store_image(new_tiff, tiff_file):
         made = datetime.fromtimestamp(os.path.getmtime(tiff_file), timezone.utc)
         expired = os.path.join(
             settings.GFMS_IMG_EXPIRED_DIR,
-            os.path.basename(tiff_file).replace(".tiff", made.strftime("_%Y%m%dT%H%M%S.tiff")),
+            os.path.basename(tiff_file).replace(
+                ".tiff", made.strftime("_%Y%m%dT%H%M%S.tiff")
+            ),
         )
         shutil.move(tiff_file, expired)
         logging.info(f"expired: {tiff_file} -> {expired}")
@@ -814,7 +849,11 @@ def _GFMS_processing(proc_dates_list, window_dir):
         # GFMS_fix_duration starts from the first new one
         if fix_list:
             first = datetime.strptime(fix_list[0][13:23], "%Y%m%d%H")
-            base0 = "Flood_byStor_" + (first - timedelta(hours=3)).strftime("%Y%m%d%H") + ".csv"
+            base0 = (
+                "Flood_byStor_"
+                + (first - timedelta(hours=3)).strftime("%Y%m%d%H")
+                + ".csv"
+            )
             GFMS_fix_duration(base0, fix_list)
         else:
             logging.info(f"GFMS summary already exists for: {real_date}")
