@@ -179,14 +179,15 @@ settings.py
 initialize.py
 processing
 ├── utilities.py
+├── watershed_cells.py
+├── proj_env.py
+├── push_alerts.py
 ├── gfms
 │   ├── GFMS_tool.py
-│   ├── GFMS_MoM.py
-│   └── gfms_cells.py
+│   └── GFMS_MoM.py
 ├── hwrf
 │   ├── HWRF_tool.py
-│   ├── HWRF_MoM.py
-│   └── hwrf_cells.py
+│   └── HWRF_MoM.py
 ├── hafs
 │   └── HAFS_tool.py
 ├── dfo
@@ -194,8 +195,7 @@ processing
 │   └── DFO_MoM.py
 └── viirs
     ├── VIIRS_tool.py
-    ├── VIIRS_MoM.py
-    └── viirs_cells.py
+    └── VIIRS_MoM.py
 ```
 Run the pipeline modules from the repository root, e.g. `python -m processing.hafs.HAFS_tool`
 (running them by file path fails, because they import `settings` from the root and `processing` as a package).

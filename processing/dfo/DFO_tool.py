@@ -9,7 +9,6 @@ Two main function:
 """
 
 import csv
-import json
 import logging
 import os
 import shutil
@@ -18,19 +17,16 @@ import sys
 from datetime import date, datetime, timedelta, timezone
 import zipfile
 
-import geopandas
-import numpy as np
 import pandas as pd
-import rasterio
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from rasterio.mask import mask
 from osgeo import gdal
 
 from processing.dfo.DFO_MoM import update_DFO_MoM
 import settings
 from processing.utilities import from_today, watersheds_gdb_reader
+from processing.watershed_cells import raster_summary
 
 load_dotenv()
 
@@ -166,35 +162,6 @@ def dfo_download(subfolder):
     return True
 
 
-def dfo_extract_by_mask(vrt_file, mask_json):
-    """extract data for a single watershed"""
-
-    with rasterio.open(vrt_file) as src:
-        try:
-            out_image, out_transform = mask(
-                src, [mask_json["features"][0]["geometry"]], crop=True
-            )
-        except ValueError as e:
-            #'Input shapes do not overlap raster.'
-            # print(e)
-            src = None
-            # return empty dataframe
-            return 0
-
-    # extract data
-    no_data = src.nodata
-    # extract the values of the masked array
-    # print(out_image)
-    data = out_image[0]
-    point_count = np.count_nonzero(data == 3)
-    src = None
-
-    # total area
-    d = point_count * 0.25 * 0.25
-
-    return d
-
-
 def summary_headers(vrt_file):
     """summary columns of a flood layer mosaic (e.g. Flood_1-Day_CS_250m.vrt)"""
     headerprefix = os.path.basename(vrt_file).split("_")[1]
@@ -224,23 +191,14 @@ def dfo_extract_by_watershed(vtk_file):
         # already processed,
         return
 
-    # count = 0
+    # per-watershed flooded area, exact cell shares (watershed_cells.py)
+    summary = raster_summary("dfo", vtk_file, watersheds)
     with open(summary_file, "a") as f:
         writer = csv.writer(f)
 
         for pfaf_id in pfaf_id_list:
-            # print(the_aqid, count, " out of ", len(aqid_list))
-            # count += 1
-            # progress(count,  len(pfaf_id_list), status='pfaf_id')
-            # extract mask
-            test_json = json.loads(
-                geopandas.GeoSeries([watersheds.loc[pfaf_id, "geometry"]]).to_json()
-            )
-            # plot check
-            dfoarea = dfo_extract_by_mask(vtk_file, test_json)
-
-            DFO_TotalArea = dfoarea
-            DFO_Area_percent = DFO_TotalArea / watersheds.loc[pfaf_id]["area_km2"] * 100
+            DFO_TotalArea = summary.at[pfaf_id, "area"]
+            DFO_Area_percent = summary.at[pfaf_id, "perc_area"]
 
             results_list = [
                 pfaf_id,

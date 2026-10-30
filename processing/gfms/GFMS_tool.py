@@ -37,11 +37,9 @@ import pandas as pd
 import rasterio
 import requests
 import zipfile
-from rasterio import Affine  # or from affine import Affine
-from rasterio.windows import Window
 
 from processing.gfms.GFMS_MoM import flood_severity
-from processing.gfms.gfms_cells import cell_shares, covered_areas
+from processing.watershed_cells import raster_summary
 
 # from HWRF_MoM import update_HWRF_MoM, update_HWRFMoM_DFO_VIIRS, final_alert_pdc
 from processing.hwrf.HWRF_MoM import hwrf_workflow
@@ -50,10 +48,6 @@ from processing.utilities import find_latest_glofas, hwrf_today, watersheds_gdb_
 
 load_dotenv()
 WATERSHEDS = None
-
-# per-watershed summaries from the precomputed cell lookup (gfms_cells.py);
-# False = the original per-watershed masks
-GFMS_CELL_LOOKUP = True
 
 # summary = per-pixel maximum over the time and the following hours
 GFMS_WINDOW_HOURS = 96
@@ -502,46 +496,6 @@ def GFMS_window_max(vrt_file, window_dir):
     return max_tiff
 
 
-def GFMS_extract_by_mask(vrt_file, geometry):
-    """extract data for a single watershed: every cell it overlaps, with
-    "area" the km2 of the cell inside it (cell_shares, as the cell lookup)"""
-
-    try:
-        with rasterio.open(vrt_file) as src:
-            row, col, shares = cell_shares(geometry, src.transform, src.width, src.height)
-            if len(row) == 0:
-                # outside the grid
-                return pd.DataFrame()
-            # read only the window of the watershed's cells
-            row0, col0 = row.min(), col.min()
-            window = Window(col0, row0, col.max() - col0 + 1, row.max() - row0 + 1)
-            values = src.read(1, window=window)[row - row0, col - col0]
-            no_data = src.nodata
-            transform = src.transform
-    except rasterio.errors.RasterioIOError:  # e.g. if file doesn't exist
-        logging.warning(f"RasterioIOError: {vrt_file}")
-        return pd.DataFrame()
-
-    valid = values != no_data
-    if not valid.any():
-        return pd.DataFrame()
-    row, col, shares = row[valid], col[valid], shares[valid]
-
-    lons, lats = (transform * Affine.translation(0.5, 0.5)) * (col, row)  # cell centres
-    d = geopandas.GeoDataFrame(
-        {
-            "col": col,
-            "row": row,
-            "intensity": values[valid],
-            "share": shares,
-            "area": covered_areas(row, shares, transform),
-        },
-        geometry=geopandas.points_from_xy(lons, lats),
-        crs="EPSG:4326",
-    )
-    return d
-
-
 def GFMS_extract_by_watershed(vrt_file, window_dir=None):
     """extract and summary; with window_dir, of the maximum over the window
     (GFMS_window_max) instead of vrt_file alone"""
@@ -579,61 +533,29 @@ def GFMS_extract_by_watershed(vrt_file, window_dir=None):
     if window_dir and os.path.exists(vrt_file):
         vrt_file = GFMS_window_max(vrt_file, window_dir)
 
-    # fast path: precomputed watershed cells (gfms_cells.py), same rows
-    if GFMS_CELL_LOOKUP and os.path.exists(vrt_file):
-        from processing.gfms.gfms_cells import summary_rows
-
-        try:
-            rows = summary_rows(vrt_file, WATERSHEDS)
-        except Exception:
-            logging.exception("GFMS cell lookup failed, using the per-watershed masks")
-            rows = None
-        if rows is not None:
-            with open(summary_file, "a") as f:
-                csv.writer(f).writerows(rows)
-            logging.info(f"generated (cell lookup): {summary_file}")
-            return
-
-    # write out the summary
-    # count = 0
-
-    # plot check
-    data_points = pd.DataFrame()
-    GFMS_TotalArea = 0.0
-    GFMS_Area_percent = 0.0
-    GFMS_MeanDepth = 0.0
-    GFMS_MaxDepth = 0.0
-    GFMS_Duration = 0
+    # per-watershed flooded area (exact cell shares), depth mean and max
+    # (watershed_cells.py); without the file every watershed gets 0s
+    summary = None
+    if os.path.exists(vrt_file):
+        summary = raster_summary("gfms", vrt_file, WATERSHEDS)
 
     with open(summary_file, "a") as f:
         writer = csv.writer(f)
 
         for pfaf_id in pfaf_id_list:
-            # for command line mode
-            # count += 1
-            # progress(count,  len(pfaf_id_list), status='pfaf_id')
-
-            # plot check
-            if os.path.exists(vrt_file):
-                data_points = GFMS_extract_by_mask(vrt_file, WATERSHEDS.loc[pfaf_id, "geometry"])
-
-            # write summary to a csv file
-            # a watershed without flooded cells gets 0s, not the previous one's values
+            # a watershed without flooded cells gets 0s
             GFMS_TotalArea = 0.0
             GFMS_Area_percent = 0.0
             GFMS_MeanDepth = 0.0
             GFMS_MaxDepth = 0.0
             GFMS_Duration = 0
-            if not data_points.empty:
-                GFMS_TotalArea = data_points["area"].sum()
+            if summary is not None and summary.at[pfaf_id, "has_data"]:
+                GFMS_TotalArea = summary.at[pfaf_id, "area"]
                 if GFMS_TotalArea > 100.0:
                     GFMS_Duration = 3
-                GFMS_Area_percent = (
-                    GFMS_TotalArea / WATERSHEDS.loc[pfaf_id]["area_km2"] * 100
-                )
-                # weighted by the covered area: a sliver of a cell counts as little
-                GFMS_MeanDepth = np.average(data_points["intensity"], weights=data_points["area"])
-                GFMS_MaxDepth = data_points["intensity"].max()
+                GFMS_Area_percent = summary.at[pfaf_id, "perc_area"]
+                GFMS_MeanDepth = summary.at[pfaf_id, "mean"]
+                GFMS_MaxDepth = summary.at[pfaf_id, "max"]
 
             results_list = [
                 pfaf_id,

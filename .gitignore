@@ -138,6 +138,7 @@ production.cfg
 *log
 *Caddyfile*
 hwrf_data*
+data/watershed_runs_*.npz
 data/gfms_watershed_cells.npz
 data/viirs_watershed_runs.npz
 data/hwrf_watershed_cells.npz

@@ -49,7 +49,7 @@ import sys
 import tempfile
 from datetime import datetime, timedelta, timezone
 
-import geopandas as gpd
+import geopandas as gpd  # noqa: F401  (load order for eccodes, below)
 import numpy as np
 import rasterio
 import requests
@@ -62,7 +62,11 @@ from rasterio.transform import from_origin
 import eccodes  # isort: skip
 
 import settings
-from processing.utilities import RAIN_SUMMARY_HEADERS, hafs_storms, write_empty_rain_summary
+from processing.utilities import (
+    RAIN_SUMMARY_HEADERS,
+    hafs_storms,
+    write_empty_rain_summary,
+)
 
 HOURS = ["00", "06", "12", "18"]
 RES = 0.05
@@ -79,10 +83,6 @@ STORMS_FINAL = timedelta(hours=12)
 # internal folders: processed-cycle markers and temporary files
 DONE_DIR = os.path.join(settings.HAFS_PROC_DIR, "done")
 WORK_DIR = os.path.join(settings.HAFS_PROC_DIR, "work")
-
-# per-watershed summaries from the precomputed cell lookup (hwrf_cells.py);
-# False = the original per-watershed masks
-HAFS_CELL_LOOKUP = True
 
 
 def utc_now():
@@ -103,9 +103,15 @@ def cycle_url(cycle):
 
 def make_dirs():
     for d in (
-        settings.HAFS_SUM_DIR, settings.HAFS_IMG_DIR, settings.HAFS_MOM_DIR,
-        settings.HAFS_TRACK_DIR, settings.DFO_HAFS_DIR, settings.VIIRS_HAFS_DIR,
-        settings.FINAL_HAFS_DIR, settings.HAFS_BACKUP_DIR, DONE_DIR,
+        settings.HAFS_SUM_DIR,
+        settings.HAFS_IMG_DIR,
+        settings.HAFS_MOM_DIR,
+        settings.HAFS_TRACK_DIR,
+        settings.DFO_HAFS_DIR,
+        settings.VIIRS_HAFS_DIR,
+        settings.FINAL_HAFS_DIR,
+        settings.HAFS_BACKUP_DIR,
+        DONE_DIR,
         WORK_DIR,
     ):
         os.makedirs(d, exist_ok=True)
@@ -149,8 +155,10 @@ def track_file(cycle, storm):
 
 def is_rain_rate(gid):
     """0-N h average rain rate record"""
-    return (eccodes.codes_get(gid, "shortName") == "prate"
-            and eccodes.codes_get(gid, "typeOfStatisticalProcessing") == 0)
+    return (
+        eccodes.codes_get(gid, "shortName") == "prate"
+        and eccodes.codes_get(gid, "typeOfStatisticalProcessing") == 0
+    )
 
 
 def rain_file(cycle, storm):
@@ -214,8 +222,13 @@ def fetch_track(cycle, storm):
             continue
         lat = int(p[6][:-1]) / 10 * (1 if p[6][-1] == "N" else -1)
         lon = int(p[7][:-1]) / 10 * (-1 if p[7][-1] == "W" else 1)
-        track[fhour] = {"fhour": fhour, "lat": lat, "lon": lon,
-                        "vmax_kt": int(p[8]), "mslp_hpa": int(p[9])}
+        track[fhour] = {
+            "fhour": fhour,
+            "lat": lat,
+            "lon": lon,
+            "vmax_kt": int(p[8]),
+            "mslp_hpa": int(p[9]),
+        }
     if not track:
         raise RuntimeError(f"no track positions in {path}")
     return [track[h] for h in sorted(track)]
@@ -239,7 +252,9 @@ def distance_km(lats, lons, lat0, lon0):
 
 def unit_vectors(lats, lons):
     la, lo = np.radians(lats), np.radians(lons)
-    return np.stack([np.cos(la) * np.cos(lo), np.cos(la) * np.sin(lo), np.sin(la)], axis=-1)
+    return np.stack(
+        [np.cos(la) * np.cos(lo), np.cos(la) * np.sin(lo), np.sin(la)], axis=-1
+    )
 
 
 def segment_distance_km(lats, lons, start, end):
@@ -280,7 +295,9 @@ def near_track(lats, lons, start, end, row_lats=None, col_lons=None):
         dlon = km / (111.19 * np.cos(np.radians(max_lat))) + 1.0
         to_end = (end[1] - start[1] + 180) % 360 - 180
         offset = (col_lons - start[1] + 180) % 360 - 180  # dateline-safe
-        cols = np.flatnonzero((offset >= min(0, to_end) - dlon) & (offset <= max(0, to_end) + dlon))
+        cols = np.flatnonzero(
+            (offset >= min(0, to_end) - dlon) & (offset <= max(0, to_end) + dlon)
+        )
     if cols.size:
         box = np.ix_(rows, cols)
         near[box] = segment_distance_km(lats[box], lons[box], start, end) <= km
@@ -301,7 +318,12 @@ def storm_rain(cycle, storm, track):
             try:
                 if is_rain_rate(gid):
                     eccodes.codes_set(gid, "stepUnits", "h")
-                    rates.append((int(eccodes.codes_get(gid, "endStep")), int(eccodes.codes_get(gid, "offset"))))
+                    rates.append(
+                        (
+                            int(eccodes.codes_get(gid, "endStep")),
+                            int(eccodes.codes_get(gid, "offset")),
+                        )
+                    )
             finally:
                 eccodes.codes_release(gid)
         if not rates:
@@ -363,7 +385,9 @@ def storm_rain(cycle, storm, track):
             lons = norm_lons(eccodes.codes_get_array(gid, "longitudes").reshape(shape))
             values = eccodes.codes_get_values(gid).reshape(shape)
             if eccodes.codes_get(gid, "bitmapPresent"):
-                values = np.where(values == eccodes.codes_get(gid, "missingValue"), np.nan, values)
+                values = np.where(
+                    values == eccodes.codes_get(gid, "missingValue"), np.nan, values
+                )
         finally:
             eccodes.codes_release(gid)
     total = values * hour * 3600  # kg m-2 = mm over 0-hour
@@ -379,8 +403,12 @@ def storm_rain(cycle, storm, track):
     nx = int(round((np.ceil(lons[window].max() / RES) * RES - left) / RES)) + 1
     dlat, dlon = lats[1, 0] - lats[0, 0], lons[0, 1] - lons[0, 0]
     ri = np.rint(((top - RES * np.arange(ny))[:, None] - lats[0, 0]) / dlat).astype(int)
-    ci = np.rint(((left + RES * np.arange(nx))[None, :] - lons[0, 0]) / dlon).astype(int)
-    ri, ci = np.broadcast_arrays(np.clip(ri, 0, lats.shape[0] - 1), np.clip(ci, 0, lats.shape[1] - 1))
+    ci = np.rint(((left + RES * np.arange(nx))[None, :] - lons[0, 0]) / dlon).astype(
+        int
+    )
+    ri, ci = np.broadcast_arrays(
+        np.clip(ri, 0, lats.shape[0] - 1), np.clip(ci, 0, lats.shape[1] - 1)
+    )
     grid = np.where(window[ri, ci], total[ri, ci] / MM_PER_INCH, np.nan)
     return grid, top, left
 
@@ -393,17 +421,24 @@ def track_lons(track, left, ncols):
 
 def write_track(path, storm, cycle, track, left, ncols):
     lons = track_lons(track, left, ncols)
-    features = [{
-        "type": "Feature",
-        "properties": {"storm": storm, "cycle": cycle},
-        "geometry": {"type": "LineString", "coordinates": [[x, t["lat"]] for t, x in zip(track, lons)]},
-    }]
-    for t, x in zip(track, lons):
-        features.append({
+    features = [
+        {
             "type": "Feature",
-            "properties": {"storm": storm, "cycle": cycle, **t},
-            "geometry": {"type": "Point", "coordinates": [x, t["lat"]]},
-        })
+            "properties": {"storm": storm, "cycle": cycle},
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[x, t["lat"]] for t, x in zip(track, lons)],
+            },
+        }
+    ]
+    for t, x in zip(track, lons):
+        features.append(
+            {
+                "type": "Feature",
+                "properties": {"storm": storm, "cycle": cycle, **t},
+                "geometry": {"type": "Point", "coordinates": [x, t["lat"]]},
+            }
+        )
     with open(path, "w") as f:
         json.dump({"type": "FeatureCollection", "features": features}, f)
 
@@ -430,72 +465,38 @@ def write_tiff(path, grid, top, left):
     out = np.where(np.isfinite(grid) & (grid > 0), grid, NODATA)
     transform = from_origin(left - RES / 2, top + RES / 2, RES, RES)
     with rasterio.open(
-        path, "w", driver="GTiff", height=out.shape[0], width=out.shape[1], count=1,
-        dtype="float64", crs="EPSG:4326", transform=transform, nodata=NODATA,
-        compress="lzw", tiled=True,
+        path,
+        "w",
+        driver="GTiff",
+        height=out.shape[0],
+        width=out.shape[1],
+        count=1,
+        dtype="float64",
+        crs="EPSG:4326",
+        transform=transform,
+        nodata=NODATA,
+        compress="lzw",
+        tiled=True,
     ) as dst:
         dst.write(out, 1)
 
 
-def summarize(raintiff, output_csv, grid, top, left):
-    """per-watershed summary with the HWRF calculation; True if any watershed
-    has rain"""
-    from processing.hwrf.HWRF_tool import HWRF_extract_by_mask
+def summarize(output_csv, grid, top, left):
+    """per-watershed summary with the HWRF calculation (watershed_cells.py,
+    exact cell shares); True if any watershed has rain"""
+    from processing.hwrf.HWRF_tool import rain_summary_rows
     from processing.utilities import watersheds_gdb_reader
+    from processing.watershed_cells import lattice_summary
 
     watersheds = watersheds_gdb_reader()
-
-    # fast path: precomputed watershed cells (hwrf_cells.py), same rows
-    if HAFS_CELL_LOOKUP:
-        from processing.hwrf.hwrf_cells import summary_rows
-
-        try:
-            rows = summary_rows(np.where(grid > 0, grid, np.nan), top, left, watersheds)
-        except Exception:
-            logging.exception("HAFS cell lookup failed, using the per-watershed masks")
-            rows = None
-        if rows is not None:
-            with open(output_csv, "w") as f:
-                writer = csv.writer(f)
-                writer.writerow(RAIN_SUMMARY_HEADERS)
-                writer.writerows(rows)
-            return len(rows) > 0
-
-    # watersheds away from the rain give no rows; skip them for speed
-    rainy = np.isfinite(grid) & (grid > 0)
-    rows, cols = np.nonzero(rainy)
-    minx, maxx = left + cols.min() * RES - RES, left + cols.max() * RES + RES
-    miny, maxy = top - rows.max() * RES - RES, top - rows.min() * RES + RES
-    candidates = watersheds.cx[minx:maxx, miny:maxy].index
-    if maxx > 180:
-        # grid past the dateline: watersheds there are at longitude - 360
-        candidates = candidates.union(watersheds.cx[minx - 360:maxx - 360, miny:maxy].index)
-
-    has_data = False
+    rows = rain_summary_rows(
+        lattice_summary(np.where(grid > 0, grid, np.nan), top, left, watersheds)
+    )
     with open(output_csv, "w") as f:
         writer = csv.writer(f)
         writer.writerow(RAIN_SUMMARY_HEADERS)
-        for the_pfafid in watersheds.index.tolist():
-            if the_pfafid not in candidates:
-                continue
-            test_json = json.loads(
-                gpd.GeoSeries([watersheds.loc[the_pfafid, "geometry"]]).to_json()
-            )
-            if test_json["features"][0]["geometry"] is None:
-                continue
-            data_points = HWRF_extract_by_mask(test_json, raintiff)
-            if data_points.empty:
-                continue
-            total_area = data_points["area"].sum()
-            writer.writerow([
-                the_pfafid,
-                total_area,
-                total_area / watersheds.loc[the_pfafid]["area_km2"] * 100,
-                data_points["intensity"].mean(),
-                data_points["intensity"].max(),
-            ])
-            has_data = True
-    return has_data
+        writer.writerows(rows)
+    return len(rows) > 0
 
 
 def mark_done(cycle, note):
@@ -510,7 +511,9 @@ def is_done(cycle):
 def empty_summary(cycle, note):
     """settle a cycle without rain over any watershed: header-only summary,
     no image"""
-    write_empty_rain_summary(os.path.join(settings.HAFS_SUM_DIR, f"hafs.{cycle}rainfall.csv"))
+    write_empty_rain_summary(
+        os.path.join(settings.HAFS_SUM_DIR, f"hafs.{cycle}rainfall.csv")
+    )
     logging.info(f"HAFS {cycle}: {note}, empty summary written")
     mark_done(cycle, note)
 
@@ -548,8 +551,14 @@ def process_cycle(cycle):
         track = fetch_track(cycle, storm)
         grid, top, left = storm_rain(cycle, storm, track)
         write_track(
-            os.path.join(settings.HAFS_TRACK_DIR, f"hafs.{storm}.{cycle}.track.geojson"),
-            storm, cycle, track, left, grid.shape[1],
+            os.path.join(
+                settings.HAFS_TRACK_DIR, f"hafs.{storm}.{cycle}.track.geojson"
+            ),
+            storm,
+            cycle,
+            track,
+            left,
+            grid.shape[1],
         )
         grids.append((grid, top, left))
         logging.info(f"HAFS {cycle}: {storm} max {np.nanmax(grid):.2f} in")
@@ -561,9 +570,14 @@ def process_cycle(cycle):
     raintiff = os.path.join(WORK_DIR, f"hafs.{cycle}rainfall.tiff")
     output_csv = os.path.join(WORK_DIR, f"hafs.{cycle}rainfall.csv")
     write_tiff(raintiff, grid, top, left)
-    if np.nanmax(np.nan_to_num(grid)) > 0 and summarize(raintiff, output_csv, grid, top, left):
-        shutil.move(output_csv, os.path.join(settings.HAFS_SUM_DIR, os.path.basename(output_csv)))
-        shutil.move(raintiff, os.path.join(settings.HAFS_IMG_DIR, os.path.basename(raintiff)))
+    if np.nanmax(np.nan_to_num(grid)) > 0 and summarize(output_csv, grid, top, left):
+        shutil.move(
+            output_csv,
+            os.path.join(settings.HAFS_SUM_DIR, os.path.basename(output_csv)),
+        )
+        shutil.move(
+            raintiff, os.path.join(settings.HAFS_IMG_DIR, os.path.basename(raintiff))
+        )
         logging.info(f"HAFS {cycle}: generated summary and image")
         mark_done(cycle, " ".join(ready))
     else:
@@ -600,7 +614,6 @@ def hafs_folders():
         "DFO_PROC_DIR": WORK_DIR,
         "VIIRS_MOM_DIR": settings.VIIRS_HAFS_DIR,
         "VIIRS_PROC_DIR": WORK_DIR,
-        "FINAL_MOM": settings.FINAL_HAFS_DIR,
         "FINAL_MOM_DIR": settings.FINAL_HAFS_DIR,
     }
     saved = {k: getattr(settings, k) for k in patched}
@@ -628,7 +641,11 @@ def run_step(name, func, *args):
 def run_cycle_mom(cycle, with_alert=True):
     """HAFS MoM, +DFO+VIIRS and final alert of a cycle; False if the cycle is
     not due yet (later cycles are not either)"""
-    from processing.hwrf.HWRF_MoM import final_alert_pdc, update_HWRF_MoM, update_HWRFMoM_DFO_VIIRS
+    from processing.hwrf.HWRF_MoM import (
+        final_alert_pdc,
+        update_HWRF_MoM,
+        update_HWRFMoM_DFO_VIIRS,
+    )
 
     if cycle_time(cycle) > utc_now():
         return False
@@ -639,7 +656,9 @@ def run_cycle_mom(cycle, with_alert=True):
     # update_HWRF_MoM would download GFMS for a missing summary: skip instead
     gfms_sum = os.path.join(settings.GFMS_SUM_DIR, f"Flood_byStor_{cycle}.csv")
     if not os.path.exists(gfms_sum):
-        logging.warning(f"HAFS MoM {cycle}: no GFMS summary, skipped (retried next run)")
+        logging.warning(
+            f"HAFS MoM {cycle}: no GFMS summary, skipped (retried next run)"
+        )
         return True
     with hafs_folders():
         run_step("MoM", update_HWRF_MoM, cycle)
@@ -655,7 +674,9 @@ def run_day_dfo_viirs(adate):
     from processing.viirs.VIIRS_MoM import update_VIIRS_MoM
 
     for hh in HOURS:
-        mom = os.path.join(settings.HAFS_MOM_DIR, f"Final_Attributes_{adate}{hh}HAFSUpdated.csv")
+        mom = os.path.join(
+            settings.HAFS_MOM_DIR, f"Final_Attributes_{adate}{hh}HAFSUpdated.csv"
+        )
         if not os.path.exists(mom):
             return
     with hafs_folders():
@@ -669,7 +690,10 @@ def hafs_outputs(adate):
         os.path.join(settings.HAFS_MOM_DIR, f"*_{adate}[0-9][0-9]HAFS*.csv"),
         os.path.join(settings.DFO_HAFS_DIR, f"*_{adate}18MOM+DFOUpdated.csv"),
         os.path.join(settings.VIIRS_HAFS_DIR, f"*_{adate}18MOM+DFO+VIIRSUpdated.csv"),
-        os.path.join(settings.FINAL_HAFS_DIR, f"Final_Attributes_{adate}[0-9][0-9]HAFS+MOM+DFO+VIIRSUpdated_PDC.csv"),
+        os.path.join(
+            settings.FINAL_HAFS_DIR,
+            f"Final_Attributes_{adate}[0-9][0-9]HAFS+MOM+DFO+VIIRSUpdated_PDC.csv",
+        ),
     ]
     return sorted(f for p in patterns for f in glob.glob(p))
 
@@ -729,7 +753,9 @@ def HAFS_backup():
     """cron (with the HWRF host backup): keep the host data of the last
     LOOKBACK_DAYS days"""
     make_dirs()
-    start = (utc_now() - timedelta(days=settings.HAFS_LOOKBACK_DAYS)).strftime("%Y%m%d") + "00"
+    start = (utc_now() - timedelta(days=settings.HAFS_LOOKBACK_DAYS)).strftime(
+        "%Y%m%d"
+    ) + "00"
     cycle = start
     while cycle_time(cycle) <= utc_now():
         try:
@@ -745,15 +771,18 @@ def main():
     )
     parser.add_argument("--days", type=int, help="backfill this many days up to --end")
     parser.add_argument(
-        "--end", default=utc_now().strftime("%Y%m%d"),
+        "--end",
+        default=utc_now().strftime("%Y%m%d"),
         help="last day to backfill, YYYYMMDD (default: today, UTC)",
     )
     parser.add_argument(
-        "--overwrite", action="store_true",
+        "--overwrite",
+        action="store_true",
         help="delete the HAFS MoM, DFO/VIIRS and final alert outputs of these days first",
     )
     parser.add_argument(
-        "--backup", action="store_true",
+        "--backup",
+        action="store_true",
         help="only keep the host data of the last LOOKBACK_DAYS days",
     )
     args = parser.parse_args()
@@ -770,7 +799,10 @@ def main():
         HAFS_cron()
         return
     end = datetime.strptime(args.end, "%Y%m%d")
-    dates = [(end - timedelta(days=i)).strftime("%Y%m%d") for i in range(args.days - 1, -1, -1)]
+    dates = [
+        (end - timedelta(days=i)).strftime("%Y%m%d")
+        for i in range(args.days - 1, -1, -1)
+    ]
     warmup = (end - timedelta(days=args.days)).strftime("%Y%m%d")
     logging.info(f"HAFS backfill {dates[0]} - {dates[-1]}, overwrite={args.overwrite}")
     run(dates, warmup=warmup, overwrite=args.overwrite)

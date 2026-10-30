@@ -4,26 +4,17 @@ HWRF_tool.py
 """
 
 import csv
-import json
 import logging
-import math
 import os
 import shutil
 import subprocess
 import zipfile
 from datetime import datetime, timezone
 
-import geopandas as gpd
-import numpy as np
 import pandas as pd
-import rasterio
 import requests
 from bs4 import BeautifulSoup
 from osgeo import gdal
-from rasterio import Affine
-from rasterio.mask import mask
-from shapely.affinity import translate
-from shapely.geometry import Point, mapping, shape
 
 import settings
 from processing.hwrf.HWRF_MoM import hwrf_workflow
@@ -33,10 +24,7 @@ from processing.utilities import (
     hwrf_today,
     watersheds_gdb_reader,
 )
-
-# per-watershed summaries from the precomputed cell lookup (hwrf_cells.py);
-# False = the original per-watershed masks
-HWRF_CELL_LOOKUP = True
+from processing.watershed_cells import raster_summary
 
 
 def check_status(adate):
@@ -241,55 +229,14 @@ def process_rain(adate, TC_Rain):
     return raintiff
 
 
-def HWRF_extract_by_mask(mask_json, tiff):
-    """extract by each watershed"""
-
-    with rasterio.open(tiff) as src:
-        shapes = [mask_json["features"][0]["geometry"]]
-        if src.bounds.right > 180:
-            # image past the dateline (0..360): the watershed there is at
-            # longitude + 360
-            shapes.append(mapping(translate(shape(shapes[0]), xoff=360)))
-        try:
-            out_image, out_transform = mask(src, shapes, crop=True)
-        except ValueError as e:
-            #'Input shapes do not overlap raster.'
-            # print(e)
-            src = None
-            # return empty dataframe
-            return pd.DataFrame()
-
-    # extract data
-    no_data = src.nodata
-    # extract the values of the masked array
-    # print(out_image)
-    data = out_image[0]
-    # extract the row, columns of the valid values
-    row, col = np.where(data != no_data)
-    point_value = np.extract(data != no_data, data)
-    if len(point_value) == 0:
-        src = None
-        # return empty dataframe
-        return pd.DataFrame()
-
-    T1 = out_transform * Affine.translation(0.5, 0.5)  # reference the pixel centre
-    rc2xy = lambda r, c: T1 * (c, r)
-    px, py = src.res
-    # print (px,py)
-    pixel_area_km2 = (
-        lambda lon, lat: 111.111 * 111.111 * math.cos(lat * 0.01745) * px * py
-    )
-    d = gpd.GeoDataFrame({"col": col, "row": row, "intensity": point_value})
-    # coordinate transformation
-    d["lon"] = d.apply(lambda row: rc2xy(row.row, row.col)[0], axis=1)
-    d["lat"] = d.apply(lambda row: rc2xy(row.row, row.col)[1], axis=1)
-    d["area"] = d.apply(lambda row: pixel_area_km2(row.lon, row.lat), axis=1)
-
-    # geometry
-    d["geometry"] = d.apply(lambda row: Point(row["lon"], row["lat"]), axis=1)
-    # first 2 points
-    src = None
-    return d
+def rain_summary_rows(summary):
+    """RAIN_SUMMARY_HEADERS rows of a watershed_cells summary (HWRF, HAFS):
+    the watersheds with rain only"""
+    rain = summary[summary["has_data"]]
+    return [
+        [pfaf_id, row["area"], row["perc_area"], row["mean"], row["max"]]
+        for pfaf_id, row in rain.iterrows()
+    ]
 
 
 def HWRF_extract_by_watershed(raintiff):
@@ -297,56 +244,16 @@ def HWRF_extract_by_watershed(raintiff):
 
     ## zonal analysis using merged tiff and watersheds
     watersheds = watersheds_gdb_reader()
-    pfafid_list = watersheds.index.tolist()
 
-    headers_list = RAIN_SUMMARY_HEADERS
     output_csv = raintiff.replace(".tiff", ".csv")
+    # rain area (exact cell shares), mean and max per watershed
+    # (watershed_cells.py)
+    rows = rain_summary_rows(raster_summary("hwrf", raintiff, watersheds))
     with open(output_csv, "w") as f:
         writer = csv.writer(f)
-        writer.writerow(headers_list)
-    has_data = False
-
-    # fast path: precomputed watershed cells (hwrf_cells.py), same rows
-    rows = None
-    if HWRF_CELL_LOOKUP:
-        from processing.hwrf.hwrf_cells import summary_rows_from_tiff
-
-        try:
-            rows = summary_rows_from_tiff(raintiff, watersheds)
-        except Exception:
-            logging.exception("HWRF cell lookup failed, using the per-watershed masks")
-    if rows is not None:
-        with open(output_csv, "a") as f:
-            csv.writer(f).writerows(rows)
-        has_data = len(rows) > 0
-        pfafid_list = []
-
-    with open(output_csv, "a") as f:
-        writer = csv.writer(f)
-        for the_pfafid in pfafid_list:
-            test_json = json.loads(
-                gpd.GeoSeries([watersheds.loc[the_pfafid, "geometry"]]).to_json()
-            )
-            if test_json["features"][0]["geometry"] == None:
-                continue
-            data_points = HWRF_extract_by_mask(test_json, raintiff)
-            # write summary to a csv file
-            if not data_points.empty:
-                HWRF_TotalArea_km = data_points["area"].sum()
-                HWRF_perc_Area = (
-                    HWRF_TotalArea_km / watersheds.loc[the_pfafid]["area_km2"] * 100
-                )
-                HWRF_MeanRain = data_points["intensity"].mean()
-                HWRF_MaxRain = data_points["intensity"].max()
-                results_list = [
-                    the_pfafid,
-                    HWRF_TotalArea_km,
-                    HWRF_perc_Area,
-                    HWRF_MeanRain,
-                    HWRF_MaxRain,
-                ]
-                writer.writerow(results_list)
-                has_data = True
+        writer.writerow(RAIN_SUMMARY_HEADERS)
+        writer.writerows(rows)
+    has_data = len(rows) > 0
     # has_data, move file to the right locaition
     # no_data: keep the header-only summary (processed, no rain over any
     # watershed; a missing summary means not processed yet), delete the image

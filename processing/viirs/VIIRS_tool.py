@@ -13,7 +13,6 @@ import argparse
 import csv
 from datetime import datetime, timezone, timedelta
 import glob
-import json
 import logging
 import math
 import os
@@ -21,25 +20,17 @@ import shutil
 import sys
 import zipfile
 
-import geopandas as gpd
-import numpy as np
 import pandas as pd
-import rasterio
 import requests
 from multiprocessing import Pool
 from osgeo import gdal
-from rasterio.mask import mask
 
 import settings
 from processing.utilities import read_data, watersheds_gdb_reader
-from processing.viirs.viirs_cells import flood_area_km2, is_flood
 from processing.viirs.VIIRS_MoM import update_VIIRS_MoM
+from processing.watershed_cells import raster_summary
 
 import xml.etree.ElementTree as ET
-
-# per-watershed summaries from the precomputed cell lookup (viirs_cells.py);
-# False = the original per-watershed masks
-VIIRS_CELL_LOOKUP = True
 
 
 def generate_adate(delay=1):
@@ -298,30 +289,6 @@ def build_tiff(adate):
     return final_2_tiffs
 
 
-def VIIRS_extract_by_mask(mask_json, tiff):
-    with rasterio.open(tiff) as src:
-        try:
-            out_image, out_transform = mask(
-                src, [mask_json["features"][0]["geometry"]], crop=True
-            )
-        except ValueError as e:
-            #'Input shapes do not overlap raster.'
-            src = None
-            area = 0
-            # return empty dataframe
-            return area
-        transform = src.transform
-    data = out_image[0]
-    # flood cells per row, each counted with its true area (smaller away
-    # from the equator on this latitude/longitude grid)
-    counts = np.count_nonzero(is_flood(data), axis=1)
-    row_off = int(round((out_transform.f - transform.f) / transform.e))
-    rows = np.flatnonzero(counts)
-    src = None
-    area = flood_area_km2(rows + row_off, counts[rows], transform)
-    return area
-
-
 def VIIRS_extract_by_watershed(adate, tiffs):
     """extract data by wastershed"""
 
@@ -362,33 +329,15 @@ def VIIRS_extract_by_watershed(adate, tiffs):
             writer = csv.writer(f)
             writer.writerow(headers_list)
 
-        # fast path: precomputed watershed cells (viirs_cells.py), same rows
-        rows = None
-        if VIIRS_CELL_LOOKUP:
-            from processing.viirs.viirs_cells import summary_rows
-
-            try:
-                rows = summary_rows(tiff, watersheds)
-            except Exception:
-                logging.exception("VIIRS cell lookup failed, using the per-watershed masks")
-                rows = None
-        if rows is not None:
-            with open(csv_file, "a") as f:
-                csv.writer(f).writerows(rows)
-            logging.info(f"generated (cell lookup): {csv_file}")
-            csv_dict[field_prefix] = csv_file
-            continue
-
+        # per-watershed flooded area, exact cell shares (watershed_cells.py)
+        summary = raster_summary("viirs", tiff, watersheds)
         with open(csv_file, "a") as f:
             writer = csv.writer(f)
             for the_pfafid in pfafid_list:
-                test_json = json.loads(
-                    gpd.GeoSeries([watersheds.loc[the_pfafid, "geometry"]]).to_json()
+                writer.writerow(
+                    [the_pfafid, summary.at[the_pfafid, "area"], summary.at[the_pfafid, "perc_area"]]
                 )
-                area = VIIRS_extract_by_mask(test_json, tiff)
-                perc_Area = area / watersheds.loc[the_pfafid]["area_km2"] * 100
-                results_list = [the_pfafid, area, perc_Area]
-                writer.writerow(results_list)
+        logging.info(f"generated: {csv_file}")
         csv_dict[field_prefix] = csv_file
 
     join = read_data(csv_dict["oneday"])
