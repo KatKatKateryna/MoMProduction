@@ -26,7 +26,7 @@ from shapely.affinity import translate
 from shapely.geometry import Point, mapping, shape
 
 import settings
-from HWRF_MoM import hwrf_workflow
+from processing.hwrf.HWRF_MoM import hwrf_workflow
 from utilities import (
     RAIN_SUMMARY_HEADERS,
     get_current_processing_datehour,
@@ -309,7 +309,7 @@ def HWRF_extract_by_watershed(raintiff):
     # fast path: precomputed watershed cells (hwrf_cells.py), same rows
     rows = None
     if HWRF_CELL_LOOKUP:
-        from hwrf_cells import summary_rows_from_tiff
+        from processing.hwrf.hwrf_cells import summary_rows_from_tiff
 
         try:
             rows = summary_rows_from_tiff(raintiff, watersheds)

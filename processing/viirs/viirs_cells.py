@@ -25,8 +25,8 @@ viirs_cells.py
 
     Switch: VIIRS_CELL_LOOKUP in VIIRS_tool.py (True / False).
 
-**EXAMPLE**
-    python viirs_cells.py VIIRS_1day_composite20261012_flood.tiff   # build by hand
+**EXAMPLE** (from the repository root)
+    python -m processing.viirs.viirs_cells VIIRS_1day_composite20261012_flood.tiff   # build by hand
 """
 
 import json

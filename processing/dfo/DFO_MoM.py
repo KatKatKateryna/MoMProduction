@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 import pandas as pd
 
 import settings
-from HWRF_MoM import hwrf_workflow
+from processing.hwrf.HWRF_MoM import hwrf_workflow
 from utilities import read_data, severity_from_hazard_and_risk_scores
 
 

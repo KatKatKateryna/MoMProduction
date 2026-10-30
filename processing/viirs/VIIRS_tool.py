@@ -32,8 +32,8 @@ from rasterio.mask import mask
 
 import settings
 from utilities import read_data, watersheds_gdb_reader
-from viirs_cells import flood_area_km2, is_flood
-from VIIRS_MoM import update_VIIRS_MoM
+from processing.viirs.viirs_cells import flood_area_km2, is_flood
+from processing.viirs.VIIRS_MoM import update_VIIRS_MoM
 
 import xml.etree.ElementTree as ET
 
@@ -365,7 +365,7 @@ def VIIRS_extract_by_watershed(adate, tiffs):
         # fast path: precomputed watershed cells (viirs_cells.py), same rows
         rows = None
         if VIIRS_CELL_LOOKUP:
-            from viirs_cells import summary_rows
+            from processing.viirs.viirs_cells import summary_rows
 
             try:
                 rows = summary_rows(tiff, watersheds)

@@ -28,8 +28,8 @@ hwrf_cells.py
     Switches: HWRF_CELL_LOOKUP in HWRF_tool.py, HAFS_CELL_LOOKUP in
     HAFS_tool.py (True / False).
 
-**EXAMPLE**
-    python hwrf_cells.py            # build (or rebuild) the lookup by hand
+**EXAMPLE** (from the repository root)
+    python -m processing.hwrf.hwrf_cells    # build (or rebuild) the lookup by hand
 """
 
 import json

@@ -21,34 +21,16 @@ systemd-timesyncd.service active: yes
                  RTC in local TZ: no
 ```
 ## 1. Setup Python environment
-### 1.1 Install Python
-Python version tested: 3.8, 3.9    
-[Miniconda](https://docs.conda.io/en/latest/miniconda.html) is recommended.  
-Latest release: [Miniconda3 Linux 64-bit](https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh) 
-### 1.2 Enable conda-forge channel
-After miniconda installed, the commands enable conda-forge channel  
+All installation steps are packaged into Linux and Windows installers:
 ```
-conda config --add channels conda-forge
-conda config --set channel_priority strict
-conda config --show channels
+setup.sh
 ```
-### 1.2 Clone MoMProduction repo:
+or
 ```
-git clone https://github.com/Global-Flood-Assessment/MoMProduction.git
+setup.ps1
 ```
-### 1.3 Install Python Packages
-Install packages by creating an environment 'mom'.
-```
-conda create --name mom --file packagelist.txt
-conda activate mom
-```
-All the python commands after this part are running in this environment.  
-### 1.3 Other software requirements
-Check if zip, wget, gdal are installed.  
-Install the packages if not available:
-```
-sudo apt install gdal-bin 
-```
+This includes Python installation/update, repo cloning, conda installation and custom venv creation and activation. 
+
 ## 2. Initialize the setup
 Please copy [sample_production.cfg](https://github.com/Global-Flood-Assessment/MoMProduction/blob/main/sample_production.cfg) to **production.cfg**, or run initialize.py, it will do the copy.  
 Check production.cfg: 
@@ -191,20 +173,31 @@ MoM
 ## 7. Processing modules & data
 
 ```
-MoM_run.py 
-GFMS_tool.py
-GFMS_MoM.py
-HWRF_tool.py
-HWRF_MoM.py
-DFO_tool.py
-DFO_MoM.py
-VIIRS_tool.py
-VIIRS_MoM.py
-
+MoM_run.py
 settings.py
 utilities.py
 initialize.py
+processing
+├── gfms
+│   ├── GFMS_tool.py
+│   ├── GFMS_MoM.py
+│   └── gfms_cells.py
+├── hwrf
+│   ├── HWRF_tool.py
+│   ├── HWRF_MoM.py
+│   └── hwrf_cells.py
+├── hafs
+│   └── HAFS_tool.py
+├── dfo
+│   ├── DFO_tool.py
+│   └── DFO_MoM.py
+└── viirs
+    ├── VIIRS_tool.py
+    ├── VIIRS_MoM.py
+    └── viirs_cells.py
 ```
+Run the pipeline modules from the repository root, e.g. `python -m processing.hafs.HAFS_tool`
+(running them by file path fails, because they import `settings` and `utilities` from the root).
 The data required is in data folder:
 ```
 data

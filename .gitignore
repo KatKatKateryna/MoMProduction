@@ -19,6 +19,7 @@ lib64/
 parts/
 sdist/
 var/
+wheels/
 pip-wheel-metadata/
 share/python-wheels/
 *.egg-info/
@@ -131,21 +132,12 @@ production.cfg
 
 *.lock
 .vscode/*
-*claude*
-*CLAUDE*
-database_update/downloads_mom/
-database_update/*.csv
 *.tiff
-first_setup/db_config.cfg
-database_update/db_upload_utils/failed.txt
-database_update/logs/*
-database_update/nginx_cog*
-nohup.out
+*.out
 *.conf
+*log
 *Caddyfile*
 hwrf_data*
 data/gfms_watershed_cells.npz
 data/viirs_watershed_runs.npz
 data/hwrf_watershed_cells.npz
-backfill/logs/
-first_setup/logs/

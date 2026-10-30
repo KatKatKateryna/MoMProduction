@@ -42,10 +42,10 @@ import zipfile
 from rasterio import Affine  # or from affine import Affine
 from rasterio.mask import mask
 
-from GFMS_MoM import flood_severity
+from processing.gfms.GFMS_MoM import flood_severity
 
 # from HWRF_MoM import update_HWRF_MoM, update_HWRFMoM_DFO_VIIRS, final_alert_pdc
-from HWRF_MoM import hwrf_workflow
+from processing.hwrf.HWRF_MoM import hwrf_workflow
 import settings
 from utilities import find_latest_glofas, hwrf_today, watersheds_gdb_reader
 
@@ -591,7 +591,7 @@ def GFMS_extract_by_watershed(vrt_file, window_dir=None):
 
     # fast path: precomputed watershed cells (gfms_cells.py), same rows
     if GFMS_CELL_LOOKUP and os.path.exists(vrt_file):
-        from gfms_cells import summary_rows
+        from processing.gfms.gfms_cells import summary_rows
 
         try:
             rows = summary_rows(vrt_file, WATERSHEDS)

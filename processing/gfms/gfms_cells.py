@@ -22,8 +22,8 @@ gfms_cells.py
 
     Switch: GFMS_CELL_LOOKUP in GFMS_tool.py (True / False).
 
-**EXAMPLE**
-    python gfms_cells.py            # build (or rebuild) the lookup by hand
+**EXAMPLE** (from the repository root)
+    python -m processing.gfms.gfms_cells    # build (or rebuild) the lookup by hand
 """
 
 import json

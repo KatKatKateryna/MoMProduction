@@ -14,7 +14,7 @@ import pandas as pd
 import requests
 
 import settings
-from GFMS_MoM import gfms_scores
+from processing.gfms.GFMS_MoM import gfms_scores
 from utilities import (
     find_latest_glofas,
     find_latest_viirs,
@@ -156,7 +156,7 @@ def update_HWRF_MoM(adate):
     if not os.path.exists(gfms_sum):
         logging.warning(f"GFMS summary not found: {gfms_sum}")
         logging.info(f"calling GFMS_fixdate for: {adate[:8]}")
-        from GFMS_tool import GFMS_fixdate
+        from processing.gfms.GFMS_tool import GFMS_fixdate
 
         GFMS_fixdate(adate[:8])
 
@@ -166,8 +166,7 @@ def update_HWRF_MoM(adate):
         if glofas_latest:
             glofas_sum = os.path.join(settings.GLOFAS_DIR, glofas_latest)
             logging.warning(
-                f"GloFAS for {adate}: using the previous available "
-                f"{glofas_latest}"
+                f"GloFAS for {adate}: using the previous available " f"{glofas_latest}"
             )
         elif os.path.exists(glofas_sum):
             # no earlier GloFAS to fall back to, use the same day file
@@ -188,10 +187,12 @@ def update_HWRF_MoM(adate):
 
     # hwrf_sum may not have
     Final_Attributes_csv = os.path.join(
-        settings.HWRF_MOM_DIR, f"Final_Attributes_{adate}{settings.HWRF_FILE_TAG}Updated.csv"
+        settings.HWRF_MOM_DIR,
+        f"Final_Attributes_{adate}{settings.HWRF_FILE_TAG}Updated.csv",
     )
     Attributes_Clean_csv = os.path.join(
-        settings.HWRF_MOM_DIR, f"Attributes_Clean_{adate}{settings.HWRF_FILE_TAG}Updated.csv"
+        settings.HWRF_MOM_DIR,
+        f"Attributes_Clean_{adate}{settings.HWRF_FILE_TAG}Updated.csv",
     )
 
     # already processed
@@ -608,7 +609,9 @@ def update_HWRF_MoM(adate):
         pd.to_numeric, errors="coerce"
     )
 
-    Final_Attributes["Severity"] = severity_from_hazard_and_risk_scores(Final_Attributes)
+    Final_Attributes["Severity"] = severity_from_hazard_and_risk_scores(
+        Final_Attributes
+    )
     Final_Attributes["Alert"] = Final_Attributes.apply(mofunc_hwrf, axis=1)
     # Final_Attributes["Flag"] = Final_Attributes["Flag"].astype(object)
     Final_Attributes.loc[Final_Attributes["Alert"] == "Information", "Flag"] = ""
@@ -643,8 +646,7 @@ def find_latest_summary(datestr, scanfolder, namepattern, hours):
 
     # NOTE (cron, to adjust): the day used depends on which summaries exist
     # when the job runs, so it follows the publication times and is not
-    # reproducible (backfill/offline_mom_from_summaries.py replays it with a
-    # fixed schedule). From the production logs (Sep-Oct 2026):
+    # reproducible. From the production logs (Sep-Oct 2026):
     #  - DFO of D is written on D by the 03:00 DFO run, but the 06 and 12
     #    cycles (run at 07:00 / 13:00) only look from D-1 (startd below)
     # turn the datestr into a real date
@@ -695,7 +697,8 @@ def update_HWRFMoM_DFO_VIIRS(adate):
 
     # geneate HWRF_DFO_MoM
     MOMOutput = os.path.join(
-        settings.HWRF_MOM_DIR, f"Final_Attributes_{adate}{settings.HWRF_FILE_TAG}Updated.csv"
+        settings.HWRF_MOM_DIR,
+        f"Final_Attributes_{adate}{settings.HWRF_FILE_TAG}Updated.csv",
     )
     if not os.path.exists(MOMOutput):
         # print('can not find ' + MOMOutput)
@@ -705,8 +708,12 @@ def update_HWRFMoM_DFO_VIIRS(adate):
     # output
     # Final_Attributes_yyyymmddhhMOM+yyyymmddDFOUpdated.csv
     # Attributes_clean_yyyymmddhhMOM+yyyymmddDFOUpdated.csv
-    DFO_Final_Attributes_csv = f"Final_Attributes_{adate}{settings.HWRF_FILE_TAG}+{dfo_date}DFOUpdated.csv"
-    DFO_Attributes_Clean_csv = f"Attributes_Clean_{adate}{settings.HWRF_FILE_TAG}+{dfo_date}DFOUpdated.csv"
+    DFO_Final_Attributes_csv = (
+        f"Final_Attributes_{adate}{settings.HWRF_FILE_TAG}+{dfo_date}DFOUpdated.csv"
+    )
+    DFO_Attributes_Clean_csv = (
+        f"Attributes_Clean_{adate}{settings.HWRF_FILE_TAG}+{dfo_date}DFOUpdated.csv"
+    )
 
     weightage = read_data(os.path.join(settings.BASE_DATA_DIR, "DFO_Weightage.csv"))
     Attributes = read_data(os.path.join(settings.BASE_DATA_DIR, "Attributes.csv"))
@@ -1172,7 +1179,9 @@ def find_pair_HWRFoutput(adate):
 def final_alert_pdc(adate):
     """generate final alert"""
 
-    fAlert = f"Final_Attributes_{adate}{settings.HWRF_FILE_TAG}+MOM+DFO+VIIRSUpdated_PDC.csv"
+    fAlert = (
+        f"Final_Attributes_{adate}{settings.HWRF_FILE_TAG}+MOM+DFO+VIIRSUpdated_PDC.csv"
+    )
     fAlert = os.path.join(settings.FINAL_MOM, fAlert)
     # check if final alert is already generatated
     if os.path.exists(fAlert):
@@ -1321,7 +1330,9 @@ def batchrun_HWRF_MoM():
     # also scan mom folder
     for entry in get_latestitems(settings.HWRF_MOM_DIR):
         if "Final" in entry and f"{settings.HWRF_FILE_TAG}Updated" in entry:
-            testdate = entry.split("_")[2].replace(f"{settings.HWRF_FILE_TAG}Updated.csv", "")
+            testdate = entry.split("_")[2].replace(
+                f"{settings.HWRF_FILE_TAG}Updated.csv", ""
+            )
             datelist.append(testdate)
 
     # get current processing hour

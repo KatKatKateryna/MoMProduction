@@ -28,7 +28,7 @@ from dotenv import load_dotenv
 from rasterio.mask import mask
 from osgeo import gdal
 
-from DFO_MoM import update_DFO_MoM
+from processing.dfo.DFO_MoM import update_DFO_MoM
 import settings
 from utilities import from_today, watersheds_gdb_reader
 

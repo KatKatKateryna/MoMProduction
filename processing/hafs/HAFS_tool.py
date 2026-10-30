@@ -31,10 +31,10 @@ HAFS_tool.py
 
     Turned on and off with ENABLED in the [hafs] section of production.cfg.
 
-**EXAMPLE**
-    python HAFS_tool.py                                  # same as the cron job
-    python HAFS_tool.py --days 3 --end 20261012 --overwrite
-    python HAFS_tool.py --backup                         # host data only
+**EXAMPLE** (from the repository root)
+    python -m processing.hafs.HAFS_tool                  # same as the cron job
+    python -m processing.hafs.HAFS_tool --days 3 --end 20261012 --overwrite
+    python -m processing.hafs.HAFS_tool --backup         # host data only
 """
 
 import argparse
@@ -440,14 +440,14 @@ def write_tiff(path, grid, top, left):
 def summarize(raintiff, output_csv, grid, top, left):
     """per-watershed summary with the HWRF calculation; True if any watershed
     has rain"""
-    from HWRF_tool import HWRF_extract_by_mask
+    from processing.hwrf.HWRF_tool import HWRF_extract_by_mask
     from utilities import watersheds_gdb_reader
 
     watersheds = watersheds_gdb_reader()
 
     # fast path: precomputed watershed cells (hwrf_cells.py), same rows
     if HAFS_CELL_LOOKUP:
-        from hwrf_cells import summary_rows
+        from processing.hwrf.hwrf_cells import summary_rows
 
         try:
             rows = summary_rows(np.where(grid > 0, grid, np.nan), top, left, watersheds)
@@ -588,7 +588,7 @@ def _no_gfms_download(adate):
 def hafs_folders():
     """point the HWRF/DFO/VIIRS MoM and final alert folders at the HAFS ones
     for the duration of the block, and always put them back"""
-    import GFMS_tool
+    from processing.gfms import GFMS_tool
 
     patched = {
         "HWRF_SUM_DIR": settings.HAFS_SUM_DIR,
@@ -628,7 +628,7 @@ def run_step(name, func, *args):
 def run_cycle_mom(cycle, with_alert=True):
     """HAFS MoM, +DFO+VIIRS and final alert of a cycle; False if the cycle is
     not due yet (later cycles are not either)"""
-    from HWRF_MoM import final_alert_pdc, update_HWRF_MoM, update_HWRFMoM_DFO_VIIRS
+    from processing.hwrf.HWRF_MoM import final_alert_pdc, update_HWRF_MoM, update_HWRFMoM_DFO_VIIRS
 
     if cycle_time(cycle) > utc_now():
         return False
@@ -651,8 +651,8 @@ def run_cycle_mom(cycle, with_alert=True):
 
 def run_day_dfo_viirs(adate):
     """HAFS-based DFO MoM and VIIRS MoM of a day, once its 4 HAFS MoM exist"""
-    from DFO_MoM import update_DFO_MoM
-    from VIIRS_MoM import update_VIIRS_MoM
+    from processing.dfo.DFO_MoM import update_DFO_MoM
+    from processing.viirs.VIIRS_MoM import update_VIIRS_MoM
 
     for hh in HOURS:
         mom = os.path.join(settings.HAFS_MOM_DIR, f"Final_Attributes_{adate}{hh}HAFSUpdated.csv")

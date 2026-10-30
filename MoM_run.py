@@ -33,13 +33,13 @@ if os.name == "nt":
     os.environ["PATH"] = installers_path + os.pathsep + os.environ["PATH"]
 
 import settings
-from DFO_MoM import batchrun_DFO_MoM
-from DFO_tool import DFO_cron
-from GFMS_tool import GFMS_cron, GFMS_fixdate
-from HWRF_MoM import batchrun_HWRF_MoM
-from HWRF_tool import HWRF_cron
-from VIIRS_MoM import batchrun_VIIRS_MoM
-from VIIRS_tool import VIIRS_cron
+from processing.dfo.DFO_MoM import batchrun_DFO_MoM
+from processing.dfo.DFO_tool import DFO_cron
+from processing.gfms.GFMS_tool import GFMS_cron, GFMS_fixdate
+from processing.hwrf.HWRF_MoM import batchrun_HWRF_MoM
+from processing.hwrf.HWRF_tool import HWRF_cron
+from processing.viirs.VIIRS_MoM import batchrun_VIIRS_MoM
+from processing.viirs.VIIRS_tool import VIIRS_cron
 from utilities import run_label
 
 # the cron schedule of each job, as first_setup/setup_crontab.sh installs it
@@ -103,7 +103,7 @@ def run_job(cronjob):
         batchrun_VIIRS_MoM()
     elif cronjob == "HAFS":
         # imported here only: the other jobs never load the HAFS code
-        from HAFS_tool import HAFS_cron
+        from processing.hafs.HAFS_tool import HAFS_cron
 
         HAFS_cron()
     else:
