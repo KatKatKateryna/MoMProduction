@@ -1,3 +1,4 @@
+# Mainly for custom illustrations of selected storms, not a cron-style backfill.
 """
 online_hafs_images_from_host.py
     -- download HAFS rainfall for chosen storms and cycles and produce only the
