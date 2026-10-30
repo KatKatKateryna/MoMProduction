@@ -257,8 +257,8 @@ Regenerates the GFMS images and per-watershed summaries of past days.
   as the cron job does (for a past time, the grids the host has now, not the
   forecast it had then). `GFMS/GFMS_image/Flood_byStor_YYYYMMDDHH.tiff` for
   every grid downloaded, the following 96 hours too: kept when the new one is identical, otherwise the
-  stored one is moved to `GFMS/GFMS_images_expired/` (with the time it was
-  made added to the name if that folder already has one).
+  stored one is moved to `GFMS/GFMS_images_expired/`, with the time it was
+  made added to the name (`Flood_byStor_YYYYMMDDHH_YYYYMMDDTHHMMSS.tiff`).
 - **Its own state:** `GFMS/GFMS_backfill_state/`. A day gets `YYYYMMDD.done`
   when it is finished, or `.nodata` when the source has nothing for it. Days
   with a marker are skipped, unless `--redo`.

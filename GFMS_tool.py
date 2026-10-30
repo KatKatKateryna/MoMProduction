@@ -725,11 +725,12 @@ def GFMS_store_image(new_tiff, tiff_file):
             logging.info(f"unchanged, kept: {tiff_file}")
             return "unchanged"
         os.makedirs(settings.GFMS_IMG_EXPIRED_DIR, exist_ok=True)
-        expired = os.path.join(settings.GFMS_IMG_EXPIRED_DIR, os.path.basename(tiff_file))
-        if os.path.exists(expired):
-            # expired before: this one is named after the time it was made
-            made = datetime.fromtimestamp(os.path.getmtime(tiff_file), timezone.utc)
-            expired = expired.replace(".tiff", made.strftime("_%Y%m%dT%H%M%S.tiff"))
+        # named after the time the stored one was made
+        made = datetime.fromtimestamp(os.path.getmtime(tiff_file), timezone.utc)
+        expired = os.path.join(
+            settings.GFMS_IMG_EXPIRED_DIR,
+            os.path.basename(tiff_file).replace(".tiff", made.strftime("_%Y%m%dT%H%M%S.tiff")),
+        )
         shutil.move(tiff_file, expired)
         logging.info(f"expired: {tiff_file} -> {expired}")
         status = "replaced"
