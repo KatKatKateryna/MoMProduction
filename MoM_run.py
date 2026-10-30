@@ -42,7 +42,7 @@ from processing.viirs.VIIRS_MoM import batchrun_VIIRS_MoM
 from processing.viirs.VIIRS_tool import VIIRS_cron
 from processing.utilities import run_label
 
-# the cron schedule of each job, as first_setup/setup_crontab.sh installs it
+# the cron schedule of each job, as setup_crontab.sh installs it
 CRON_SCHEDULE = {
     "GFMS": [4, 11, 14, 21],
     "HWRF": [2, 7, 13, 19],
@@ -63,7 +63,16 @@ def _getParser():
         epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    joblist = ["GFMS", "HWRF", "HWRF_MOM", "DFO", "DFO_MOM", "VIIRS", "VIIRS_MOM", "HAFS"]
+    joblist = [
+        "GFMS",
+        "HWRF",
+        "HWRF_MOM",
+        "DFO",
+        "DFO_MOM",
+        "VIIRS",
+        "VIIRS_MOM",
+        "HAFS",
+    ]
     parser.add_argument(
         "-j",
         "--job",

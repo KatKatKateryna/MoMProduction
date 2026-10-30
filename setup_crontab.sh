@@ -3,8 +3,8 @@
 # The monitor job is intentionally excluded; add it separately if needed.
 #
 # Usage:
-#   chmod +x first_setup/setup_crontab.sh   # make executable (only needed once)
-#   ./first_setup/setup_crontab.sh
+#   chmod +x setup_crontab.sh   # make executable (only needed once)
+#   ./setup_crontab.sh
 #
 # Jobs are launched through run_mom_job.sh, which activates the conda
 # environment before calling MoM_run.py. Calling the env's python by absolute

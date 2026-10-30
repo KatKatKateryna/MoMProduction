@@ -100,8 +100,8 @@ sample log output
 Each datasets are released in difference schedules, GloFAS, DFO, VIIRS are released once a day; GFMS are the predication data in 3-hour interval and available in advance, amd are processed along with GloFAS data. HWRF is updated every 6 six hours under certain weather conditions, there can be no HWRF data released in days. One hour interval between each job are suggested. The script for each job check if there is the new data need to be processed.  
 On the production host, install all four jobs with the provided script:
 ```
-chmod +x first_setup/setup_crontab.sh
-./first_setup/setup_crontab.sh
+chmod +x setup_crontab.sh
+./setup_crontab.sh
 ```
 It is safe to re-run; it replaces the existing MoM entries and leaves every other cron job untouched.
 
