@@ -3,6 +3,16 @@
 set -e  # Exit on error
 set -o pipefail
 
+# --noconda: skip the Miniconda install, conda configuration and the env
+# create/update; the existing env is used as it is
+NO_CONDA=false
+for arg in "$@"; do
+    case "$arg" in
+        --noconda) NO_CONDA=true ;;
+        *) echo "Unknown option: $arg"; exit 1 ;;
+    esac
+done
+
 ############################
 # CONFIG
 ############################
@@ -80,36 +90,41 @@ fi
 ############################
 # MINICONDA INSTALL
 ############################
-if [ ! -d "$CONDA_DIR" ]; then
-    echo "Miniconda not found. Installing..."
+if [ "$NO_CONDA" = false ]; then
+    if [ ! -d "$CONDA_DIR" ]; then
+        echo "Miniconda not found. Installing..."
 
-    cd "$HOME"
+        cd "$HOME"
 
-    if [ ! -f "$MINICONDA_INSTALLER" ]; then
-        wget "$MINICONDA_URL"
+        if [ ! -f "$MINICONDA_INSTALLER" ]; then
+            wget "$MINICONDA_URL"
+        fi
+
+        bash "$MINICONDA_INSTALLER" -b -p "$CONDA_DIR"
+
     fi
 
-    bash "$MINICONDA_INSTALLER" -b -p "$CONDA_DIR"
-
+    # Initialize conda for bash (safe to re-run)
+    echo "Conda DIR: $CONDA_DIR"
+    "$CONDA_DIR/bin/conda" init bash || true
 fi
-
-# Initialize conda for bash (safe to re-run)
-echo "Conda DIR: $CONDA_DIR"
-"$CONDA_DIR/bin/conda" init bash || true
 
 # Source conda
 source "$CONDA_DIR/etc/profile.d/conda.sh"
-"$CONDA_DIR/bin/conda" tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
-"$CONDA_DIR/bin/conda" tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
 
-############################
-# CONDA CONFIG
-############################
+if [ "$NO_CONDA" = false ]; then
+    "$CONDA_DIR/bin/conda" tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+    "$CONDA_DIR/bin/conda" tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
 
-echo "Configuring conda..."
+    ############################
+    # CONDA CONFIG
+    ############################
 
-conda config --add channels conda-forge || true
-conda config --set channel_priority strict
+    echo "Configuring conda..."
+
+    conda config --add channels conda-forge || true
+    conda config --set channel_priority strict
+fi
 
 ############################
 # CREATE OR UPDATE ENV
@@ -117,7 +132,13 @@ conda config --set channel_priority strict
 
 cd "$REPO_DIR"
 
-if conda env list | grep -q "^$CONDA_ENV_NAME "; then
+if [ "$NO_CONDA" = true ]; then
+    if ! conda env list | grep -q "^$CONDA_ENV_NAME "; then
+        echo "--noconda: environment $CONDA_ENV_NAME does not exist, run without --noconda first"
+        exit 1
+    fi
+    echo "--noconda: skipping conda setup, using the existing $CONDA_ENV_NAME environment"
+elif conda env list | grep -q "^$CONDA_ENV_NAME "; then
     echo "Environment exists. Updating..."
     conda env update -n "$CONDA_ENV_NAME" -f environment.yml --prune
 else
