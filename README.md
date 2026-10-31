@@ -119,6 +119,20 @@ PROJECT_DIR=/home/tester/MoMProduction
 0 5,12,17 * * * /home/tester/MoMProduction/run_mom_job.sh -j VIIRS >> /home/tester/MoMProduction/logs/viirs.log 2>&1
 ```
 **Notes:** Please reference [crontab_list.txt](https://github.com/Global-Flood-Assessment/MoMProduction/blob/dev/crontab_list.txt) for the latest cron setup. 
+## 4.1 Docker (environment, cron and all jobs in one container)
+`Dockerfile` builds an image from the checkout in hand: the `momenv` conda environment from `environment.yml` (plus `libgdal-hdf4`), `cron`, and the repository itself; `docker-entrypoint.sh` then runs `initialize.py`, installs the schedule with `setup_crontab.sh` and hands over to `cron` in the foreground, so a single container runs all five jobs on the production schedule. `production.cfg` is deliberately not baked into the image: mount it, together with a volume for `WORKING_DIR`/`PRODUCT_DIR` (`/root/MoM`), and an `.env` as well if the alert push is used.
+```
+docker build -t momproduction .
+docker run -d --name mom --restart unless-stopped \
+    -v /path/to/production.cfg:/root/MoMProduction/production.cfg:ro \
+    -v mom_data:/root/MoM \
+    momproduction
+docker exec mom crontab -l                  # the installed schedule
+docker exec mom tail -f logs/gfms.log       # a job's output
+docker exec mom ./run_mom_job.sh -j GFMS    # run one job by hand
+```
+Anything passed after the image name runs instead of cron, which is the way to do a one-off job or a `--fixdate` run in a throwaway container.
+
 ## 5. Storage requirements 
 The minimum required free disk space for data processing is 20G. 
 
