@@ -44,6 +44,7 @@ import math
 import os
 import sys
 import time
+from array import array
 
 import numpy as np
 import pandas as pd
@@ -228,7 +229,14 @@ def build(source, width, height, transform, watersheds=None):
         watersheds = watersheds_gdb_reader()
     pfaf_ids = watersheds.index.tolist()
     wrap = SOURCES[source]["wrap"]
-    ws, row, c0, c1, offset, shares = [], [], [], [], [], []
+    # typed arrays, not python lists: in a list every value is a boxed int
+    # (28 B) plus an 8 B slot, and every run's shares a separate ndarray
+    # (116 B of header), about 11x the payload. That overhead is what made the
+    # 250 m grids (dfo, viirs) exhaust memory while the 0.05 deg ones fitted.
+    # Same values in the same order, so the lookup built is unchanged.
+    ws, row, c0, c1 = (array("i") for _ in range(4))
+    offset = array("q")
+    shares = array("f")
     n_shares = 0
     t0 = time.monotonic()
     for i, geometry in enumerate(watersheds.geometry):
@@ -237,20 +245,24 @@ def build(source, width, height, transform, watersheds=None):
             ws.append(i), row.append(r), c0.append(a), c1.append(b), offset.append(-1)
         for r, a, b, s in edge:
             ws.append(i), row.append(r), c0.append(a), c1.append(b), offset.append(n_shares)
-            shares.append(s.astype(np.float32))
+            shares.frombytes(np.ascontiguousarray(s, np.float32).tobytes())
             n_shares += len(s)
         if (i + 1) % 2000 == 0:
             logging.info(f"{source} cell lookup: {i + 1} of {len(pfaf_ids)} watersheds, {time.monotonic() - t0:.0f}s")
-    order = np.argsort(np.asarray(row, np.int64), kind="stable")
+    # frombuffer: views on the typed arrays, no copy of the payload
+    ws_v, row_v = np.frombuffer(ws, np.int32), np.frombuffer(row, np.int32)
+    order = np.argsort(row_v, kind="stable")
     lookup = {
         "pfaf_ids": np.asarray(pfaf_ids),
-        "overlap": np.isin(np.arange(len(pfaf_ids)), ws),
-        "ws": np.asarray(ws, np.int32)[order],
-        "row": np.asarray(row, np.int32)[order],
-        "c0": np.asarray(c0, np.int32)[order],
-        "c1": np.asarray(c1, np.int32)[order],
-        "offset": np.asarray(offset, np.int32 if n_shares < 2**31 else np.int64)[order],
-        "shares": np.concatenate(shares) if shares else np.zeros(0, np.float32),
+        "overlap": np.isin(np.arange(len(pfaf_ids)), ws_v),
+        "ws": ws_v[order],
+        "row": row_v[order],
+        "c0": np.frombuffer(c0, np.int32)[order],
+        "c1": np.frombuffer(c1, np.int32)[order],
+        "offset": np.frombuffer(offset, np.int64).astype(
+            np.int32 if n_shares < 2**31 else np.int64
+        )[order],
+        "shares": np.frombuffer(shares, np.float32) if n_shares else np.zeros(0, np.float32),
         "grid": np.asarray(grid_signature(width, height, transform)),
         "shapefile": np.asarray(shapefile_fingerprint()),
         "method": np.asarray(MASK_METHOD),
