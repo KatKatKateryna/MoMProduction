@@ -20,6 +20,7 @@ epilog = """
 import argparse
 import logging
 import os
+import shutil
 import sys
 
 # point PROJ at GDAL's own proj.db in a Windows .venv; before any PROJ-dependent import
@@ -98,6 +99,24 @@ def _getParser():
     return parser
 
 
+# console tools the jobs shell out to by name. Without the conda environment
+# activated they are unresolvable: gdal_translate then converts nothing and the
+# failure only surfaces much later (a missing mosaic, or a silently partial
+# one). Checked once per run, before any job starts.
+REQUIRED_TOOLS = ("gdal_translate", "wget")
+
+
+def require_tools():
+    """exit before doing any work if a console tool is not on PATH"""
+    missing = [t for t in REQUIRED_TOOLS if shutil.which(t) is None]
+    if missing:
+        logging.error(
+            f"not on PATH: {', '.join(missing)} - activate the conda "
+            "environment first (run_mom_job.sh does it)"
+        )
+        sys.exit(1)
+
+
 def run_job(cronjob):
     """run various cron job"""
     logging.info(f"run {cronjob} ({run_label(CRON_SCHEDULE.get(cronjob, []))})")
@@ -143,6 +162,7 @@ def main():
     results = parser.parse_args()
     # keep each job's log in its own file
     settings.configure_logging(results.job)
+    require_tools()
     if results.adate:
         run_fixdate(results.job, results.adate)
     else:

@@ -20,8 +20,19 @@ import scipy.stats
 import settings
 
 
+_WATERSHEDS = None
+
+
 def watersheds_gdb_reader():
-    """reader watersheds gdb into geopandas"""
+    """reader watersheds gdb into geopandas
+
+    Read once per process and reused: the shapefile is 128 MB and the DFO job
+    asked for it again for every flood layer. Callers only read from the
+    frame, so they share one."""
+
+    global _WATERSHEDS
+    if _WATERSHEDS is not None:
+        return _WATERSHEDS
 
     # pfaf_id, areakm2
     watersheds = geopandas.read_file(settings.WATERSHED_SHP)
@@ -32,6 +43,7 @@ def watersheds_gdb_reader():
     watersheds.set_index("pfaf_id", inplace=True)
     watersheds.crs = "EPSG:4326"
 
+    _WATERSHEDS = watersheds
     return watersheds
 
 
