@@ -44,6 +44,23 @@ fi
 cd "$PROJECT_DIR"
 mkdir -p logs
 
+# One run of a job at a time. cron fires regardless of whether the previous
+# run is still going, and DFO_process works inside the shared per-day download
+# folder with fixed intermediate names, so two DFO runs clobber each other.
+# The lock is keyed on the -j job only (not --fixdate), so a fixdate run waits
+# for the regular one, while different jobs still run concurrently.
+JOB=""
+prev=""
+for arg in "$@"; do
+    case "$prev" in -j|--job) JOB="$arg" ;; esac
+    prev="$arg"
+done
+exec 9>"/tmp/mom_job_${JOB:-all}.lock"
+if ! flock -n 9; then
+    echo "run_mom_job.sh: a ${JOB:-MoM} run is still going, skipping this one" >&2
+    exit 0
+fi
+
 # not exec'd, so the alert push below still runs; the job's exit status is kept.
 status=0
 python MoM_run.py "$@" || status=$?

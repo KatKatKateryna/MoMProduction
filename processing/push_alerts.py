@@ -17,6 +17,7 @@ import base64
 import glob
 import logging
 import os
+import re
 import sys
 
 import requests
@@ -78,6 +79,15 @@ def new_alerts(remote_names):
     return [f for f in local if os.path.basename(f) > last]
 
 
+CYCLE = re.compile(r"_(\d{10})")
+
+
+def alert_cycle(name):
+    """the YYYYMMDDHH cycle of an alert file name, else the name itself"""
+    m = CYCLE.search(name)
+    return m.group(1) if m else name
+
+
 def commit_files(session, head, tree, files):
     """one commit adding files to the repo folder; False if the branch moved"""
     entries = []
@@ -101,11 +111,11 @@ def commit_files(session, head, tree, files):
     new_tree = gh(
         session, "POST", "git/trees", json={"base_tree": tree, "tree": entries}
     )["sha"]
-    names = [os.path.basename(f) for f in files]
+    cycles = [alert_cycle(os.path.basename(f)) for f in files]
     message = (
-        f"Add {names[0]}"
-        if len(names) == 1
-        else f"Add {len(names)} alerts: {names[0]} .. {names[-1]}"
+        f"alert for {cycles[0]}"
+        if len(cycles) == 1
+        else f"alerts for {cycles[0]} .. {cycles[-1]}"
     )
     commit = gh(
         session,
