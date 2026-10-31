@@ -132,8 +132,16 @@ fi
 
 conda activate "$CONDA_ENV_NAME"
 
-echo "Installing libgdal-hdf4 in environment..."
-conda install -c conda-forge libgdal-hdf4=3.12.2 --no-update-deps -y
+LIBGDAL_HDF4_VERSION="3.12.2"
+# conda list exits 1 when the package is not installed
+INSTALLED_HDF4="$(conda list -n "$CONDA_ENV_NAME" --full-name libgdal-hdf4 2>/dev/null | awk '$1 == "libgdal-hdf4" {print $2}' || true)"
+if [ "$INSTALLED_HDF4" = "$LIBGDAL_HDF4_VERSION" ]; then
+    echo "libgdal-hdf4 $LIBGDAL_HDF4_VERSION already installed, skipping."
+else
+    echo "Installing libgdal-hdf4 $LIBGDAL_HDF4_VERSION in environment..."
+    # conda-forge only: the configured default channels make the solve run out of memory
+    conda install -n "$CONDA_ENV_NAME" --override-channels -c conda-forge "libgdal-hdf4=$LIBGDAL_HDF4_VERSION" --no-update-deps -y
+fi
 
 ############################
 # RUN INITIALIZE.PY
