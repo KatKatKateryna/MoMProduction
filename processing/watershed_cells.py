@@ -57,6 +57,8 @@ from processing.utilities import watersheds_gdb_reader
 
 # km per degree of latitude (and of longitude at the equator)
 KM_PER_DEGREE = 111.111
+# decimals kept of a boundary cell's share of a cell
+SHARE_DECIMALS = 4
 # cell size of the HWRF and HAFS rain images
 HWRF_RES = 0.05
 
@@ -170,8 +172,16 @@ def mask_summary(source, reader, transform, width, height, watersheds, wrap=Fals
                 left = transform.c + (c + col0) * transform.a
                 top = transform.f + (r + row0) * transform.e
                 boxes = shapely.box(left, top + transform.e, left + transform.a, top)
-                share = np.clip(
-                    shapely.area(shapely.intersection(boxes, piece)) / cell_deg2, 0.0, 1.0
+                # 0.0001 steps: a share is a fraction of one cell, so four
+                # decimals are past anything the raster resolves, and rounding
+                # keeps the result stable across shapely/GEOS versions
+                share = np.round(
+                    np.clip(
+                        shapely.area(shapely.intersection(boxes, piece)) / cell_deg2,
+                        0.0,
+                        1.0,
+                    ),
+                    SHARE_DECIMALS,
                 )
                 a = share * km2[r]
                 v = values[r, c]
