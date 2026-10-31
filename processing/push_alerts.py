@@ -72,7 +72,8 @@ def remote_state(session):
 
 def new_alerts(remote_names):
     """local csv files later than the newest one in the repo"""
-    local = sorted(glob.glob(os.path.join(settings.FINAL_MOM_DIR, "*.csv")))
+    alerts_dir = settings.FINAL_HAFS_DIR if settings.HAFS_ENABLED else settings.FINAL_MOM_DIR
+    local = sorted(glob.glob(os.path.join(alerts_dir, "*.csv")))
     if not remote_names:
         return local[-1:]
     last = max(remote_names)
