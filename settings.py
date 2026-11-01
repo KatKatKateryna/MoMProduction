@@ -28,6 +28,34 @@ PRODUCT_DIR = os.path.expanduser(
     config.get("general", "PRODUCT_DIR").replace("/", os.sep)
 )
 
+
+def _read_bbox():
+    """the area of interest of this installation: "minlon, minlat, maxlon,
+    maxlat" as BBOX in the [general] section of production.cfg, or None when
+    it is empty or absent -- then every job covers the whole globe, as it
+    always has.
+
+    With a box set, the jobs work on the watersheds it touches only and
+    download just the host data that covers it."""
+    raw = (config.get("general", "BBOX", fallback="") or "").strip()
+    if not raw:
+        return None
+    parts = [p.strip() for p in raw.replace(";", ",").split(",") if p.strip()]
+    if len(parts) != 4:
+        raise ValueError(
+            f"BBOX needs four numbers, minlon, minlat, maxlon, maxlat: {raw}"
+        )
+    minlon, minlat, maxlon, maxlat = (float(p) for p in parts)
+    if not (-180 <= minlon < maxlon <= 180 and -90 <= minlat < maxlat <= 90):
+        raise ValueError(
+            "BBOX must be minlon, minlat, maxlon, maxlat inside -180..180 and "
+            f"-90..90, and must not cross the antimeridian: {raw}"
+        )
+    return (minlon, minlat, maxlon, maxlat)
+
+
+BBOX = _read_bbox()
+
 # config GLOFAS directory
 GLOFAS_PROC_DIR = os.path.join(WORKING_DIR, config.get("processing_dir", "glofas"))
 GLOFAS_DIR = os.path.join(PRODUCT_DIR, config.get("products_dir", "GLOFAS"))

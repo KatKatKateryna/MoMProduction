@@ -63,6 +63,7 @@ import eccodes  # isort: skip
 import settings
 from processing.utilities import (
     RAIN_SUMMARY_HEADERS,
+    bbox_wanted,
     hafs_storms,
     write_empty_rain_summary,
 )
@@ -165,6 +166,67 @@ def swath_url(cycle, storm):
     )
 
 
+def grib_grid_extent(url):
+    """(minlon, minlat, maxlon, maxlat) of a GRIB2 file's grid, from the grid
+    definition section of its first message -- the first kilobyte of the file,
+    not the ~300 MB of records behind it. Longitudes as the file gives them,
+    which for these files is 0..360. None when it cannot be read, or when the
+    grid is not a plain latitude/longitude one."""
+    try:
+        reqs = requests.get(url, headers={"Range": "bytes=0-1023"}, timeout=60)
+        if reqs.status_code not in (200, 206):
+            return None
+        head = reqs.content[:1024]
+    except requests.RequestException:
+        return None
+    if head[:4] != b"GRIB":
+        return None
+    # section 0 is 16 octets; then each section starts with its length and number
+    pos = 16
+    while pos + 5 <= len(head):
+        length = int.from_bytes(head[pos : pos + 4], "big")
+        number = head[pos + 4]
+        if number != 3:
+            if length <= 0 or number == 8:
+                return None
+            pos += length
+            continue
+        section = head[pos : pos + length]
+        # grid definition template 3.0, latitude/longitude
+        if len(section) < 72 or int.from_bytes(section[12:14], "big") != 0:
+            return None
+
+        def octets(first, last):
+            """a signed value of the section, in millionths of a degree"""
+            raw = int.from_bytes(section[first - 1 : last], "big")
+            return -(raw & 0x7FFFFFFF) / 1e6 if raw & 0x80000000 else raw / 1e6
+
+        la1, lo1 = octets(47, 50), octets(51, 54)
+        la2, lo2 = octets(56, 59), octets(60, 63)
+        return min(lo1, lo2), min(la1, la2), max(lo1, lo2), max(la1, la2)
+    return None
+
+
+def swath_reaches_box(cycle, storm):
+    """True if a storm's parent domain -- the grid its rain is taken over --
+    reaches a watershed of the box, so its swath file is worth downloading.
+
+    True without a box, and True as well when the grid cannot be read: then
+    the file is downloaded and summarised as before."""
+    if settings.BBOX is None:
+        return True
+    extent = grib_grid_extent(swath_url(cycle, storm))
+    if extent is None:
+        logging.info(f"HAFS {cycle}: {storm} grid not read, downloading anyway")
+        return True
+    minlon, minlat, maxlon, maxlat = extent
+    # the domain is given in 0..360 longitudes
+    return any(
+        bbox_wanted(minlon + shift, minlat, maxlon + shift, maxlat)
+        for shift in (0.0, -360.0, 360.0)
+    )
+
+
 def rain_ranges(url):
     """the byte ranges of a swath file's rain rate records, from the .idx
     sidecar the host publishes beside it: (start, end) pairs, end None for
@@ -254,7 +316,8 @@ def backup_cycle(cycle):
         base = f"{cycle_url(cycle)}{storm}.{cycle}.{settings.HAFS_MODEL}"
         if exists(base + ".parent.swath.grb2") and exists(base + ".trak.atcfunix"):
             track_file(cycle, storm)
-            rain_file(cycle, storm)
+            if swath_reaches_box(cycle, storm):
+                rain_file(cycle, storm)
 
 
 def fetch_track(cycle, storm):
@@ -495,6 +558,11 @@ def process_cycle(cycle):
 
     grids = []
     for storm in ready:
+        # a storm whose parent domain misses the box: its swath file, the one
+        # large download of the cycle, is never fetched
+        if not swath_reaches_box(cycle, storm):
+            logging.info(f"HAFS {cycle}: {storm} rain grid outside the box, skipped")
+            continue
         track = fetch_track(cycle, storm)
         grid, top, left = storm_rain(cycle, storm, track)
         write_track(

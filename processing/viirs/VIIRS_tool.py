@@ -11,13 +11,16 @@ VIIRS_tool.py
 
 import argparse
 import csv
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone, timedelta
 import glob
+import json
 import logging
 import math
 import os
 import shutil
 import sys
+import time
 import zipfile
 
 import pandas as pd
@@ -26,7 +29,7 @@ from multiprocessing import Pool
 from osgeo import gdal
 
 import settings
-from processing.utilities import read_data, watersheds_gdb_reader
+from processing.utilities import bbox_wanted, read_data, watersheds_gdb_reader
 from processing.viirs.VIIRS_MoM import update_VIIRS_MoM
 from processing.watershed_cells import raster_summary
 
@@ -139,6 +142,82 @@ def pop_matching_string_from_list(urls: list[str], str_to_match: str):
     return None  # if not found
 
 
+# the global composite comes in 136 parts of 15 degrees; with a box only the
+# parts covering it are downloaded, picked from the parts' own GeoTIFF headers
+# on the host (a few KB each, read once and cached -- the tiling is the
+# product's and does not change with the date)
+PART_COUNT = 136
+PART_EXTENTS_FILE = "viirs_part_extents.json"
+
+
+def part_extent(url):
+    """(minlon, minlat, maxlon, maxlat) of one composite part, read from its
+    header on the host; None when it cannot be read"""
+    try:
+        ds = gdal.Open("/vsicurl/" + url)
+    except Exception:
+        ds = None
+    if ds is None:
+        return None
+    gt = ds.GetGeoTransform()
+    return (
+        gt[0],
+        gt[3] + gt[5] * ds.RasterYSize,
+        gt[0] + gt[1] * ds.RasterXSize,
+        gt[3],
+    )
+
+
+def bbox_parts(url_template, adate):
+    """the parts of a composite that settings.BBOX touches.
+
+    None without a box, and None as well when the host headers cannot be
+    read -- then every part is downloaded, as before."""
+    if settings.BBOX is None:
+        return None
+    product = "composite1" if "composite1_" in url_template else "composite"
+    cache_file = os.path.join(settings.VIIRS_PROC_DIR, PART_EXTENTS_FILE)
+    cache = {}
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file) as f:
+                cache = json.load(f)
+        except (OSError, ValueError):
+            cache = {}
+    extents = cache.get(product)
+    if not extents:
+        urls = [
+            url_template.format(adate, str(i).zfill(3))
+            for i in range(1, PART_COUNT + 1)
+        ]
+        t0 = time.monotonic()
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            found = list(pool.map(part_extent, urls))
+        extents = {str(i + 1): e for i, e in enumerate(found) if e}
+        logging.info(
+            f"VIIRS {product}: {len(extents)} of {PART_COUNT} part headers read, "
+            f"{time.monotonic() - t0:.0f}s"
+        )
+        if len(extents) < PART_COUNT / 2:
+            # the host is not answering header reads: download every part
+            return None
+        cache[product] = extents
+        try:
+            with open(cache_file, "w") as f:
+                json.dump(cache, f)
+        except OSError as e:
+            logging.info(f"VIIRS part extents not cached: {e}")
+    wanted = [
+        i
+        for i in range(1, PART_COUNT + 1)
+        # a part whose header could not be read is downloaded too: where it
+        # lies is unknown, and it is cheaper than losing its data
+        if str(i) not in extents or bbox_wanted(*extents[str(i)])
+    ]
+    logging.info(f"VIIRS {product}: {len(wanted)} of {PART_COUNT} parts in the box")
+    return wanted
+
+
 def build_tiff(adate):
     """download and build geotiff"""
 
@@ -200,7 +279,8 @@ def build_tiff(adate):
 
         session = requests.Session()
         tiff_list_per_job = []
-        for i in range(1, 137):
+        parts = None if use_aws else bbox_parts(job_entry["url"], adate)
+        for i in parts if parts is not None else range(1, PART_COUNT + 1):
 
             if not use_aws:
                 # FTP server:
