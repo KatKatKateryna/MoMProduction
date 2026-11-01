@@ -120,18 +120,30 @@ PROJECT_DIR=/home/tester/MoMProduction
 ```
 **Notes:** Please reference [crontab_list.txt](https://github.com/Global-Flood-Assessment/MoMProduction/blob/dev/crontab_list.txt) for the latest cron setup. 
 ## 4.1 Docker (environment, cron and all jobs in one container)
-`Dockerfile` builds an image from the checkout in hand: the `momenv` conda environment from `environment.yml` (plus `libgdal-hdf4`), `cron`, and the repository itself; `docker-entrypoint.sh` then runs `initialize.py`, installs the schedule with `setup_crontab.sh` and hands over to `cron` in the foreground, so a single container runs all five jobs on the production schedule. `production.cfg` is deliberately not baked into the image: mount it, together with a volume for `WORKING_DIR`/`PRODUCT_DIR` (`/root/MoM`), and an `.env` as well if the alert push is used.
+Only `production.cfg` has to be written by hand; the image carries everything else.
+
+- **Configure** — copy `sample_production.cfg` to `production.cfg`, fill in the GLOFAS user/password and the DFO token. `BBOX` limits the area of interest (empty = global). Leave `WORKING_DIR`/`PRODUCT_DIR` as `~/MoM/...`: `$HOME` is `/root` in the container, so they resolve under `/root/MoM`.
+- **Build** — `docker build -t momproduction .`
+- **Run** —
 ```
-docker build -t momproduction .
 docker run -d --name mom --restart unless-stopped \
     -v /path/to/production.cfg:/root/MoMProduction/production.cfg:ro \
-    -v mom_data:/root/MoM \
+    -v /path/to/results:/root/MoM \
     momproduction
-docker exec mom crontab -l                  # the installed schedule
-docker exec mom tail -f logs/gfms.log       # a job's output
-docker exec mom ./run_mom_job.sh -j GFMS    # run one job by hand
 ```
-Anything passed after the image name runs instead of cron, which is the way to do a one-off job or a `--fixdate` run in a throwaway container.
+- **Isolation** — every product and processing file is written below the host folder mounted at `/root/MoM`, so a fresh folder there cannot collide with a production tree. That mount and the read-only `production.cfg` are the only host paths the container can reach.
+- **Start-up is automatic** — `initialize.py` (folder tree, unzip the watershed shapefile), `setup_crontab.sh` (the five jobs), then `cron` in the foreground.
+- **Operate** —
+```
+docker exec mom crontab -l                # the installed schedule
+docker exec mom crontab -r                # stop the schedule, keep the container
+docker exec mom tail -f logs/gfms.log     # a job's output
+docker exec mom ./run_mom_job.sh -j GFMS  # run one job by hand
+```
+- **Jobs for `-j`** — `GFMS HWRF DFO VIIRS HAFS` (the cron set), plus `HWRF_MOM DFO_MOM VIIRS_MOM`.
+- **One-off run** — anything after the image name replaces cron, e.g. `... momproduction ./run_mom_job.sh -j DFO --fixdate 20261007`.
+- **Alert push** — optional: mount an `.env` holding the two GitHub variables documented at the top of `processing/push_alerts.py`. Without it the push is skipped and the job still succeeds.
+- **Timezone** — `TZ=UTC` in the image; all schedules and file dates are UTC.
 
 ## 5. Storage requirements 
 The minimum required free disk space for data processing is 20G. 

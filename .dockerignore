@@ -16,3 +16,12 @@ production.cfg
 data/watershed_shp/Watershed_pfaf_id.shp
 # kept in the repository for reference only, not read by any job
 data/watershed_shp_outdated
+# generated per-source cell lookups: rebuilt in the container from the
+# shapefile, and one built elsewhere does not match this grid or masking
+data/watershed_runs_*.npz
+data/gfms_watershed_cells.npz
+data/viirs_watershed_runs.npz
+data/hwrf_watershed_cells.npz
+# Windows-only setup payload (wheels, wget.exe); MoM_run.py only puts it on
+# PATH when os.name == "nt"
+first_setup
