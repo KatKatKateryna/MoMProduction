@@ -44,7 +44,7 @@ from processing.hwrf.HWRF_MoM import batchrun_HWRF_MoM
 from processing.hwrf.HWRF_tool import HWRF_cron
 from processing.viirs.VIIRS_MoM import batchrun_VIIRS_MoM
 from processing.viirs.VIIRS_tool import VIIRS_cron
-from processing.utilities import run_label
+from processing.utilities import bbox_prepare, run_label
 
 # the cron schedule of each job, as setup_crontab.sh installs it
 CRON_SCHEDULE = {
@@ -163,6 +163,9 @@ def main():
     # keep each job's log in its own file
     settings.configure_logging(results.job)
     require_tools()
+    # with a BBOX set: the watersheds it covers and the extent to download,
+    # worked out once here and reused by every step of the job
+    bbox_prepare()
     if results.adate:
         run_fixdate(results.job, results.adate)
     else:
