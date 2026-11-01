@@ -22,6 +22,7 @@ from processing.utilities import (
     RAIN_SUMMARY_HEADERS,
     get_current_processing_datehour,
     hwrf_today,
+    read_data,
     watersheds_gdb_reader,
 )
 from processing.watershed_cells import raster_summary
@@ -248,7 +249,12 @@ def HWRF_extract_by_watershed(raintiff):
     output_csv = raintiff.replace(".tiff", ".csv")
     # rain area (exact cell shares), mean and max per watershed
     # (watershed_cells.py)
-    rows = rain_summary_rows(raster_summary("hwrf", raintiff, watersheds))
+    HWRF_weightage = read_data(os.path.join(settings.BASE_DATA_DIR, "HWRF_Weightage.csv"))
+    # rain area: only the cells above half the mean rain minimum
+    value_above = float(HWRF_weightage.HWRF_MeanRain_minwt[0]) / 2
+    rows = rain_summary_rows(
+        raster_summary("hwrf", raintiff, watersheds, value_above=value_above)
+    )
     with open(output_csv, "w") as f:
         writer = csv.writer(f)
         writer.writerow(RAIN_SUMMARY_HEADERS)

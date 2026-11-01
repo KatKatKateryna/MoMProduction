@@ -485,12 +485,15 @@ def summarize(output_csv, grid, top, left):
     """per-watershed summary with the HWRF calculation (watershed_cells.py,
     exact cell shares); True if any watershed has rain"""
     from processing.hwrf.HWRF_tool import rain_summary_rows
-    from processing.utilities import watersheds_gdb_reader
+    from processing.utilities import read_data, watersheds_gdb_reader
     from processing.watershed_cells import lattice_summary
 
     watersheds = watersheds_gdb_reader()
+    HWRF_weightage = read_data(os.path.join(settings.BASE_DATA_DIR, "HWRF_Weightage.csv"))
+    # rain area: only the cells above half the mean rain minimum
+    value_above = float(HWRF_weightage.HWRF_MeanRain_minwt[0]) / 2
     rows = rain_summary_rows(
-        lattice_summary(np.where(grid > 0, grid, np.nan), top, left, watersheds)
+        lattice_summary(np.where(grid > 0, grid, np.nan), top, left, watersheds, value_above=value_above)
     )
     with open(output_csv, "w") as f:
         writer = csv.writer(f)

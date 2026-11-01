@@ -355,7 +355,7 @@ def strip_rows(width):
     return max(1, STRIP_BYTES // (8 * (width + 1)))
 
 
-def summarize(source, lookup, strips, transform, watersheds):
+def summarize(source, lookup, strips, transform, watersheds, value_above=-np.inf):
     """per watershed (index pfaf_id): area (km2) and perc_area of the cells
     that count, mean (weighted by area) and max of their values; strips
     yields (first row, values of whole grid rows, NaN where no data)"""
@@ -365,6 +365,7 @@ def summarize(source, lookup, strips, transform, watersheds):
     eoff, shares = lookup["eoff"], lookup["shares"]
     n = len(lookup["pfaf_ids"])
     area, weighted, vmax = np.zeros(n), np.zeros(n), np.full(n, -np.inf)
+    area_filtered_km2 = np.zeros(n)
 
     for r0, values in strips:
         k = values.shape[0]
@@ -400,6 +401,11 @@ def summarize(source, lookup, strips, transform, watersheds):
         np.cumsum(valid, axis=1, out=cum_n[:, 1:])
         cum_v = np.zeros((k, width + 1))
         np.cumsum(np.where(valid, span, 0), axis=1, out=cum_v[:, 1:])
+        if value_above == -np.inf:
+            cum_f = cum_n
+        else:
+            cum_f = np.zeros((k, width + 1), np.int32)
+            np.cumsum(valid & (span > value_above), axis=1, out=cum_f[:, 1:])
         cell_km2 = row_cell_area_km2(transform, np.arange(r0, r0 + k))
 
         # inner runs: whole cells
@@ -407,6 +413,7 @@ def summarize(source, lookup, strips, transform, watersheds):
             fw = iws[ilo:ihi].astype(np.intp)
             km2 = cell_km2[fl]
             area += np.bincount(fw, (cum_n[fl, fb] - cum_n[fl, fa]) * km2, n)
+            area_filtered_km2 += np.bincount(fw, (cum_f[fl, fb] - cum_f[fl, fa]) * km2, n)
             weighted += np.bincount(fw, (cum_v[fl, fb] - cum_v[fl, fa]) * km2, n)
             flat_max = np.append(np.where(valid, span, -np.inf).ravel(), -np.inf)
             bounds = np.empty(2 * len(fw), np.intp)
@@ -441,14 +448,15 @@ def summarize(source, lookup, strips, transform, watersheds):
                     cv = span[cl, cc]
                     ckm2 = cs * cell_km2[cl]
                     area += np.bincount(cw, ckm2, n)
+                    area_filtered_km2 += np.bincount(cw, ckm2 * (cv > value_above), n)
                     weighted += np.bincount(cw, cv * ckm2, n)
                     np.maximum.at(vmax, cw, cv)
 
     has = area > 0
     result = pd.DataFrame(
         {
-            "area": area,
-            "perc_area": area / watersheds["area_km2"].to_numpy() * 100,
+            "area": area_filtered_km2,
+            "perc_area": area_filtered_km2 / watersheds["area_km2"].to_numpy() * 100,
             "mean": np.where(has, weighted / np.where(has, area, 1), np.nan),
             "max": np.where(has, vmax, np.nan),
             "has_data": has,
@@ -476,7 +484,7 @@ def window_strips(read_rows, n_rows, n_cols, row0, col0, width, height):
         yield r0, values
 
 
-def raster_summary(source, path, watersheds):
+def raster_summary(source, path, watersheds, value_above=-np.inf):
     """summarize a raster file: GFMS and VIIRS on the file's own grid, HWRF
     and DFO (extent varies from file to file) as a window of their global
     grid; read in strips"""
@@ -514,7 +522,7 @@ def raster_summary(source, path, watersheds):
                 for r0 in range(0, height, step):
                     yield r0, read(r0, min(step, height - r0))
 
-        return summarize(source, lookup, strips(), transform, watersheds)
+        return summarize(source, lookup, strips(), transform, watersheds, value_above)
 
     grid_width, grid_height, grid_transform = grid
     lookup = load_lookup(source, grid_width, grid_height, grid_transform, watersheds)
@@ -523,10 +531,10 @@ def raster_summary(source, path, watersheds):
         with rasterio.open(path) as src:
             yield from window_strips(file_rows(src), height, width, *offset, grid_width, grid_height)
 
-    return summarize(source, lookup, strips(), grid_transform, watersheds)
+    return summarize(source, lookup, strips(), grid_transform, watersheds, value_above)
 
 
-def lattice_summary(grid, top, left, watersheds, res=HWRF_RES):
+def lattice_summary(grid, top, left, watersheds, res=HWRF_RES, value_above=-np.inf):
     """summarize an HAFS rain grid in memory (NaN where there is no rain)
     whose top-left pixel centre is (left, top): a window of the global HWRF
     grid, past 180 deg (0..360) for storms crossing the dateline"""
@@ -538,7 +546,7 @@ def lattice_summary(grid, top, left, watersheds, res=HWRF_RES):
     strips = window_strips(
         lambda i, k: grid[i : i + k], grid.shape[0], grid.shape[1], *offset, width, height
     )
-    return summarize("hwrf", lookup, strips, transform, watersheds)
+    return summarize("hwrf", lookup, strips, transform, watersheds, value_above)
 
 
 if __name__ == "__main__":
