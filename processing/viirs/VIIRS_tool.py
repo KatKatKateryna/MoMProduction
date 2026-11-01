@@ -168,14 +168,16 @@ def part_extent(url):
     )
 
 
-def bbox_parts(url_template, adate):
-    """the parts of a composite that settings.BBOX touches.
+def bbox_parts(urls_by_part, product):
+    """the parts of a composite the box's watersheds reach, of those the host
+    has (urls_by_part: the part number of each one and where to get it).
 
-    None without a box, and None as well when the host headers cannot be
-    read -- then every part is downloaded, as before."""
+    None without a box, and None as well when the part headers cannot be
+    read -- then every part is downloaded, as before. The extents are cached
+    per product: the tiling is the product's, the same for every date and on
+    either host."""
     if settings.BBOX is None:
         return None
-    product = "composite1" if "composite1_" in url_template else "composite"
     cache_file = os.path.join(settings.VIIRS_PROC_DIR, PART_EXTENTS_FILE)
     cache = {}
     if os.path.exists(cache_file):
@@ -186,19 +188,16 @@ def bbox_parts(url_template, adate):
             cache = {}
     extents = cache.get(product)
     if not extents:
-        urls = [
-            url_template.format(adate, str(i).zfill(3))
-            for i in range(1, PART_COUNT + 1)
-        ]
+        parts = sorted(urls_by_part)
         t0 = time.monotonic()
         with ThreadPoolExecutor(max_workers=8) as pool:
-            found = list(pool.map(part_extent, urls))
-        extents = {str(i + 1): e for i, e in enumerate(found) if e}
+            found = list(pool.map(part_extent, [urls_by_part[i] for i in parts]))
+        extents = {str(i): e for i, e in zip(parts, found) if e}
         logging.info(
-            f"VIIRS {product}: {len(extents)} of {PART_COUNT} part headers read, "
+            f"VIIRS {product}: {len(extents)} of {len(parts)} part headers read, "
             f"{time.monotonic() - t0:.0f}s"
         )
-        if len(extents) < PART_COUNT / 2:
+        if len(extents) < len(parts) / 2:
             # the host is not answering header reads: download every part
             return None
         cache[product] = extents
@@ -209,12 +208,14 @@ def bbox_parts(url_template, adate):
             logging.info(f"VIIRS part extents not cached: {e}")
     wanted = [
         i
-        for i in range(1, PART_COUNT + 1)
+        for i in sorted(urls_by_part)
         # a part whose header could not be read is downloaded too: where it
         # lies is unknown, and it is cheaper than losing its data
         if str(i) not in extents or bbox_wanted(*extents[str(i)])
     ]
-    logging.info(f"VIIRS {product}: {len(wanted)} of {PART_COUNT} parts in the box")
+    logging.info(
+        f"VIIRS {product}: {len(wanted)} of {len(urls_by_part)} parts in the box"
+    )
     return wanted
 
 
@@ -279,18 +280,31 @@ def build_tiff(adate):
 
         session = requests.Session()
         tiff_list_per_job = []
-        parts = None if use_aws else bbox_parts(job_entry["url"], adate)
-        for i in parts if parts is not None else range(1, PART_COUNT + 1):
 
+        # where each part of this composite comes from, before anything is
+        # downloaded, so the box can pick from them
+        urls_by_part = {}
+        for i in range(1, PART_COUNT + 1):
             if not use_aws:
                 # FTP server:
-                dataurl = job_entry["url"].format(adate, str(i).zfill(3))
-                filename = dataurl.split("/")[-1]
+                urls_by_part[i] = job_entry["url"].format(adate, str(i).zfill(3))
             else:
+                # the bucket listing names the parts GLB001..GLB136
                 dataurl = pop_matching_string_from_list(
                     all_available_aws_files, f"GLB{str(i).zfill(3)}"
                 )
-                filename = job_entry["filename"].format(adate, str(i).zfill(3))
+                if dataurl:
+                    urls_by_part[i] = dataurl
+
+        parts = bbox_parts(urls_by_part, job_entry["product"])
+        for i in parts if parts is not None else sorted(urls_by_part):
+
+            dataurl = urls_by_part[i]
+            filename = (
+                job_entry["filename"].format(adate, str(i).zfill(3))
+                if use_aws
+                else dataurl.split("/")[-1]
+            )
 
             # try download file
             try:
