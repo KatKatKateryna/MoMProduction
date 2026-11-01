@@ -5,8 +5,7 @@ HAFS_tool.py
 
     For every HAFS cycle, the rain of each storm is taken from its parent
     swath file: the 0-126 h average rain rate record alone, over the whole
-    parent domain (the 3 h steps within BUFFER_KM of the track are commented
-    out in storm_rain). The storms are merged
+    parent domain. The storms are merged
     into one 0-126 h total in inches on the HWRF 0.05 deg grid, and summarized
     per watershed with the HWRF calculation:
         HAFS/HAFS_image/hafs.YYYYMMDDHHrainfall.tiff
@@ -64,6 +63,7 @@ import eccodes  # isort: skip
 import settings
 from processing.utilities import (
     RAIN_SUMMARY_HEADERS,
+    bbox_wanted,
     hafs_storms,
     write_empty_rain_summary,
 )
@@ -72,8 +72,6 @@ HOURS = ["00", "06", "12", "18"]
 RES = 0.05
 NODATA = -999.0
 MM_PER_INCH = 25.4
-# rain is kept within this many km of the storm track at each 3 h step
-BUFFER_KM = 400.0
 # HAFS posts a cycle ~6 h after its time; a cycle with no storm by EMPTY_FINAL
 # is taken as empty, and storm files still missing by STORMS_FINAL are skipped
 PUBLISHED_AFTER = timedelta(hours=5)
@@ -161,20 +159,135 @@ def is_rain_rate(gid):
     )
 
 
+def swath_url(cycle, storm):
+    """the parent swath file of a storm on the host"""
+    return (
+        f"{cycle_url(cycle)}{storm}.{cycle}.{settings.HAFS_MODEL}.parent.swath.grb2"
+    )
+
+
+def grib_grid_extent(url):
+    """(minlon, minlat, maxlon, maxlat) of a GRIB2 file's grid, from the grid
+    definition section of its first message -- the first kilobyte of the file,
+    not the ~300 MB of records behind it. Longitudes as the file gives them,
+    which for these files is 0..360. None when it cannot be read, or when the
+    grid is not a plain latitude/longitude one."""
+    try:
+        reqs = requests.get(url, headers={"Range": "bytes=0-1023"}, timeout=60)
+        if reqs.status_code not in (200, 206):
+            return None
+        head = reqs.content[:1024]
+    except requests.RequestException:
+        return None
+    if head[:4] != b"GRIB":
+        return None
+    # section 0 is 16 octets; then each section starts with its length and number
+    pos = 16
+    while pos + 5 <= len(head):
+        length = int.from_bytes(head[pos : pos + 4], "big")
+        number = head[pos + 4]
+        if number != 3:
+            if length <= 0 or number == 8:
+                return None
+            pos += length
+            continue
+        section = head[pos : pos + length]
+        # grid definition template 3.0, latitude/longitude
+        if len(section) < 72 or int.from_bytes(section[12:14], "big") != 0:
+            return None
+
+        def octets(first, last):
+            """a signed value of the section, in millionths of a degree"""
+            raw = int.from_bytes(section[first - 1 : last], "big")
+            return -(raw & 0x7FFFFFFF) / 1e6 if raw & 0x80000000 else raw / 1e6
+
+        la1, lo1 = octets(47, 50), octets(51, 54)
+        la2, lo2 = octets(56, 59), octets(60, 63)
+        return min(lo1, lo2), min(la1, la2), max(lo1, lo2), max(la1, la2)
+    return None
+
+
+def swath_reaches_box(cycle, storm):
+    """True if a storm's parent domain -- the grid its rain is taken over --
+    reaches a watershed of the box, so its swath file is worth downloading.
+
+    True without a box, and True as well when the grid cannot be read: then
+    the file is downloaded and summarised as before."""
+    if settings.BBOX is None:
+        return True
+    extent = grib_grid_extent(swath_url(cycle, storm))
+    if extent is None:
+        logging.info(f"HAFS {cycle}: {storm} grid not read, downloading anyway")
+        return True
+    minlon, minlat, maxlon, maxlat = extent
+    # the domain is given in 0..360 longitudes
+    return any(
+        bbox_wanted(minlon + shift, minlat, maxlon + shift, maxlat)
+        for shift in (0.0, -360.0, 360.0)
+    )
+
+
+def rain_ranges(url):
+    """the byte ranges of a swath file's rain rate records, from the .idx
+    sidecar the host publishes beside it: (start, end) pairs, end None for
+    the last record, records that follow each other merged into one range.
+
+    None when the index is missing or does not parse -- then the whole file
+    is downloaded, as before."""
+    try:
+        reqs = requests.get(url + ".idx", timeout=60)
+        if reqs.status_code != 200:
+            return None
+        records = [line.split(":") for line in reqs.text.splitlines() if line.strip()]
+        starts = [int(r[1]) for r in records]
+    except (requests.RequestException, ValueError, IndexError):
+        return None
+    if not starts or starts != sorted(starts):
+        return None
+    ranges = []
+    for i, record in enumerate(records):
+        # the records is_rain_rate keeps: the averaged rain rate, not the
+        # convective one and not the wind or updraught fields beside it
+        if len(record) < 6 or record[3] != "PRATE" or "ave" not in record[5]:
+            continue
+        start = starts[i]
+        end = starts[i + 1] - 1 if i + 1 < len(starts) else None
+        if ranges and ranges[-1][1] is not None and ranges[-1][1] + 1 == start:
+            ranges[-1] = (ranges[-1][0], end)
+        else:
+            ranges.append((start, end))
+    return ranges or None
+
+
 def rain_file(cycle, storm):
     """rain rate records of a storm's swath file, unchanged, from the backups
-    or saved there from the host (the swath file is ~300 MB, these ~1/10)"""
-    name = f"{storm}.{cycle}.{settings.HAFS_MODEL}.parent.swath.grb2"
-    path = backup_path(cycle, name.replace(".grb2", ".prate.grb2"))
+    or saved there from the host (the swath file is ~300 MB, these ~1/10, and
+    with the host's .idx only those are downloaded)"""
+    url = swath_url(cycle, storm)
+    path = backup_path(
+        cycle, f"{storm}.{cycle}.{settings.HAFS_MODEL}.parent.swath.prate.grb2"
+    )
     if os.path.exists(path):
         return path
     os.makedirs(os.path.dirname(path), exist_ok=True)
     part = f"{path}.{os.getpid()}.part"
     with tempfile.TemporaryFile(dir=WORK_DIR) as tmp:
-        with requests.get(cycle_url(cycle) + name, stream=True, timeout=600) as reqs:
-            reqs.raise_for_status()
-            for block in reqs.iter_content(chunk_size=1 << 22):
-                tmp.write(block)
+        ranges = rain_ranges(url)
+        for span in (
+            [f"bytes={a}-" + ("" if b is None else str(b)) for a, b in ranges]
+            if ranges
+            else [None]
+        ):
+            headers = {"Range": span} if span else {}
+            with requests.get(url, headers=headers, stream=True, timeout=600) as reqs:
+                reqs.raise_for_status()
+                for block in reqs.iter_content(chunk_size=1 << 22):
+                    tmp.write(block)
+        if ranges:
+            logging.info(
+                f"HAFS {cycle}: {storm} rain records only, "
+                f"{len(ranges)} of {tmp.tell() / 1e6:.0f} MB"
+            )
         tmp.seek(0)
         kept = 0
         with open(part, "wb") as out:
@@ -203,7 +316,8 @@ def backup_cycle(cycle):
         base = f"{cycle_url(cycle)}{storm}.{cycle}.{settings.HAFS_MODEL}"
         if exists(base + ".parent.swath.grb2") and exists(base + ".trak.atcfunix"):
             track_file(cycle, storm)
-            rain_file(cycle, storm)
+            if swath_reaches_box(cycle, storm):
+                rain_file(cycle, storm)
 
 
 def fetch_track(cycle, storm):
@@ -243,67 +357,6 @@ def norm_lons(lons):
     return np.where(west < 0, west + 360, west)
 
 
-def distance_km(lats, lons, lat0, lon0):
-    la, lo = np.radians(lats), np.radians(lons)
-    la0, lo0 = np.radians(lat0), np.radians(lon0)
-    cosd = np.sin(la) * np.sin(la0) + np.cos(la) * np.cos(la0) * np.cos(lo - lo0)
-    return 6371 * np.arccos(np.clip(cosd, -1, 1))
-
-
-def unit_vectors(lats, lons):
-    la, lo = np.radians(lats), np.radians(lons)
-    return np.stack(
-        [np.cos(la) * np.cos(lo), np.cos(la) * np.sin(lo), np.sin(la)], axis=-1
-    )
-
-
-def segment_distance_km(lats, lons, start, end):
-    """great-circle distance to the track segment start-end; to the nearer
-    end where the closest point of the great circle is outside the segment"""
-    to_ends = np.minimum(distance_km(lats, lons, *start), distance_km(lats, lons, *end))
-    a, b = unit_vectors(*start), unit_vectors(*end)
-    n = np.cross(a, b)
-    if np.linalg.norm(n) < 1e-12:  # storm did not move
-        return to_ends
-    n /= np.linalg.norm(n)
-    p = unit_vectors(lats, lons)
-    pn = p @ n
-    c = p - pn[..., None] * n  # projection onto the great circle of the segment
-    inside = (np.cross(a, c) @ n >= 0) & (np.cross(c, b) @ n >= 0)
-    return np.where(inside, 6371 * np.abs(np.arcsin(np.clip(pn, -1, 1))), to_ends)
-
-
-def near_track(lats, lons, start, end, row_lats=None, col_lons=None):
-    """cells within BUFFER_KM of the track segment start-end. On a regular
-    grid (row_lats, col_lons) only the rows and columns of a box around the
-    segment are measured: no cell outside it can be that close (a degree of
-    latitude is >= 111 km, a degree of longitude >= 111 km * cos(lat), plus
-    a 1 deg margin for the great circle bulging past the end points)"""
-    km = BUFFER_KM
-    if row_lats is None:
-        return segment_distance_km(lats, lons, start, end) <= km
-    dlat = km / 111.19 + 1.0
-    lo, hi = min(start[0], end[0]) - dlat, max(start[0], end[0]) + dlat
-    rows = np.flatnonzero((row_lats >= lo) & (row_lats <= hi))
-    max_lat = max(abs(lo), abs(hi))
-    near = np.zeros(lats.shape, bool)
-    if rows.size == 0:
-        return near
-    if max_lat >= 80:
-        cols = np.arange(len(col_lons))
-    else:
-        dlon = km / (111.19 * np.cos(np.radians(max_lat))) + 1.0
-        to_end = (end[1] - start[1] + 180) % 360 - 180
-        offset = (col_lons - start[1] + 180) % 360 - 180  # dateline-safe
-        cols = np.flatnonzero(
-            (offset >= min(0, to_end) - dlon) & (offset <= max(0, to_end) + dlon)
-        )
-    if cols.size:
-        box = np.ix_(rows, cols)
-        near[box] = segment_distance_km(lats[box], lons[box], start, end) <= km
-    return near
-
-
 def storm_rain(cycle, storm, track):
     """0-126 h rain (inches) of one storm over its whole parent domain on a
     0.05 deg grid: (grid, top, left)"""
@@ -328,52 +381,6 @@ def storm_rain(cycle, storm, track):
                 eccodes.codes_release(gid)
         if not rates:
             raise RuntimeError(f"no rain rates in {path}")
-
-        # step by step (3 h rain within the buffer around the track), replaced
-        # by the 0-126 h record below
-        # # second pass: 3 h rain, kept within the window around the track
-        # # segment the storm moves along during the step
-        # positions = {t["fhour"]: (t["lat"], t["lon"]) for t in track}
-        # total = window = lats = lons = None
-        # prev_acc, prev_hour, skipped = None, 0, 0
-        # for hour, offset in sorted(rates):
-        #     tmp.seek(offset)
-        #     gid = eccodes.codes_grib_new_from_file(tmp)
-        #     try:
-        #         if lats is None:
-        #             shape = (eccodes.codes_get(gid, "Nj"), eccodes.codes_get(gid, "Ni"))
-        #             lats = eccodes.codes_get_array(gid, "latitudes").reshape(shape)
-        #             lons = norm_lons(eccodes.codes_get_array(gid, "longitudes").reshape(shape))
-        #             total = np.zeros(shape)
-        #             window = np.zeros(shape, bool)
-        #             prev_acc = np.zeros(shape)
-        #             # regular grid: rows of one latitude, columns of one longitude
-        #             row_lats = col_lons = None
-        #             if (np.array_equal(lats, np.broadcast_to(lats[:, :1], shape))
-        #                     and np.array_equal(lons, np.broadcast_to(lons[:1, :], shape))):
-        #                 row_lats, col_lons = lats[:, 0], lons[0, :]
-        #         values = eccodes.codes_get_values(gid).reshape(lats.shape)
-        #         if eccodes.codes_get(gid, "bitmapPresent"):
-        #             values = np.where(values == eccodes.codes_get(gid, "missingValue"), np.nan, values)
-        #     finally:
-        #         eccodes.codes_release(gid)
-        #     acc = values * hour * 3600  # kg m-2 = mm over 0-hour
-        #     step = np.clip(acc - prev_acc, 0, None)  # GRIB packing noise can go < 0
-        #     prev_acc = acc
-        #     # the buffer around the track is off: every step is kept over the
-        #     # whole parent domain
-        #     # start, end = positions.get(prev_hour), positions.get(hour)
-        #     # prev_hour = hour
-        #     # if start is None:
-        #     #     skipped += 1
-        #     #     continue
-        #     # # past the end of the track the step keeps only its start
-        #     # near = near_track(lats, lons, start, end or start, row_lats, col_lons)
-        #     near = np.ones(lats.shape, bool)
-        #     total += np.where(near & np.isfinite(step), step, 0)
-        #     window |= near
-        # if skipped:
-        #     logging.info(f"HAFS {storm} {cycle}: {skipped} steps beyond the end of the track skipped")
 
         # the 0-126 h record alone: the host's total over the whole parent domain
         hour, offset = max(rates)
@@ -551,6 +558,11 @@ def process_cycle(cycle):
 
     grids = []
     for storm in ready:
+        # a storm whose parent domain misses the box: its swath file, the one
+        # large download of the cycle, is never fetched
+        if not swath_reaches_box(cycle, storm):
+            logging.info(f"HAFS {cycle}: {storm} rain grid outside the box, skipped")
+            continue
         track = fetch_track(cycle, storm)
         grid, top, left = storm_rain(cycle, storm, track)
         write_track(
