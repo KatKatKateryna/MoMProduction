@@ -20,7 +20,6 @@ import settings
 from processing.hwrf.HWRF_MoM import hwrf_workflow
 from processing.utilities import (
     RAIN_SUMMARY_HEADERS,
-    bbox_wanted,
     get_current_processing_datehour,
     hwrf_today,
     read_data,
@@ -113,34 +112,6 @@ def generate_procesing_list():
         return {}  # Return an empty dictionary
 
 
-def rain_domain_in_bbox(url):
-    """True if a rainfall.ascii file's own domain meets settings.BBOX.
-
-    The first line of the file gives the domain (left, right, bottom, top),
-    and the host serves ranges, so a 256 byte request decides whether a
-    storm's file -- tens of MB -- is worth downloading at all. True without a
-    box, and True when the header cannot be read that way: then the file is
-    downloaded and filtered while processing, as before."""
-    if settings.BBOX is None:
-        return True
-    try:
-        with requests.get(
-            url, headers={"Range": "bytes=0-255"}, timeout=60, stream=True
-        ) as r:
-            if r.status_code not in (200, 206):
-                return True
-            head = next(r.iter_content(256)).decode("ascii", "replace")
-        left, right, bottom, top = (float(x) for x in head.split()[:4])
-    except Exception as e:
-        logging.info(f"rain domain not read, downloading anyway: {url}: {e}")
-        return True
-    # a domain over the dateline is given in 0..360 longitudes
-    return any(
-        bbox_wanted(left + shift, bottom, right + shift, top)
-        for shift in (0.0, -360.0, 360.0)
-    )
-
-
 def HWRF_download(hwrfurl):
     """download rainfall data"""
     reqs = requests.get(hwrfurl)
@@ -151,11 +122,6 @@ def HWRF_download(hwrfurl):
         fstr = link.string
         if "rainfall.ascii" in fstr:
             fstr_local = os.path.join(settings.HWRF_PROC_DIR, fstr)
-            if not os.path.exists(fstr_local) and not rain_domain_in_bbox(
-                f"{hwrfurl.rstrip('/')}/{fstr}"
-            ):
-                logging.info(f"storm outside the box, not downloaded: {fstr}")
-                continue
             if not os.path.exists(fstr_local):
                 subprocess.run(
                     [
