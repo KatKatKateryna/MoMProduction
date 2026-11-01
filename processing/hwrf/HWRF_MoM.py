@@ -503,6 +503,15 @@ def update_HWRF_MoM(adate):
                             )
                     else:
                         MaxRain_Score = "0"
+                    # HAFS: only count rain area that reaches mean or max, otherwise it
+                    # counts large area covered with barely any rain
+                    if (
+                        settings.HWRF_FILE_TAG == "HAFS"
+                        and float(MeanRain_Score) == 0
+                        and float(MaxRain_Score) == 0
+                    ):
+                        HWRF_area_score = "0"
+                        HWRF_percarea_score = "0"
                     HWRFTot_Score = (
                         float(HWRF_area_score)
                         + float(HWRF_percarea_score)
