@@ -127,8 +127,8 @@ def bbox_wanted(minlon, minlat, maxlon, maxlat, pad=0.0):
     """True if an area of host data (a tile, a composite part, a storm
     domain) overlaps any watershed of the box, widened by pad degrees.
 
-    Tighter than the one extent around them all: the islands of this part of
-    the world leave wide gaps inside that extent which no watershed reaches.
+    Tighter than the one extent around them all: the islands leave wide gaps
+    inside that extent which no watershed reaches.
     True without a box, where everything is wanted."""
     prepared = bbox_prepare()
     if prepared is None:
