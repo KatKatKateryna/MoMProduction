@@ -8,7 +8,7 @@ offline_hwrf_hafs_summaries_from_images.py
     images alone. For every image in IMAGE_DIR this writes
     OUT_DIR/<model>.YYYYMMDDHHrainfall.csv with the calculation of the cron
     job (watershed_cells.py): HWRF as HWRF_extract_by_watershed, HAFS as
-    HAFS_tool.summarize, the rain area counting only the cells above half
+    HAFS_tool.summarize, the rain area counting only the cells above a quarter of
     the HWRF mean rain minimum (HWRF_Weightage.csv).
 
     A cycle with no rain over any watershed has a header-only summary and no
@@ -63,9 +63,9 @@ def cycles_of(folder, model, suffix, start, end):
 
 def rain_value_above():
     """the cutoff HWRF_extract_by_watershed and HAFS_tool.summarize use: the
-    rain area counts only the cells above half the HWRF mean rain minimum"""
+    rain area counts only the cells above a quarter of the HWRF mean rain minimum"""
     HWRF_weightage = read_data(os.path.join(settings.BASE_DATA_DIR, "HWRF_Weightage.csv"))
-    return float(HWRF_weightage.HWRF_MeanRain_minwt[0]) / 2
+    return float(HWRF_weightage.HWRF_MeanRain_minwt[0]) / 4
 
 
 def summary_rows(tiff, watersheds, model):
