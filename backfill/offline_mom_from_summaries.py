@@ -39,8 +39,7 @@ offline_mom_from_summaries.py
 
     Rain: the HWRF chain uses the HWRF summary of the previous cycle. With
     --hafs-fallback, when that HWRF summary is missing the HAFS summary of the
-    same (previous) cycle is used instead, scored with the HAFS rules (the
-    HAFS rain area rule of update_HWRF_MoM), outputs still tagged HWRF; the
+    same (previous) cycle is used instead, outputs still tagged HWRF; the
     log says which. With
     neither, the MoM goes on without rain once the cycle is 12 h old, as the
     cron job does. The HAFS chain runs a cycle only when the HAFS summary of
@@ -406,33 +405,6 @@ def rain_chain_for(folders, chain, adatehour, hafs_fallback):
     return None
 
 
-def mom_with_rain_tag(chain, rain_chain, adatehour):
-    """update_HWRF_MoM of a cycle scored with the rain of another chain: run
-    with that chain's file tag, which also switches its rules (update_HWRF_MoM
-    applies the HAFS rain area rule by the tag), then its two outputs renamed
-    to the chain's own tag, the names the next steps of the chain look for"""
-    names = [f"{kind}_{adatehour}{{}}Updated.csv" for kind in ("Final_Attributes", "Attributes_Clean")]
-    own = [os.path.join(settings.HWRF_MOM_DIR, n.format(CHAINS[chain]["tag"])) for n in names]
-    rain = [os.path.join(settings.HWRF_MOM_DIR, n.format(CHAINS[rain_chain]["tag"])) for n in names]
-    if all(os.path.exists(f) for f in own):
-        logging.info(f"{chain} MoM already processed: {adatehour}")
-        return True
-    # left by an interrupted run: update_HWRF_MoM would take them as done
-    for f in rain:
-        if os.path.exists(f):
-            logging.info(f"remove: {f}")
-            os.remove(f)
-    settings.HWRF_FILE_TAG = CHAINS[rain_chain]["tag"]
-    try:
-        ok = run_step(f"{chain} MoM", update_HWRF_MoM, adatehour, workdir=settings.HWRF_PROC_DIR)
-    finally:
-        settings.HWRF_FILE_TAG = CHAINS[chain]["tag"]
-    if ok and all(os.path.exists(f) for f in rain):
-        for src, dst in zip(rain, own):
-            os.replace(src, dst)
-    return ok
-
-
 def backfill_chain(folders, tmpdir, chain, adate, dry_run, hafs_fallback=False, with_alert=True):
     """MoM, +DFO+VIIRS and final alert of the 4 cycles of a day for a chain,
     return the cycles run"""
@@ -469,10 +441,7 @@ def backfill_chain(folders, tmpdir, chain, adate, dry_run, hafs_fallback=False, 
                 setattr(settings, key, view)
             # only update_HWRF_MoM reads the rain summary
             use_chain(folders, chain, rain_chain)
-            if rain_chain == chain:
-                ok = run_step(f"{chain} MoM", update_HWRF_MoM, adatehour, workdir=settings.HWRF_PROC_DIR)
-            else:
-                ok = mom_with_rain_tag(chain, rain_chain, adatehour)
+            ok = run_step(f"{chain} MoM", update_HWRF_MoM, adatehour, workdir=settings.HWRF_PROC_DIR)
             use_chain(folders, chain)
             if ok:
                 run_step(f"{chain}+DFO+VIIRS MoM", update_HWRFMoM_DFO_VIIRS, adatehour,
