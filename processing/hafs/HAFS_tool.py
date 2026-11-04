@@ -29,7 +29,8 @@ HAFS_tool.py
         DFO/DFO_HAFS_MoM         <- DFO/DFO_MoM
         VIIRS/VIIRS_HAFS_MoM     <- VIIRS/VIIRS_MoM
         Final_Alerts_hafs        <- Final_Alert
-    The shared inputs (GFMS, GloFAS, DFO, VIIRS summaries) are only read.
+    The shared inputs (GFMS, GloFAS, DFO, VIIRS summaries) are read; a
+    missing GFMS summary is made as the HWRF MoM makes it (GFMS_fixdate).
 
     Turned on and off with ENABLED in the [hafs] section of production.cfg.
 
@@ -703,16 +704,10 @@ def process_cycle(cycle):
 # ---------------------------------------------------------------------------
 
 
-def _no_gfms_download(adate):
-    raise RuntimeError(f"HAFS never re-downloads GFMS ({adate})")
-
-
 @contextlib.contextmanager
 def hafs_folders():
     """point the HWRF/DFO/VIIRS MoM and final alert folders at the HAFS ones
     for the duration of the block, and always put them back"""
-    from processing.gfms import GFMS_tool
-
     patched = {
         "HWRF_SUM_DIR": settings.HAFS_SUM_DIR,
         "HWRF_SUM_PREFIX": "hafs",
@@ -726,17 +721,14 @@ def hafs_folders():
         "FINAL_MOM_DIR": settings.FINAL_HAFS_DIR,
     }
     saved = {k: getattr(settings, k) for k in patched}
-    saved_fixdate = GFMS_tool.GFMS_fixdate
     cwd = os.getcwd()
     try:
         for k, v in patched.items():
             setattr(settings, k, v)
-        GFMS_tool.GFMS_fixdate = _no_gfms_download
         yield
     finally:
         for k, v in saved.items():
             setattr(settings, k, v)
-        GFMS_tool.GFMS_fixdate = saved_fixdate
         os.chdir(cwd)
 
 
@@ -762,13 +754,6 @@ def run_cycle_mom(cycle, with_alert=True):
     if not is_done(shift_cycle(cycle, -6)):
         logging.info(f"HAFS MoM {cycle}: previous cycle not settled yet")
         return False
-    # update_HWRF_MoM would download GFMS for a missing summary: skip instead
-    gfms_sum = os.path.join(settings.GFMS_SUM_DIR, f"Flood_byStor_{cycle}.csv")
-    if not os.path.exists(gfms_sum):
-        logging.warning(
-            f"HAFS MoM {cycle}: no GFMS summary, skipped (retried next run)"
-        )
-        return True
     with hafs_folders():
         run_step("MoM", update_HWRF_MoM, cycle)
         run_step("MoM+DFO+VIIRS", update_HWRFMoM_DFO_VIIRS, cycle)

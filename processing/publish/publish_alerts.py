@@ -41,7 +41,7 @@ def new_alerts(remote_names, local):
 def commit_files(session, head, tree, files):
     """one commit adding files to the repo folder; False if the branch moved"""
     entries = [blob_entry(session, f"{FOLDER}/{os.path.basename(f)}", f) for f in files]
-    return commit(session, head, tree, entries, commit_message("alerts", files))
+    return commit(session, head, tree, entries, commit_message("alert", files))
 
 
 def publish_alerts(alerts_dir, dry_run=False):
