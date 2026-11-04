@@ -6,6 +6,9 @@ Every local csv whose name sorts after the last csv existing on remote,
 is pushed all in one commit. With no csv in the repo folder yet, only the newest
 local one is pushed.
 
+After that commit, when PUBLISH_CSV_STATS is true (any case; environment or
+.env), publish_stats pushes the stats of the new local alerts.
+
 Needs GITHUB_REPO and GITHUB_ALERTS_TOKEN (see publish_utils).
 
 """
@@ -16,6 +19,7 @@ import os
 import sys
 
 import settings
+from processing.publish.publish_stats import STATS_BRANCH, STATS_FOLDER, publish_stats
 from processing.publish.publish_utils import (
     REPO,
     RETRIES,
@@ -24,24 +28,22 @@ from processing.publish.publish_utils import (
     commit_message,
     github_session,
     local_alerts,
+    newer_files,
     remote_state,
 )
 
 FOLDER = "Alerts/csv"
 
 
-def new_alerts(remote_names, local):
-    """local csv files later than the newest one in the repo"""
-    if not remote_names:
-        return local[-1:]
-    last = max(remote_names)
-    return [f for f in local if os.path.basename(f) > last]
-
-
 def commit_files(session, head, tree, files):
     """one commit adding files to the repo folder; False if the branch moved"""
     entries = [blob_entry(session, f"{FOLDER}/{os.path.basename(f)}", f) for f in files]
     return commit(session, head, tree, entries, commit_message("alert", files))
+
+
+def stats_enabled():
+    """PUBLISH_CSV_STATS is true, in any case"""
+    return os.getenv("PUBLISH_CSV_STATS", "").strip().lower() == "true"
 
 
 def publish_alerts(alerts_dir, dry_run=False):
@@ -53,7 +55,7 @@ def publish_alerts(alerts_dir, dry_run=False):
 
     for _ in range(RETRIES):
         head, tree, remote_names = remote_state(session, FOLDER, ".csv", "publish alerts")
-        files = new_alerts(remote_names, local)
+        files = newer_files(remote_names, local)
         if not files:
             logging.info(f"publish alerts: {REPO}/{FOLDER} is up to date")
             return
@@ -63,11 +65,22 @@ def publish_alerts(alerts_dir, dry_run=False):
             )
             for f in files:
                 logging.info(f"publish alerts (dry run): would push {os.path.basename(f)}")
+            if stats_enabled():
+                logging.info(
+                    f"publish alerts (dry run): would push the stats of the new alerts to "
+                    f"{STATS_FOLDER} on {STATS_BRANCH}"
+                )
             return
         if commit_files(session, head, tree, files):
             logging.info(
                 f"publish alerts: pushed {len(files)} file(s) to {REPO}/{FOLDER}, last {os.path.basename(files[-1])}"
             )
+            if stats_enabled():
+                # a failed stats push never undoes or fails the alerts push
+                try:
+                    publish_stats(session, local)
+                except Exception:
+                    logging.exception("publish stats failed")
             return
         logging.info("publish alerts: branch moved during the push, retrying")
     logging.warning(f"publish alerts: gave up after {RETRIES} attempts")
