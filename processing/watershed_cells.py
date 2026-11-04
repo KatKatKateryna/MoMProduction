@@ -102,7 +102,7 @@ def _dilate(mask):
     return wide
 
 
-def mask_summary(source, reader, transform, width, height, watersheds, wrap=False, value_above=-np.inf):
+def mask_summary(source, reader, transform, width, height, watersheds, wrap=False, value_above=-np.inf, cells=None):
     """per watershed: area (km2) and perc_area of the cells that count, the
     area-weighted mean and the max of their values -- by masking each
     watershed's own window, as the pipeline did before the cell lookup.
@@ -114,6 +114,9 @@ def mask_summary(source, reader, transform, width, height, watersheds, wrap=Fals
 
     reader(row0, col0, n_rows, n_cols) gives that window of the grid as
     float64, NaN where there is no data.
+
+    cells: a list to collect the counted cells into, for cells_summary
+    (watershed position, grid rows, grid cols, km2 of each, as arrays).
     """
     counts = SOURCES[source]["counts"]
     ids = watersheds.index.tolist()
@@ -167,6 +170,8 @@ def mask_summary(source, reader, transform, width, height, watersheds, wrap=Fals
                 area_filtered_km2[i] += a[v > value_above].sum()
                 weighted[i] += (v * a).sum()
                 vmax[i] = max(vmax[i], v.max())
+                if cells is not None:
+                    cells.append((np.full(len(r), i), r + row0, c + col0, a))
 
             edge = boundary & counted
             if edge.any():
@@ -192,6 +197,9 @@ def mask_summary(source, reader, transform, width, height, watersheds, wrap=Fals
                 weighted[i] += (v * a).sum()
                 if (share > 0).any():
                     vmax[i] = max(vmax[i], v[share > 0].max())
+                if cells is not None:
+                    keep = share > 0
+                    cells.append((np.full(keep.sum(), i), r[keep] + row0, c[keep] + col0, a[keep]))
 
         if (i + 1) % 4000 == 0:
             logging.info(f"{source} masking: {i + 1} of {n} watersheds, {time.monotonic() - t0:.0f}s")
@@ -209,7 +217,7 @@ def mask_summary(source, reader, transform, width, height, watersheds, wrap=Fals
     )
 
 
-def raster_summary(source, path, watersheds, value_above=-np.inf):
+def raster_summary(source, path, watersheds, value_above=-np.inf, cells=None):
     """summarize a raster file by masking each watershed's own window"""
     with rasterio.open(path) as src:
         if src.crs is not None and not src.crs.is_geographic:
@@ -225,11 +233,11 @@ def raster_summary(source, path, watersheds, value_above=-np.inf):
 
         return mask_summary(
             source, reader, transform, width, height, watersheds,
-            wrap=SOURCES[source]["wrap"], value_above=value_above,
+            wrap=SOURCES[source]["wrap"], value_above=value_above, cells=cells,
         )
 
 
-def lattice_summary(grid, top, left, watersheds, res=HWRF_RES, value_above=-np.inf):
+def lattice_summary(grid, top, left, watersheds, res=HWRF_RES, value_above=-np.inf, cells=None):
     """summarize an HAFS rain grid in memory (NaN where there is no rain)
     whose top-left pixel centre is (left, top)"""
     transform = from_origin(left - res / 2, top + res / 2, res, res)
@@ -239,5 +247,45 @@ def lattice_summary(grid, top, left, watersheds, res=HWRF_RES, value_above=-np.i
         return np.asarray(grid[row0 : row0 + n_rows, col0 : col0 + n_cols], np.float64)
 
     return mask_summary(
-        "hwrf", reader, transform, width, height, watersheds, wrap=False, value_above=value_above
+        "hwrf", reader, transform, width, height, watersheds, wrap=False, value_above=value_above,
+        cells=cells,
+    )
+
+
+def cells_summary(source, cells, grid, watersheds, value_above=-np.inf):
+    """the mask_summary of grid (whole grid in memory, NaN where there is no
+    data) over the cells mask_summary collected (cells=) for another grid on
+    the same lattice. Exact when every cell that counts in grid also counted
+    there: the steps of a running maximum or total, collected on the last.
+    Sums in another order than mask_summary, so equal to ~1e-12."""
+    counts = SOURCES[source]["counts"]
+    n = len(watersheds)
+    if cells:
+        pos, rows, cols, km2 = (np.concatenate(x) for x in zip(*cells))
+    else:
+        pos, rows, cols, km2 = (np.zeros(0, int),) * 3 + (np.zeros(0),)
+    values = np.asarray(grid[rows, cols], np.float64)
+    keep = counts(values)
+    pos, km2, values = pos[keep], km2[keep], values[keep]
+    above = values > value_above
+    area = np.bincount(pos, km2, n)
+    weighted = np.bincount(pos, values * km2, n)
+    vmax = np.full(n, -np.inf)
+    if len(pos) and np.all(pos[1:] >= pos[:-1]):
+        # mask_summary collects the cells watershed by watershed: max per run
+        starts = np.flatnonzero(np.r_[True, pos[1:] != pos[:-1]])
+        vmax[pos[starts]] = np.maximum.reduceat(values, starts)
+    else:
+        np.maximum.at(vmax, pos, values)
+    area_filtered_km2 = np.bincount(pos[above], km2[above], n)
+    has = area > 0
+    return pd.DataFrame(
+        {
+            "area": area_filtered_km2,
+            "perc_area": area_filtered_km2 / watersheds["area_km2"].to_numpy() * 100,
+            "mean": np.where(has, weighted / np.where(has, area, 1), np.nan),
+            "max": np.where(has, vmax, np.nan),
+            "has_data": has,
+        },
+        index=pd.Index(watersheds.index.tolist(), name="pfaf_id"),
     )

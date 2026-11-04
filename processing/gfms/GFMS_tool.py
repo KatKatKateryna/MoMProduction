@@ -39,18 +39,27 @@ import requests
 import zipfile
 
 from processing.gfms.GFMS_MoM import flood_severity
-from processing.watershed_cells import raster_summary
+from processing.watershed_cells import cells_summary, raster_summary
 
 # from HWRF_MoM import update_HWRF_MoM, update_HWRFMoM_DFO_VIIRS, final_alert_pdc
 from processing.hwrf.HWRF_MoM import hwrf_workflow
 import settings
-from processing.utilities import find_latest_glofas, hwrf_today, watersheds_gdb_reader
+from processing.utilities import (
+    find_latest_glofas,
+    hwrf_today,
+    steps_csv,
+    watersheds_gdb_reader,
+    write_steps,
+)
 
 load_dotenv()
 WATERSHEDS = None
 
 # summary = per-pixel maximum over the time and the following hours
 GFMS_WINDOW_HOURS = 96
+# the summaries the MoM reads (GFMS MoM: 00, HWRF/HAFS MoM: every cycle) also
+# get a step file (utilities.steps_csv), for the lead times
+GFMS_STEP_HOURS = ("00", "06", "12", "18")
 
 # no need for cron-job
 # from progressbar import progress
@@ -472,19 +481,28 @@ def GFMS_max_grid(paths):
     return grid, profile
 
 
-def GFMS_window_max(vrt_file, window_dir):
-    """per-pixel maximum of the grid of vrt_file and of the grids of the
-    following 3-hourly times up to GFMS_WINDOW_HOURS, those the host has;
-    written to a tiff in window_dir, whose path is returned"""
+def GFMS_window(vrt_file, window_dir):
+    """[(hours, vrt)] of vrt_file (0) and of the following 3-hourly times up
+    to GFMS_WINDOW_HOURS, those the host has; a bin's time stamp is its valid
+    time, so hours is the step after vrt_file's time"""
     stamp = os.path.basename(vrt_file)[len("Flood_byStor_") : -len(".vrt")]
     start = datetime.strptime(stamp, "%Y%m%d%H")
-    paths, used = [vrt_file], []
+    window = [(0, vrt_file)]
     for hours in range(3, GFMS_WINDOW_HOURS + 1, 3):
         stamp_h = (start + timedelta(hours=hours)).strftime("%Y%m%d%H")
         window_vrt = GFMS_window_vrt(f"Flood_byStor_{stamp_h}.bin", window_dir)
         if window_vrt is not None:
-            paths.append(window_vrt)
-            used.append(hours)
+            window.append((hours, window_vrt))
+    return window
+
+
+def GFMS_window_max(vrt_file, window_dir):
+    """per-pixel maximum of the grids of GFMS_window; written to a tiff in
+    window_dir, whose path is returned"""
+    stamp = os.path.basename(vrt_file)[len("Flood_byStor_") : -len(".vrt")]
+    window = GFMS_window(vrt_file, window_dir)
+    paths = [p for _, p in window]
+    used = [h for h, _ in window[1:]]
     grid, profile = GFMS_max_grid(paths)
     logging.info(
         f"GFMS {stamp}: maximum of {len(used) + 1} grids, "
@@ -530,6 +548,12 @@ def GFMS_extract_by_watershed(vrt_file, window_dir=None):
         # already processed,
         return
 
+    # the window's steps for the summaries the MoM reads
+    window = None
+    stamp = os.path.basename(summary_file)[len("Flood_byStor_") : -len(".csv")]
+    if window_dir and os.path.exists(vrt_file) and stamp[-2:] in GFMS_STEP_HOURS:
+        window = GFMS_window(vrt_file, window_dir)
+
     if window_dir and os.path.exists(vrt_file):
         vrt_file = GFMS_window_max(vrt_file, window_dir)
 
@@ -537,7 +561,18 @@ def GFMS_extract_by_watershed(vrt_file, window_dir=None):
     # (watershed_cells.py); without the file every watershed gets 0s
     summary = None
     if os.path.exists(vrt_file):
-        summary = raster_summary("gfms", vrt_file, WATERSHEDS)
+        cells = [] if window else None
+        summary = raster_summary("gfms", vrt_file, WATERSHEDS, cells=cells)
+        if window:
+            # no step file (lead times -1) rather than no summary
+            try:
+                GFMS_write_steps(
+                    window,
+                    cells,
+                    os.path.join(settings.GFMS_SUM_DIR, os.path.basename(summary_file)),
+                )
+            except Exception:
+                logging.exception(f"GFMS step file failed: {summary_file}")
 
     with open(summary_file, "a") as f:
         writer = csv.writer(f)
@@ -570,6 +605,24 @@ def GFMS_extract_by_watershed(vrt_file, window_dir=None):
     logging.info(f"generated: {summary_file}")
 
     return
+
+
+def GFMS_write_steps(window, cells, summary_csv):
+    """step file of a summary (utilities.steps_csv): the summary of the
+    per-pixel maximum up to each step of the window, over the cells of the
+    whole window's maximum (cells, from raster_summary)"""
+    running, steps = None, []
+    for hours, path in window:
+        with rasterio.open(path) as src:
+            grid, nodata = src.read(1), src.nodata
+        running = grid if running is None else np.maximum(running, grid)
+        values = running.astype(np.float64)
+        if nodata is not None:
+            values[values == nodata] = np.nan
+        steps.append((hours, cells_summary("gfms", cells, values, WATERSHEDS)))
+    path = steps_csv(summary_csv)
+    write_steps(path, steps)
+    logging.info(f"generated: {path} ({len(steps)} steps)")
 
 
 def GFMS_data_extractor(bin_file, window_dir=None):
