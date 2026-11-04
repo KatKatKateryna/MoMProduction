@@ -7,7 +7,8 @@ is pushed all in one commit. With no csv in the repo folder yet, only the newest
 local one is pushed.
 
 After that commit, when PUBLISH_CSV_STATS is true (any case; environment or
-.env), publish_stats pushes the stats of the new local alerts.
+.env), publish_stats pushes the stats of the new local alerts, then
+publish_stats calls publish_chains to update the chain records from them.
 
 Needs GITHUB_REPO and GITHUB_ALERTS_TOKEN (see publish_utils).
 
@@ -19,6 +20,7 @@ import os
 import sys
 
 import settings
+from processing.publish.publish_chains import STATS_CHAINS
 from processing.publish.publish_stats import STATS_BRANCH, STATS_FOLDER, publish_stats
 from processing.publish.publish_utils import (
     REPO,
@@ -68,7 +70,7 @@ def publish_alerts(alerts_dir, dry_run=False):
             if stats_enabled():
                 logging.info(
                     f"publish alerts (dry run): would push the stats of the new alerts to "
-                    f"{STATS_FOLDER} on {STATS_BRANCH}"
+                    f"{STATS_FOLDER} on {STATS_BRANCH} and update {STATS_CHAINS}"
                 )
             return
         if commit_files(session, head, tree, files):
