@@ -8,24 +8,20 @@ newer than the newest stats csv in STATS_FOLDER of the branch STATS_BRANCH;
 with none there, only the newest local one, whose history then starts with it.
 Each stats csv is the final alert csv with one row per watershed (as the
 tiles, publish_utils.watersheds), only the Advisory and above ones, and the
-stats columns (stats_frame); each watershed's history columns extend those of
-the latest stats csv in that folder that has it, however far back, found
-through STATS_INDEX (updated in the same commit). The branch is created from
-main when missing, main is merged into it, then one commit adds the files.
+stats columns (stats_frame); the history columns extend those of the newest
+stats csv in that folder. The branch is created from main when missing, main
+is merged into it, then one commit adds the files. publish_stats then calls
+publish_chains, which updates the chain records of all watersheds from them.
 
 Stats columns, after the final alert columns (all times in hours):
 
-    Stats_Lead_h_DFO    0 when the DFO score alone (DFOTotal_Score as the
-                        Hazard_Score, with the watershed's risk) gives an
-                        alert above Information: DFO observes the flood; else -1
-    Stats_Lead_h_VIIRS  the same for the VIIRS score (VIIRSTotal_Score)
-
-    The next three hold one value per alert, STATS_HISTORY of them joined
+    The three hold one value per alert, STATS_HISTORY of them joined
     with ",", oldest first, this alert last; "" for an alert that does not
     have the watershed (not Advisory or above, or no stats csv):
 
     Stats_Lead_history     the lead time of each alert: 0 when DFO or VIIRS
-                           observes the flood, else Lead_h with -1 counted as
+                           observes the flood (Lead_h_DFO or Lead_h_VIIRS
+                           0, set by the MoM), else Lead_h with -1 counted as
                            0 (the watershed has the alert); "" without Lead_h.
                            Lead_h itself is kept as it is.
     Stats_Sources_history  the sources with a lead time of 0 or more at each
@@ -36,8 +32,8 @@ Stats columns, after the final alert columns (all times in hours):
                                l  GloFAS  (Lead_h_GloFAS)
                                g  GFMS    (Lead_h_GFMS)
                                h  HAFS    (Lead_h_HAFS)
-                               d  DFO     (Stats_Lead_h_DFO)
-                               v  VIIRS   (Stats_Lead_h_VIIRS)
+                               d  DFO     (Lead_h_DFO)
+                               v  VIIRS   (Lead_h_VIIRS)
                            e.g. "h_12/g_18": HAFS 12 h, GFMS 18 h
     Stats_Chains_history   the prediction chain of each alert (chain_entry).
                            Chains split the lead history: an empty value ends
@@ -56,50 +52,14 @@ Stats columns, after the final alert columns (all times in hours):
                            e.g. "start:26110400/lead_0:12/src_0:h/wait:6/
                                  lead:3/obs:0"
 
-    Stats_Chains           one record per chain whose lead time got to 0,
-                           joined with ",", oldest first (chain_records); kept
-                           however long ago; the record of the current chain
-                           gets h_flood_st_to_obs and flood_dur updated
-                           while it stays at 0. Keys:
-                               start        chain start, YYMMDDHH
-                               wait         time from the start until the
-                                            lead time got to 0
-                               lead_0_err   lead_0 - wait: error of the first
-                                            lead time (> 0: the flood came
-                                            sooner, < 0: later)
-                               dev          median of lead - correct lead
-                                            (the record's wait - the alert's
-                                            wait) over the chain's alerts in
-                                            the history before the lead time
-                                            got to 0; "" without such alerts
-                               dev_l        the same for the GloFAS lead time
-                               dev_g        the same for the GFMS lead time
-                               dev_h        the same for the HAFS lead time
-                               h_flood_st_to_obs
-                                            time from the lead time 0 (the
-                                            flood start) until DFO or VIIRS
-                                            observed the flood; -1 if not
-                                            (yet)
-                               flood_dur    flood duration: time from the
-                                            lead time 0 until the chain's
-                                            last alert
-                           e.g. "start:26110400/wait:6/lead_0_err:-3/dev:-3/
-                                 dev_l:/dev_g:12/dev_h:-3/h_flood_st_to_obs:-1/
-                                 flood_dur:6"
-
-STATS_INDEX, next to STATS_FOLDER: {"<pfaf_id>": "<YYYYMMDDHH>"}, the alert
-of the latest stats csv that has each watershed.
-
 Needs GITHUB_REPO and GITHUB_ALERTS_TOKEN (see publish_utils).
 
 """
 
 import io
-import json
 import logging
 import os
-import statistics
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -122,14 +82,10 @@ from processing.publish.publish_utils import (
 
 STATS_BRANCH = "stats"
 STATS_FOLDER = "Alerts/stats"
-# next to STATS_FOLDER: {pfaf_id: YYYYMMDDHH of the latest stats csv that has
-# the watershed}, so its previous values are found however far back
-STATS_INDEX = "Alerts/stats_index.json"
 # alerts in each WINDOWED column, the current one last
 STATS_HISTORY = 56
 # the final alerts are written in this encoding (HWRF_MoM.final_alert_pdc)
 ENCODING = "Windows-1252"
-RISK = ["Scaled_Riverine_Risk", "Scaled_Coastal_Risk"]
 ABOVE_INFORMATION = ["Advisory", "Watch", "Warning"]
 # letter of each source in Stats_Sources_history ("<letter>_<lead h>" joined
 # with "/"): the source is listed when its lead time column is 0 or more, by
@@ -139,54 +95,26 @@ SOURCES = [
     ("l", "Lead_h_GloFAS"),
     ("g", "Lead_h_GFMS"),
     ("h", "Lead_h_HAFS"),
-    ("d", "Stats_Lead_h_DFO"),
-    ("v", "Stats_Lead_h_VIIRS"),
+    ("d", "Lead_h_DFO"),
+    ("v", "Lead_h_VIIRS"),
 ]
-# the forecast sources, with their own deviation in Stats_Chains
+# the forecast sources, with their own deviation in publish_chains
 FORECAST = ["l", "g", "h"]
 # Flag of the final alert -> the source that set its Hazard_Score
 # (HWRF_MoM: 1 HWRF/HAFS, 2 DFO, 3 VIIRS; none for GloFAS + GFMS, and blank
 # for Information and Advisory alerts)
 FLAG_SOURCE = {1: "h", 2: "d", 3: "v"}
-# one comma separated value per alert, STATS_HISTORY of them
+# one comma separated value per alert, STATS_HISTORY of them, carried from
+# each stats csv to the next
 WINDOWED = ["Stats_Lead_history", "Stats_Sources_history", "Stats_Chains_history"]
-# carried from each stats csv to the next
-CARRIED = WINDOWED + ["Stats_Chains"]
 STAMP = "%y%m%d%H"
 
 
-def alone_lead(df, score, alert_func):
-    """per row of df: 0 where the score column alone, as the Hazard_Score with
-    the row's risk, gives an alert above Information (alert_func, the mofunc_*
-    of the source's MoM step); -1 otherwise or without the column"""
-    if score not in df or df.empty:
-        return pd.Series(-1, index=df.index)
-    w = pd.DataFrame(
-        {"Hazard_Score": pd.to_numeric(df[score], errors="coerce").fillna(0)}
-    )
-    for c in RISK:
-        w[c] = pd.to_numeric(df[c], errors="coerce") if c in df else np.nan
-    from processing.utilities import severity_from_hazard_and_risk_scores
-
-    with np.errstate(divide="ignore", invalid="ignore"):
-        w["Severity"] = severity_from_hazard_and_risk_scores(w)
-    alert = w.apply(alert_func, axis=1)
-    return pd.Series(np.where(alert.isin(ABOVE_INFORMATION), 0, -1), index=df.index)
-
-
-def add_alone_leads(df):
-    """Stats_Lead_h_DFO and Stats_Lead_h_VIIRS (alone_lead) added to df"""
-    from processing.hwrf.HWRF_MoM import mofunc_dfo, mofunc_viirs
-
-    df["Stats_Lead_h_DFO"] = alone_lead(df, "DFOTotal_Score", mofunc_dfo)
-    df["Stats_Lead_h_VIIRS"] = alone_lead(df, "VIIRSTotal_Score", mofunc_viirs)
-
-
 def history_index(df):
-    """pfaf_id -> CARRIED columns of a stats table; None without those columns"""
-    if any(c not in df for c in ["pfaf_id"] + CARRIED):
+    """pfaf_id -> WINDOWED columns of a stats table; None without those columns"""
+    if any(c not in df for c in ["pfaf_id"] + WINDOWED):
         return None
-    df = df[["pfaf_id"] + CARRIED].copy()
+    df = df[["pfaf_id"] + WINDOWED].copy()
     df["pfaf_id"] = pd.to_numeric(df["pfaf_id"], errors="coerce")
     df = df.dropna(subset=["pfaf_id"]).drop_duplicates("pfaf_id")
     return df.set_index("pfaf_id")
@@ -252,81 +180,28 @@ def chain_entry(prev_entry, prev_lead, lead, now, observed, source):
     )
 
 
-def median(values):
-    """the median of values ('' for none), as a short number"""
-    return f"{statistics.median(values):g}" if values else ""
-
-
-def chain_records(records, leads, sources, chains, now, observed):
-    """Stats_Chains records of a watershed after this alert (keys: module
-    docstring): records, the previous ones; leads, sources, chains, its
-    windowed history columns with this alert last. When this alert's chain
-    gets to lead time 0, a record is added; while it stays at 0, the record of
-    the chain gets h_flood_st_to_obs (once observed) and flood_dur updated"""
-    cur = fields(chains[-1])
-    if not cur or cur["lead"] != "0":
-        return records
-    start, wait = cur["start"], int(cur["wait"])
-    zero = datetime.strptime(start, STAMP) + timedelta(hours=wait)
-    prev = fields(chains[-2]) if len(chains) > 1 else {}
-    if prev.get("start") == start and prev.get("lead") == "0":
-        # the chain was already at 0: update its record
-        for i in range(len(records) - 1, -1, -1):
-            rec = fields(records[i])
-            if rec.get("start") != start:
-                continue
-            if rec["h_flood_st_to_obs"] == "-1" and observed:
-                rec["h_flood_st_to_obs"] = str(hours(now, zero))
-            rec["flood_dur"] = str(hours(now, zero))
-            return records[:i] + [keyed(*rec.items())] + records[i + 1 :]
-        return records
-
-    # first lead time 0 of the chain: deviations over its earlier alerts
-    dev, per_source = [], {letter: [] for letter in FORECAST}
-    for k in range(len(chains) - 2, -1, -1):
-        entry = fields(chains[k])
-        if entry.get("start") != start:
-            break
-        correct = wait - int(entry["wait"])
-        dev.append(int(leads[k]) - correct)
-        for letter, lead in source_leads(sources[k]).items():
-            if letter in per_source:
-                per_source[letter].append(lead - correct)
-    record = keyed(
-        ("start", start),
-        ("wait", wait),
-        ("lead_0_err", int(cur["lead_0"]) - wait),
-        ("dev", median(dev)),
-        *((f"dev_{letter}", median(per_source[letter])) for letter in FORECAST),
-        ("h_flood_st_to_obs", 0 if observed else -1),
-        ("flood_dur", 0),
-    )
-    return records + [record]
-
-
-def stats_frame(path, local, previous, last_seen):
+def stats_frame(path, local, last):
     """the final alert csv at path with one row per watershed
     (publish_utils.watersheds), only the Advisory and above ones, values
-    unchanged, with Stats_Lead_h_DFO, Stats_Lead_h_VIIRS and the CARRIED
-    columns. Each watershed's previous values come from the stats of the
-    cycle last_seen gives for it (pfaf_id as text -> YYYYMMDDHH; previous(cycle)
-    -> history_index or None), however far back, so its Stats_Chains records
-    are kept; the WINDOWED columns get one "" per local alert since, and ""
-    for the alerts before them; STATS_HISTORY comma separated values each, oldest first, this
-    alert last.
-    Stats_Lead_history: 0 when DFO or VIIRS alone gives the alert (observed),
-    else Lead_h, -1 counted as 0 (the watershed has the alert); "" without
+    unchanged, with the WINDOWED columns, which extend those of last, (YYYYMMDDHH, history_index) of the
+    newest previous stats, or None: one "" per local alert between them, ""
+    for a watershed it does not have; STATS_HISTORY comma separated values
+    each, oldest first, this alert last.
+    Stats_Lead_history: 0 when DFO or VIIRS observes the flood (Lead_h_DFO
+    or Lead_h_VIIRS 0), else Lead_h, -1 counted as 0 (the watershed has the alert); "" without
     Lead_h. Stats_Sources_history: source_entry. Stats_Chains_history:
-    chain_entry. Stats_Chains: chain_records, comma separated"""
+    chain_entry"""
     df = pd.read_csv(path, encoding=ENCODING, dtype=str, keep_default_na=False)
     # the index column the MoM writes has no name
     df.columns = ["" if c.startswith("Unnamed: ") else c for c in df.columns]
     df = watersheds(df)
     df = df[df["Alert"].isin(ABOVE_INFORMATION)].reset_index(drop=True)
-    add_alone_leads(df)
     now = datetime.strptime(alert_cycle(os.path.basename(path)), "%Y%m%d%H")
 
-    observed = (df["Stats_Lead_h_DFO"] == 0) | (df["Stats_Lead_h_VIIRS"] == 0)
+    observed = pd.Series(False, index=df.index)
+    for column in ["Lead_h_DFO", "Lead_h_VIIRS"]:
+        if column in df:
+            observed |= pd.to_numeric(df[column], errors="coerce") == 0
     lead_h = (
         pd.to_numeric(df["Lead_h"], errors="coerce")
         if "Lead_h" in df
@@ -353,77 +228,61 @@ def stats_frame(path, local, previous, last_seen):
         for row, flag in zip(by_source.to_dict("records"), flagged)
     ]
 
-    # each watershed's values in the latest previous stats that have it
-    # (last_seen), and how many local alerts back
+    # the previous values, and how many local alerts back
     pfaf = pd.to_numeric(df["pfaf_id"], errors="coerce")
     cycle = alert_cycle(os.path.basename(path))
     cycles = [alert_cycle(os.path.basename(f)) for f in local]
-    by_cycle = {}
-    for p in set(pfaf.dropna()):
-        seen = last_seen.get(str(int(p)))
-        if seen and seen < cycle:
-            by_cycle.setdefault(seen, []).append(p)
-    found = {}
-    for seen, ps in by_cycle.items():
-        prev = previous(seen)
-        if prev is None:
-            continue
-        back = 1 + sum(1 for c in cycles if seen < c < cycle)
-        for p in ps:
-            if p in prev.index:
-                found[p] = (back, {c: prev.at[p, c] for c in CARRIED})
+    prev_cycle, prev = last if last and last[1] is not None else ("", None)
+    back = 1 + sum(1 for c in cycles if prev_cycle < c < cycle)
 
-    def earlier(value, back):
+    def earlier(value):
         """the STATS_HISTORY - 1 values before this alert"""
         values = [""] * STATS_HISTORY + (value.split(",") if value else []) + [""] * (back - 1)
         return values[-(STATS_HISTORY - 1) :]
 
-    out = {c: [] for c in CARRIED}
+    out = {c: [] for c in WINDOWED}
     for p, lead, source, obs in zip(pfaf, leads, sources, observed):
-        back, prev = found.get(p, (1, {c: "" for c in CARRIED}))
-        h, s, c = (earlier(prev[col], back) for col in WINDOWED)
+        found = prev is not None and p in prev.index
+        h, s, c = (earlier(prev.at[p, col] if found else "") for col in WINDOWED)
         h, s = h + [lead], s + [source]
         c = c + [chain_entry(c[-1], h[-2], lead, now, obs, source.split("_")[0])]
-        records = prev["Stats_Chains"].split(",") if prev["Stats_Chains"] else []
-        records = chain_records(records, h, s, c, now, obs)
-        for col, values in zip(CARRIED, (h, s, c, records)):
+        for col, values in zip(WINDOWED, (h, s, c)):
             out[col].append(",".join(values))
-    for col in CARRIED:
+    for col in WINDOWED:
         df[col] = out[col]
     return df
 
 
-def build_stats(files, local, previous, last_seen):
-    """[(file, stats table)] of files in order, each one's stats available to
-    the next ones (previous(cycle) is asked for the others); last_seen
-    (STATS_INDEX) is updated with each one's watersheds"""
-    built, tables = {}, []
-
-    def lookup(cycle):
-        return built[cycle] if cycle in built else previous(cycle)
-
+def build_stats(files, local, last):
+    """[(file, stats table)] of files in order, each one extending the
+    previous one (the first one extends last, as in stats_frame)"""
+    tables = []
     for f in files:
-        df = stats_frame(f, local, lookup, last_seen)
-        cycle = alert_cycle(os.path.basename(f))
-        built[cycle] = history_index(df)
-        for p in pd.to_numeric(df["pfaf_id"], errors="coerce").dropna():
-            last_seen[str(int(p))] = cycle
+        df = stats_frame(f, local, last)
+        last = (alert_cycle(os.path.basename(f)), history_index(df))
         tables.append((f, df))
     return tables
 
 
-def index_json(last_seen):
-    """the STATS_INDEX content of last_seen, one watershed per line"""
-    ordered = dict(sorted(last_seen.items(), key=lambda kv: int(kv[0])))
-    return (json.dumps(ordered, indent=0) + "\n").encode("utf-8")
-
-
 def publish_stats(session, local):
+    """push_stats, then publish_chains (also when the stats are up to date
+    or their push failed; its failure is logged)"""
+    try:
+        push_stats(session, local)
+    finally:
+        from processing.publish.publish_chains import publish_chains
+
+        try:
+            publish_chains(session)
+        except Exception:
+            logging.exception("publish chains failed")
+
+
+def push_stats(session, local):
     """push the stats csv of the local final alerts newer than the newest
     stats csv in STATS_FOLDER of STATS_BRANCH (only the newest local one when
     there is none), after creating the branch from main if needed and merging
-    main into it; the previous stats are read from that folder through
-    STATS_INDEX, which the same commit updates"""
+    main into it; the histories extend that newest stats csv"""
     ensure_branch(session, STATS_BRANCH)
     merge_into(session, STATS_BRANCH)
     _, tree = head_tree(session, STATS_BRANCH)
@@ -432,26 +291,18 @@ def publish_stats(session, local):
     if not files:
         logging.info(f"publish stats: {REPO}/{STATS_FOLDER} is up to date")
         return
-    by_cycle = {alert_cycle(name): name for name in remote}
-    index = folder_files(
-        session, tree, os.path.dirname(STATS_INDEX), ".json", "publish stats"
-    ).get(os.path.basename(STATS_INDEX))
-    last_seen = json.loads(read_blob(session, index)) if index else {}
-    if not index and remote:
-        logging.warning(f"publish stats: no {STATS_INDEX}, histories start again")
-    cache = {}
-
-    def previous(cycle):
-        if cycle not in by_cycle:
-            return None
-        if cycle not in cache:
-            data = read_blob(session, remote[by_cycle[cycle]])
-            cache[cycle] = history_index(
+    last = None
+    if remote:
+        name = max(remote)
+        data = read_blob(session, remote[name])
+        last = (
+            alert_cycle(name),
+            history_index(
                 pd.read_csv(
                     io.BytesIO(data), encoding=ENCODING, dtype=str, keep_default_na=False
                 )
-            )
-        return cache[cycle]
+            ),
+        )
 
     entries = [
         bytes_entry(
@@ -459,9 +310,8 @@ def publish_stats(session, local):
             f"{STATS_FOLDER}/{os.path.basename(f)}",
             df.to_csv(index=False).encode(ENCODING),
         )
-        for f, df in build_stats(files, local, previous, last_seen)
+        for f, df in build_stats(files, local, last)
     ]
-    entries.append(bytes_entry(session, STATS_INDEX, index_json(last_seen)))
     for attempt in range(RETRIES):
         if attempt:
             merge_into(session, STATS_BRANCH)

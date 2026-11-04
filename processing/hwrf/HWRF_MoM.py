@@ -148,6 +148,34 @@ def mofunc_viirs(row):
         return "Information"
 
 
+# the lead time columns of the forecast sources; Lead_h of the final alert is
+# valid only when one of them is
+FORECAST_LEADS = ["Lead_h_GFMS", "Lead_h_GloFAS", "Lead_h_HAFS"]
+
+
+def observed_lead(df, score, alert_func):
+    """Lead_h_DFO / Lead_h_VIIRS per row of df: 0 where the score column
+    alone, as the Hazard_Score with the row's risk, gives an alert above
+    Information (alert_func, mofunc_dfo or mofunc_viirs): the source observes
+    the flood; -1 otherwise"""
+    w = pd.DataFrame(
+        {
+            "Hazard_Score": pd.to_numeric(df[score], errors="coerce").fillna(0),
+            "Scaled_Riverine_Risk": df["Scaled_Riverine_Risk"],
+            "Scaled_Coastal_Risk": df["Scaled_Coastal_Risk"],
+        },
+        index=df.index,
+    )
+    if w.empty:
+        return pd.Series(-1, index=df.index)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        w["Severity"] = severity_from_hazard_and_risk_scores(w)
+    alert = w.apply(alert_func, axis=1)
+    return pd.Series(
+        np.where(alert.isin(["Advisory", "Watch", "Warning"]), 0, -1), index=df.index
+    )
+
+
 # the previous cycle's HWRF rainfall is waited for until it is this old; after
 # that the MoM is written without it
 HWRF_MISSING_AFTER = timedelta(hours=12)
@@ -951,6 +979,7 @@ def update_HWRFMoM_DFO_VIIRS(adate):
 
     Final_Output["Severity"] = severity_from_hazard_and_risk_scores(Final_Output)
     Final_Output["Alert"] = Final_Output.apply(mofunc_dfo, axis=1)
+    Final_Output["Lead_h_DFO"] = observed_lead(Final_Output, "DFOTotal_Score", mofunc_dfo)
     Final_Output["Flag"] = Final_Output["Flag"].astype(object)
     Final_Output.loc[Final_Output["Alert"] == "Information", "Flag"] = ""
     Final_Output.loc[Final_Output["Alert"] == "Advisory", "Flag"] = ""
@@ -1147,6 +1176,9 @@ def update_HWRFMoM_DFO_VIIRS(adate):
 
     Final_Output["Severity"] = severity_from_hazard_and_risk_scores(Final_Output)
     Final_Output["Alert"] = Final_Output.apply(mofunc_viirs, axis=1)
+    Final_Output["Lead_h_VIIRS"] = observed_lead(
+        Final_Output, "VIIRSTotal_Score", mofunc_viirs
+    )
     Final_Output["Flag"] = Final_Output["Flag"].astype(object)
     Final_Output.loc[Final_Output["Alert"] == "Information", "Flag"] = ""
     Final_Output.loc[Final_Output["Alert"] == "Advisory", "Flag"] = ""
@@ -1320,10 +1352,13 @@ def final_alert_pdc(adate):
     # it, but it keeps every column it collected on the way here.
     PDC_Alert = PDC_Alert[PDC_Alert["Hazard_Score"].fillna(0) != 0]
 
-    # the earliest lead time of the sources (-1 and missing ignored), -1 if none
+    # the earliest lead time of all the sources (Lead_h_DFO / Lead_h_VIIRS 0
+    # when they observe the flood; -1 and missing ignored), only where a
+    # forecast source (FORECAST_LEADS) has one; -1 otherwise
     leads = PDC_Alert[[c for c in PDC_Alert.columns if c.startswith("Lead_h_")]]
-    leads = leads.apply(pd.to_numeric, errors="coerce")
-    PDC_Alert["Lead_h"] = leads.where(leads >= 0).min(axis=1).fillna(-1).astype(int)
+    leads = leads.apply(pd.to_numeric, errors="coerce").where(lambda x: x >= 0)
+    forecast = leads[[c for c in FORECAST_LEADS if c in leads]].notna().any(axis=1)
+    PDC_Alert["Lead_h"] = leads.min(axis=1).where(forecast).fillna(-1).astype(int)
 
     PDC_Alert.to_csv(fAlert, encoding="Windows-1252")
     logging.info(f"generated final alert: {fAlert}")
