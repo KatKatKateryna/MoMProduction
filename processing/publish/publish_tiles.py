@@ -40,7 +40,9 @@ from processing.publish.publish_utils import (
     commit_message,
     github_session,
     local_alerts,
+    newer_files,
     remote_state,
+    watersheds,
 )
 
 FOLDER = "Alerts/tiles"
@@ -60,33 +62,18 @@ COLUMNS = [
     "rfr_score",
     "cfr_score",
 ]
-# columns whose values of a watershed's rows are joined with "; "
-JOINED = ["name", "Admin1_names"]
 
 
 def tile_name(csv_name):
     return f"watersheds_{alert_cycle(csv_name)}.pmtiles"
 
 
-def new_alerts(remote_names, local):
-    """local csv files later than the newest tile in the repo"""
-    if not remote_names:
-        return local[-1:]
-    last = max(remote_names)
-    return [f for f in local if tile_name(os.path.basename(f)) > last]
-
-
 def make_tile(csv, tmpdir):
-    """tile of one final alert csv, watersheds de-duplicated by pfaf_id (the
-    JOINED values joined with "; "), only the COLUMNS kept"""
+    """tile of one final alert csv, watersheds de-duplicated by pfaf_id
+    (publish_utils.watersheds), only the COLUMNS kept"""
     # the final alert csv files are Windows-1252
     df = pd.read_csv(csv, encoding="cp1252", encoding_errors="replace", low_memory=False)
-    joined = df.groupby("pfaf_id")[JOINED].agg(
-        lambda v: "; ".join(dict.fromkeys(v.dropna().astype(str)))
-    )
-    df = df.drop_duplicates("pfaf_id")[COLUMNS]
-    for c in JOINED:
-        df[c] = df["pfaf_id"].map(joined[c])
+    df = watersheds(df)[COLUMNS]
     gdf = gpd.read_file(settings.WATERSHED_SHP)
     gdf["pfaf_id"] = pd.to_numeric(gdf["pfaf_id"], errors="coerce")
     # columns in both (area_km2, rfr_score, cfr_score): the csv values win,
@@ -208,7 +195,7 @@ def publish_tiles(alerts_dir, dry_run=False):
             session, FOLDER, ".pmtiles", "publish tiles"
         )
         # older ones would be removed again right away
-        files = new_alerts(remote_names, local)[-MAX_TILES:]
+        files = newer_files(remote_names, local, tile_name)[-MAX_TILES:]
         if not files:
             logging.info(f"publish tiles: {REPO}/{FOLDER} is up to date")
             return
