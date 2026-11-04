@@ -1320,6 +1320,11 @@ def final_alert_pdc(adate):
     # it, but it keeps every column it collected on the way here.
     PDC_Alert = PDC_Alert[PDC_Alert["Hazard_Score"].fillna(0) != 0]
 
+    # the earliest lead time of the sources (-1 and missing ignored), -1 if none
+    leads = PDC_Alert[[c for c in PDC_Alert.columns if c.startswith("Lead_h_")]]
+    leads = leads.apply(pd.to_numeric, errors="coerce")
+    PDC_Alert["Lead_h"] = leads.where(leads >= 0).min(axis=1).fillna(-1).astype(int)
+
     PDC_Alert.to_csv(fAlert, encoding="Windows-1252")
     logging.info(f"generated final alert: {fAlert}")
 
