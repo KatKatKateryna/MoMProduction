@@ -4,12 +4,15 @@ HAFS_tool.py
        workflow (MoM_run.py -j HAFS) and never inside it
 
     For every HAFS cycle, the rain of each storm is taken from its parent
-    swath file: the 0-126 h average rain rate record alone, over the whole
-    parent domain. The storms are merged
-    into one 0-126 h total in inches on the HWRF 0.05 deg grid, and summarized
-    per watershed with the HWRF calculation:
+    swath file (average rain rate over 0-3 h, 0-6 h, ... 0-126 h; the 3 h rain
+    is the difference of consecutive windows, and the steps are summed), over
+    the whole parent domain. The storms are merged into one 0-126 h total in
+    inches on the HWRF 0.05 deg grid, and summarized per watershed with the
+    HWRF calculation; the total up to each 3 h step goes to the step file
+    (lead times, HWRF_MoM.hafs_lead):
         HAFS/HAFS_image/hafs.YYYYMMDDHHrainfall.tiff
         HAFS/HAFS_summary/hafs.YYYYMMDDHHrainfall.csv
+        HAFS/HAFS_summary_steps/hafs.YYYYMMDDHHrainfall.csv
         HAFS/HAFS_track/hafs.<storm>.YYYYMMDDHH.track.geojson
 
     The host data used is kept in HAFS/HAFS_host_data_backups/hfsa.YYYYMMDD/HH/
@@ -65,6 +68,7 @@ from processing.utilities import (
     RAIN_SUMMARY_HEADERS,
     bbox_wanted,
     hafs_storms,
+    steps_csv,
     write_empty_rain_summary,
 )
 
@@ -357,9 +361,12 @@ def norm_lons(lons):
     return np.where(west < 0, west + 360, west)
 
 
-def storm_rain(cycle, storm, track):
-    """0-126 h rain (inches) of one storm over its whole parent domain on a
-    0.05 deg grid: (grid, top, left)"""
+def storm_rain_steps(cycle, storm):
+    """the rain (inches) of one storm from 0 h to each 3 h step, the sum of
+    its 3 h rain (difference of consecutive 0-N h average rain rates), over
+    its whole parent domain on a 0.05 deg grid: yields (hour, grid, top,
+    left), the same top/left at every step; the last step is the storm's
+    0-126 h total"""
     path = rain_file(cycle, storm)
     with open(path, "rb") as tmp:
         # first pass: where the 0-N h average rain rates are
@@ -382,32 +389,45 @@ def storm_rain(cycle, storm, track):
         if not rates:
             raise RuntimeError(f"no rain rates in {path}")
 
-        # the 0-126 h record alone: the host's total over the whole parent domain
-        hour, offset = max(rates)
-        tmp.seek(offset)
-        gid = eccodes.codes_grib_new_from_file(tmp)
-        try:
-            shape = (eccodes.codes_get(gid, "Nj"), eccodes.codes_get(gid, "Ni"))
-            lats = eccodes.codes_get_array(gid, "latitudes").reshape(shape)
-            lons = norm_lons(eccodes.codes_get_array(gid, "longitudes").reshape(shape))
-            values = eccodes.codes_get_values(gid).reshape(shape)
-            if eccodes.codes_get(gid, "bitmapPresent"):
-                values = np.where(
-                    values == eccodes.codes_get(gid, "missingValue"), np.nan, values
-                )
-        finally:
-            eccodes.codes_release(gid)
-    total = values * hour * 3600  # kg m-2 = mm over 0-hour
-    window = np.ones(shape, bool)
-    if not window.any():
-        raise RuntimeError(f"HAFS {storm} {cycle}: storm window is empty")
+        # second pass: 3 h rain, summed step by step. Not clipped at 0: the
+        # differences carry the records' packing noise (~0.1-0.2 mm), and
+        # clipping kept only its positive half, a few mm over 42 steps; the
+        # sum is the 0-N h record then
+        total = prev_acc = None
+        for hour, offset in sorted(rates):
+            tmp.seek(offset)
+            gid = eccodes.codes_grib_new_from_file(tmp)
+            try:
+                if total is None:
+                    shape = (eccodes.codes_get(gid, "Nj"), eccodes.codes_get(gid, "Ni"))
+                    lats = eccodes.codes_get_array(gid, "latitudes").reshape(shape)
+                    lons = norm_lons(
+                        eccodes.codes_get_array(gid, "longitudes").reshape(shape)
+                    )
+                    ri, ci, top, left = lattice_index(lats, lons)
+                    total = np.zeros(shape)
+                    prev_acc = np.zeros(shape)
+                values = eccodes.codes_get_values(gid).reshape(shape)
+                if eccodes.codes_get(gid, "bitmapPresent"):
+                    values = np.where(
+                        values == eccodes.codes_get(gid, "missingValue"), np.nan, values
+                    )
+            finally:
+                eccodes.codes_release(gid)
+            acc = values * hour * 3600  # kg m-2 = mm over 0-hour
+            step = acc - prev_acc
+            total += np.where(np.isfinite(step), step, 0)
+            prev_acc = np.where(np.isfinite(acc), acc, prev_acc)
+            yield hour, total[ri, ci] / MM_PER_INCH, top, left
 
-    # nearest parent cell onto a 0.05 deg grid around the window, pixel
-    # centres on multiples of RES
-    top = np.ceil(lats[window].max() / RES) * RES
-    left = np.floor(lons[window].min() / RES) * RES
-    ny = int(round((top - np.floor(lats[window].min() / RES) * RES) / RES)) + 1
-    nx = int(round((np.ceil(lons[window].max() / RES) * RES - left) / RES)) + 1
+
+def lattice_index(lats, lons):
+    """nearest parent cell of each cell of a 0.05 deg grid around the parent
+    domain, pixel centres on multiples of RES: (rows, cols, top, left)"""
+    top = np.ceil(lats.max() / RES) * RES
+    left = np.floor(lons.min() / RES) * RES
+    ny = int(round((top - np.floor(lats.min() / RES) * RES) / RES)) + 1
+    nx = int(round((np.ceil(lons.max() / RES) * RES - left) / RES)) + 1
     dlat, dlon = lats[1, 0] - lats[0, 0], lons[0, 1] - lons[0, 0]
     ri = np.rint(((top - RES * np.arange(ny))[:, None] - lats[0, 0]) / dlat).astype(int)
     ci = np.rint(((left + RES * np.arange(nx))[None, :] - lons[0, 0]) / dlon).astype(
@@ -416,8 +436,36 @@ def storm_rain(cycle, storm, track):
     ri, ci = np.broadcast_arrays(
         np.clip(ri, 0, lats.shape[0] - 1), np.clip(ci, 0, lats.shape[1] - 1)
     )
-    grid = np.where(window[ri, ci], total[ri, ci] / MM_PER_INCH, np.nan)
-    return grid, top, left
+    return ri, ci, top, left
+
+
+def storm_rain(cycle, storm, track):
+    """0-126 h rain (inches) of one storm over its whole parent domain on a
+    0.05 deg grid, the sum of its 3 h steps: (grid, top, left, last hour)"""
+    for hour, grid, top, left in storm_rain_steps(cycle, storm):
+        pass
+    return grid, top, left, hour
+
+
+def merged_steps(cycle, storms):
+    """the storms' rain from 0 h to each 3 h step, merged as merge() does:
+    yields (hour, grid, top, left); a storm whose steps end earlier keeps its
+    last total"""
+    gens = [storm_rain_steps(cycle, storm) for storm in storms]
+    latest = [next(g) for g in gens]
+    while True:
+        hour = max(item[0] for item in latest)
+        # every storm at its latest step not after hour
+        yield hour, *merge([item[1:] for item in latest])
+        ahead = []
+        for i, g in enumerate(gens):
+            item = next(g, None)
+            if item is not None:
+                ahead.append((i, item))
+        if not ahead:
+            return
+        for i, item in ahead:
+            latest[i] = item
 
 
 def track_lons(track, left, ncols):
@@ -488,24 +536,63 @@ def write_tiff(path, grid, top, left):
         dst.write(out, 1)
 
 
-def summarize(output_csv, grid, top, left):
+def summarize(output_csv, grid, top, left, steps=None, steps_path=None, n_steps=42):
     """per-watershed summary with the HWRF calculation (watershed_cells.py,
-    exact cell shares); True if any watershed has rain"""
+    exact cell shares); True if any watershed has rain. With steps
+    ((hour, grid, top, left) of the running totals that end with grid, as
+    merged_steps gives them), also the step file steps_path: per step the
+    total so far, and that step's 3 h rain alone times n_steps (the cycle's
+    number of 3 h steps; the summary's max is of the cell totals too)"""
     from processing.hwrf.HWRF_tool import rain_summary_rows
-    from processing.utilities import read_data, watersheds_gdb_reader
-    from processing.watershed_cells import lattice_summary
+    from processing.utilities import read_data, watersheds_gdb_reader, write_steps
+    from processing.watershed_cells import cells_summary, lattice_summary
 
     watersheds = watersheds_gdb_reader()
     HWRF_weightage = read_data(os.path.join(settings.BASE_DATA_DIR, "HWRF_Weightage.csv"))
     # rain area: only the cells above a quarter of the mean rain minimum
     value_above = float(HWRF_weightage.HWRF_MeanRain_minwt[0]) / 4
+    cells = [] if steps is not None else None
     rows = rain_summary_rows(
-        lattice_summary(np.where(grid > 0, grid, np.nan), top, left, watersheds, value_above=value_above)
+        lattice_summary(
+            np.where(grid > 0, grid, np.nan), top, left, watersheds,
+            value_above=value_above, cells=cells,
+        )
     )
     with open(output_csv, "w") as f:
         writer = csv.writer(f)
         writer.writerow(RAIN_SUMMARY_HEADERS)
         writer.writerows(rows)
+    if rows and steps is not None:
+        # no step file (lead times -1) rather than no summary
+        try:
+            summaries, alone = [], []
+            prev = np.zeros(grid.shape)
+            for hour, step_grid, step_top, step_left in steps:
+                if (step_top, step_left, step_grid.shape) != (top, left, grid.shape):
+                    raise RuntimeError(f"step {hour} h not on the grid of the total")
+                summaries.append(
+                    (
+                        hour,
+                        cells_summary(
+                            "hwrf", cells, np.where(step_grid > 0, step_grid, np.nan),
+                            watersheds, value_above=value_above,
+                        ),
+                    )
+                )
+                # the 3 h rain alone: negative differences are packing noise
+                now = np.nan_to_num(step_grid)
+                rain = (now - prev) * n_steps
+                prev = now
+                alone.append(
+                    cells_summary(
+                        "hwrf", cells, np.where(rain > 0, rain, np.nan),
+                        watersheds, value_above=value_above,
+                    )
+                )
+            write_steps(steps_path, summaries, alone)
+            logging.info(f"generated: {steps_path} ({len(summaries)} steps)")
+        except Exception:
+            logging.exception(f"HAFS step file failed: {steps_path}")
     return len(rows) > 0
 
 
@@ -557,6 +644,7 @@ def process_cycle(cycle):
     logging.info(f"HAFS {cycle}: storms {' '.join(ready)}")
 
     grids = []
+    hours = 0
     for storm in ready:
         # a storm whose parent domain misses the box: its swath file, the one
         # large download of the cycle, is never fetched
@@ -564,7 +652,8 @@ def process_cycle(cycle):
             logging.info(f"HAFS {cycle}: {storm} rain grid outside the box, skipped")
             continue
         track = fetch_track(cycle, storm)
-        grid, top, left = storm_rain(cycle, storm, track)
+        grid, top, left, hour = storm_rain(cycle, storm, track)
+        hours = max(hours, hour)
         write_track(
             os.path.join(
                 settings.HAFS_TRACK_DIR, f"hafs.{storm}.{cycle}.track.geojson"
@@ -584,8 +673,13 @@ def process_cycle(cycle):
     grid, top, left = merge(grids)
     raintiff = os.path.join(WORK_DIR, f"hafs.{cycle}rainfall.tiff")
     output_csv = os.path.join(WORK_DIR, f"hafs.{cycle}rainfall.csv")
+    # the step file goes straight to its folder; only read with the summary
+    steps_path = steps_csv(os.path.join(settings.HAFS_SUM_DIR, os.path.basename(output_csv)))
     write_tiff(raintiff, grid, top, left)
-    if np.nanmax(np.nan_to_num(grid)) > 0 and summarize(output_csv, grid, top, left):
+    if np.nanmax(np.nan_to_num(grid)) > 0 and summarize(
+        output_csv, grid, top, left, merged_steps(cycle, ready), steps_path,
+        n_steps=hours // 3,
+    ):
         shutil.move(
             output_csv,
             os.path.join(settings.HAFS_SUM_DIR, os.path.basename(output_csv)),

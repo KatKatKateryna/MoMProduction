@@ -14,7 +14,7 @@ import pandas as pd
 import requests
 
 import settings
-from processing.gfms.GFMS_MoM import gfms_scores
+from processing.gfms.GFMS_MoM import gfms_lead, gfms_scores, glofas_lead
 from processing.utilities import (
     find_latest_glofas,
     find_latest_viirs,
@@ -22,10 +22,97 @@ from processing.utilities import (
     get_latestitems,
     hafs_storms,
     hwrf_today,
+    lead_hours,
     read_data,
     severity_from_hazard_and_risk_scores,
+    steps_csv,
     write_empty_rain_summary,
 )
+
+
+def hwrf_score(area, perc_area, mean_rain, max_rain, w):
+    """HWRF_area_score, HWRF_percarea_score, MeanRain_Score, MaxRain_Score
+    (str) and HWRFTot_Score (float) of a rain summary row, with the
+    HWRF_Weightage.csv frame w"""
+    area, perc_area = float(area), float(perc_area)
+    mean_rain, max_rain = float(mean_rain), float(max_rain)
+    if area / float(w.HWRF_Area_wt[0]) > float(w.HWRF_Area_max_pt[0]):
+        area_score = str(float(w.HWRF_Area_max_pt[0]))
+    else:
+        area_score = str(
+            float(w.HWRF_Area_Min_pt[0]) * area / float(w.HWRF_Area_wt[0])
+        )
+    if perc_area / float(w.HWRF_percArea_wt[0]) > float(w.HWRF_percArea_Maxpt[0]):
+        percarea_score = str(float(w.HWRF_percArea_Maxpt[0]))
+    else:
+        percarea_score = str(
+            float(w.HWRF_percArea_Minpt[0]) * perc_area / float(w.HWRF_percArea_wt[0])
+        )
+    mean_score = "0"
+    if mean_rain >= float(w.HWRF_MeanRain_minwt[0]):
+        score = (mean_rain - float(w.HWRF_MeanRain_minwt[0])) / float(
+            w.HWRF_MeanRain_increment[0]
+        ) + float(w.HWRF_MeanRain_Minpt[0])
+        if score > float(w.HWRF_MeanRain_Maxpt[0]):
+            score = float(w.HWRF_MeanRain_Maxpt[0])
+        mean_score = str(score)
+    max_score = "0"
+    if max_rain >= float(w.HWRF_MaxRain_minwt[0]):
+        score = (max_rain - float(w.HWRF_MaxRain_minwt[0])) / float(
+            w.HWRF_MaxRain_increment[0]
+        ) + float(w.HWRF_MaxRain_Minpt[0])
+        if score > float(w.HWRF_MaxRain_Maxpt[0]):
+            score = float(w.HWRF_MaxRain_Maxpt[0])
+        max_score = str(score)
+    # only count rain area that reaches mean or max, otherwise it
+    # counts large area covered with barely any rain
+    if float(mean_score) == 0 and float(max_score) == 0:
+        area_score = "0"
+        percarea_score = "0"
+    total = (
+        float(area_score)
+        + float(percarea_score)
+        + float(mean_score)
+        + float(max_score)
+    ) * 2.5
+    return area_score, percarea_score, mean_score, max_score, total
+
+
+def hafs_lead(rain_csv, cycle, risk, target, alert_func):
+    """Lead_h_HAFS per pfaf_id (index of risk): hours from target (YYYYMMDDHH)
+    to the first 3 h step of the cycle that gives an alert above Information
+    by its HAFS score alone (HWRFTot_Score): of that step's 3 h rain times
+    the number of steps, or of the rain total up to that step; valid time cycle +
+    step, at least 0. -1 where the cycle's total does not give such an alert
+    (HAFS does not trigger it), or no step does"""
+    path = steps_csv(rain_csv)
+    if not os.path.exists(path):
+        if os.path.exists(rain_csv) and os.path.getsize(rain_csv) > 0:
+            logging.warning(f"no HAFS step file, Lead_h_HAFS -1: {path}")
+        return pd.Series(-1, index=risk.index).groupby(level=0).first()
+    steps = pd.read_csv(path)
+    w = read_data(os.path.join(settings.BASE_DATA_DIR, "HWRF_Weightage.csv"))
+
+    def score(columns):
+        return [
+            hwrf_score(a, p, m, x, w)[4]
+            for a, p, m, x in steps[columns].itertuples(index=False)
+        ]
+
+    steps["total"] = score(["area", "perc_area", "mean", "max"])
+    steps["Hazard_Score"] = steps["total"]
+    if "step_mean" in steps:
+        alone = score(["step_area", "step_perc_area", "step_mean", "step_max"])
+        steps["Hazard_Score"] = np.maximum(steps["total"], alone)
+    offset = (
+        datetime.strptime(cycle, "%Y%m%d%H") - datetime.strptime(target, "%Y%m%d%H")
+    ).total_seconds() / 3600
+    steps["lead_h"] = (offset + steps["step_h"]).clip(lower=0).astype(int)
+    leads = lead_hours(steps, risk, alert_func)
+    # the cycle's total (last step) decides whether HAFS triggers at all
+    last = steps[steps["step_h"] == steps["step_h"].max()]
+    triggered = lead_hours(last.assign(Hazard_Score=last["total"]), risk, alert_func) >= 0
+    return leads.where(triggered, -1)
 
 
 def mofunc_hwrf(row):
@@ -429,91 +516,13 @@ def update_HWRF_MoM(adate):
                 elif row == []:
                     continue
                 else:
-                    if float(row[1]) / float(HWRF_weightage.HWRF_Area_wt[0]) > float(
-                        HWRF_weightage.HWRF_Area_max_pt[0]
-                    ):
-                        HWRF_area_score = str(float(HWRF_weightage.HWRF_Area_max_pt[0]))
-                    else:
-                        HWRF_area_score = str(
-                            float(HWRF_weightage.HWRF_Area_Min_pt[0])
-                            * float(row[1])
-                            / float(HWRF_weightage.HWRF_Area_wt[0])
-                        )
-                    if float(row[2]) / float(
-                        HWRF_weightage.HWRF_percArea_wt[0]
-                    ) > float(HWRF_weightage.HWRF_percArea_Maxpt[0]):
-                        HWRF_percarea_score = str(
-                            float(HWRF_weightage.HWRF_percArea_Maxpt[0])
-                        )
-                    else:
-                        HWRF_percarea_score = str(
-                            float(HWRF_weightage.HWRF_percArea_Minpt[0])
-                            * float(row[2])
-                            / float(HWRF_weightage.HWRF_percArea_wt[0])
-                        )
-                    if float(row[3]) >= float(HWRF_weightage.HWRF_MeanRain_minwt[0]):
-                        if (
-                            (
-                                float(row[3])
-                                - float(HWRF_weightage.HWRF_MeanRain_minwt[0])
-                            )
-                            / float(HWRF_weightage.HWRF_MeanRain_increment[0])
-                        ) + float(HWRF_weightage.HWRF_MeanRain_Minpt[0]) > float(
-                            HWRF_weightage.HWRF_MeanRain_Maxpt[0]
-                        ):
-                            MeanRain_Score = str(
-                                float(HWRF_weightage.HWRF_MeanRain_Maxpt[0])
-                            )
-                        else:
-                            MeanRain_Score = str(
-                                (
-                                    (
-                                        float(row[3])
-                                        - float(HWRF_weightage.HWRF_MeanRain_minwt[0])
-                                    )
-                                    / float(HWRF_weightage.HWRF_MeanRain_increment[0])
-                                )
-                                + float(HWRF_weightage.HWRF_MeanRain_Minpt[0])
-                            )
-                    else:
-                        MeanRain_Score = "0"
-                    if float(row[4]) >= float(HWRF_weightage.HWRF_MaxRain_minwt[0]):
-                        if (
-                            (
-                                float(row[4])
-                                - float(HWRF_weightage.HWRF_MaxRain_minwt[0])
-                            )
-                            / float(HWRF_weightage.HWRF_MaxRain_increment[0])
-                        ) + float(HWRF_weightage.HWRF_MaxRain_Minpt[0]) > float(
-                            HWRF_weightage.HWRF_MaxRain_Maxpt[0]
-                        ):
-                            MaxRain_Score = str(
-                                float(HWRF_weightage.HWRF_MaxRain_Maxpt[0])
-                            )
-                        else:
-                            MaxRain_Score = str(
-                                (
-                                    (
-                                        float(row[4])
-                                        - float(HWRF_weightage.HWRF_MaxRain_minwt[0])
-                                    )
-                                    / float(HWRF_weightage.HWRF_MaxRain_increment[0])
-                                )
-                                + float(HWRF_weightage.HWRF_MaxRain_Minpt[0])
-                            )
-                    else:
-                        MaxRain_Score = "0"
-                    # only count rain area that reaches mean or max, otherwise it
-                    # counts large area covered with barely any rain
-                    if float(MeanRain_Score) == 0 and float(MaxRain_Score) == 0:
-                        HWRF_area_score = "0"
-                        HWRF_percarea_score = "0"
-                    HWRFTot_Score = (
-                        float(HWRF_area_score)
-                        + float(HWRF_percarea_score)
-                        + float(MeanRain_Score)
-                        + float(MaxRain_Score)
-                    ) * 2.5
+                    (
+                        HWRF_area_score,
+                        HWRF_percarea_score,
+                        MeanRain_Score,
+                        MaxRain_Score,
+                        HWRFTot_Score,
+                    ) = hwrf_score(row[1], row[2], row[3], row[4], HWRF_weightage)
                     results_list = [
                         row[0],
                         row[1],
@@ -561,6 +570,9 @@ def update_HWRF_MoM(adate):
     Final_Attributes[["Sum_Score_x", "Sum_Score_y"]] = Final_Attributes[
         ["Sum_Score_x", "Sum_Score_y"]
     ].fillna(value=0)
+    # GloFAS and GFMS scores before the doubling, for the lead times
+    glofas_score = Final_Attributes["Sum_Score_x"].groupby(level=0).first()
+    gfms_score = Final_Attributes["Sum_Score_y"].groupby(level=0).first()
     Final_Attributes.loc[Final_Attributes["Sum_Score_y"] == 0, "Sum_Score_x"] = (
         Final_Attributes.loc[Final_Attributes["Sum_Score_y"] == 0, "Sum_Score_x"] * 2
     )
@@ -618,6 +630,23 @@ def update_HWRF_MoM(adate):
         Final_Attributes
     )
     Final_Attributes["Alert"] = Final_Attributes.apply(mofunc_hwrf, axis=1)
+    # lead time of each source on its own (the GFMS and GloFAS parts of
+    # MOM_Score, the HAFS score); HWRF has no 3 h steps
+    risk = Final_Attributes[["Scaled_Riverine_Risk", "Scaled_Coastal_Risk"]]
+    leads = {
+        "Lead_h_GFMS": lambda: gfms_lead(gfms_sum, glofas_score, risk, adate, mofunc_hwrf),
+        "Lead_h_GloFAS": lambda: glofas_lead(
+            glofas_sum, glofas_score, gfms_score, risk, adate, mofunc_hwrf
+        ),
+    }
+    if settings.HWRF_SUM_PREFIX == "hafs":
+        leads["Lead_h_HAFS"] = lambda: hafs_lead(hwrf_sum, hwrf_cycle, risk, adate, mofunc_hwrf)
+    for column, lead in leads.items():
+        try:
+            Final_Attributes[column] = Final_Attributes.index.map(lead())
+        except Exception as e:
+            logging.warning(f"{column} failed for {adate}, set to -1: {e}")
+            Final_Attributes[column] = -1
     # Final_Attributes["Flag"] = Final_Attributes["Flag"].astype(object)
     Final_Attributes.loc[Final_Attributes["Alert"] == "Information", "Flag"] = ""
     Final_Attributes.loc[Final_Attributes["Alert"] == "Advisory", "Flag"] = ""

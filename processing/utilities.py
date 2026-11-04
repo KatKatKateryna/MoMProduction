@@ -168,6 +168,74 @@ def severity_from_hazard_and_risk_scores(df):
     return result
 
 
+# columns of the step files (steps_csv) of the GFMS and HAFS summaries
+STEP_HEADERS = ["pfaf_id", "step_h", "area", "perc_area", "mean", "max"]
+# HAFS step files also: the summary of that 3 h step's rain alone, times the
+# number of steps (as if it rained like that the whole forecast)
+STEP_ALONE_HEADERS = ["step_area", "step_perc_area", "step_mean", "step_max"]
+
+
+def steps_csv(summary_csv):
+    """the step file of a summary: <summary folder>_steps/<same name>, one row
+    per watershed with data and 3 h step (STEP_HEADERS), the summary of the
+    data up to that step (GFMS: running maximum, HAFS: running total);
+    step_h counted from the summary's time stamp (GFMS: valid time, HAFS:
+    cycle); also STEP_ALONE_HEADERS"""
+    folder, name = os.path.split(os.path.abspath(summary_csv))
+    return os.path.join(folder + "_steps", name)
+
+
+def write_steps(path, step_summaries, alone=None):
+    """step file from [(step_h, watershed_cells summary), ...]: the
+    watersheds with data only; with alone (one watershed_cells summary per
+    step), also its STEP_ALONE_HEADERS columns (0 where it has no data)"""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    rows = []
+    for i, (step_h, summary) in enumerate(step_summaries):
+        data = summary[summary["has_data"]]
+        df = pd.DataFrame(
+            {
+                "pfaf_id": data.index,
+                "step_h": step_h,
+                "area": data["area"].to_numpy(),
+                "perc_area": data["perc_area"].to_numpy(),
+                "mean": data["mean"].to_numpy(),
+                "max": data["max"].to_numpy(),
+            }
+        )
+        if alone is not None:
+            a = alone[i].reindex(data.index)
+            for column, key in zip(STEP_ALONE_HEADERS, ["area", "perc_area", "mean", "max"]):
+                df[column] = a[key].where(a["has_data"].fillna(False).astype(bool), 0).to_numpy()
+        rows.append(df)
+    columns = STEP_HEADERS + (STEP_ALONE_HEADERS if alone is not None else [])
+    df = pd.concat(rows) if rows else pd.DataFrame(columns=columns)
+    part = f"{path}.{os.getpid()}.part"
+    df.to_csv(part, index=False)
+    os.replace(part, path)
+
+
+def lead_hours(steps, risk, alert_func):
+    """lead time (h) per pfaf_id: the smallest lead_h of the steps whose alert
+    is above Information when the source's hazard at that step is the
+    Hazard_Score; -1 where no step gets there.
+
+    steps: pfaf_id, lead_h, Hazard_Score (one row per watershed and step);
+    risk: Scaled_Riverine_Risk, Scaled_Coastal_Risk indexed by pfaf_id (the
+    output rows; the result has the same index); alert_func: the mofunc_* of
+    the step"""
+    risk = risk[~risk.index.duplicated()]
+    df = steps[steps["Hazard_Score"] > 0].join(risk, on="pfaf_id", how="inner")
+    first = pd.Series(dtype=float)
+    if not df.empty:
+        df = df.reset_index(drop=True)
+        df["Severity"] = severity_from_hazard_and_risk_scores(df)
+        alert = df.apply(alert_func, axis=1)
+        above = df[alert.isin(["Advisory", "Watch", "Warning"])]
+        first = above.groupby("pfaf_id")["lead_h"].min()
+    return risk.index.to_series().map(first).fillna(-1).astype(int)
+
+
 def from_today(adate):
     # conver adate to date object
     # adate may come in as YYYYMMDD

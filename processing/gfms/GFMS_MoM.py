@@ -2,10 +2,18 @@ import csv
 import os
 
 import logging
+from datetime import datetime, timedelta
+
+import numpy as np
 import pandas as pd
 
 import settings
-from processing.utilities import read_data, severity_from_hazard_and_risk_scores
+from processing.utilities import (
+    lead_hours,
+    read_data,
+    severity_from_hazard_and_risk_scores,
+    steps_csv,
+)
 
 GFMS_SCORE_FIELDS = [
     "GFMS_area_score",
@@ -17,11 +25,139 @@ GFMS_SCORE_FIELDS = [
 ]
 
 
+def _gfms_score_np(value, wt, min_pt, max_pt):
+    """min_pt per wt of value, capped at max_pt (arrays)"""
+    value = np.asarray(value, dtype=float)
+    wt, min_pt, max_pt = float(wt), float(min_pt), float(max_pt)
+    return np.where(value / wt > max_pt, max_pt, min_pt * value / wt)
+
+
 def _gfms_score(value, wt, min_pt, max_pt):
     """min_pt per wt of value, capped at max_pt"""
-    if float(value) / float(wt) > float(max_pt):
-        return str(float(max_pt))
-    return str(float(min_pt) * float(value) / float(wt))
+    return str(float(_gfms_score_np(value, wt, min_pt, max_pt)))
+
+
+def gfms_sum_score(area, perc_area, mean_depth, max_depth, duration):
+    """the GFMS Sum_Score of gfms_scores, on arrays"""
+    weightage = read_data(os.path.join(settings.BASE_DATA_DIR, "GFMS_Weightage.csv"))
+    w = {c: weightage[c][0] for c in weightage.columns}
+    return (
+        _gfms_score_np(area, w["GFMS_Area_wt"], w["GFMS_Area_Min_pt"], w["GFMS_Area_max_pt"])
+        + _gfms_score_np(perc_area, w["GFMS_percArea_wt"], w["GFMS_percArea_Minpt"], w["GFMS_percArea_Maxpt"])
+        + _gfms_score_np(mean_depth, w["GFMS_Meandepth_wt"], w["GFMS_Meandepth_Minpt"], w["GFMS_Meandepth_Maxpt"])
+        + _gfms_score_np(max_depth, w["GFMS_Maxdepth_wt"], w["GFMS_Maxdepth_Minpt"], w["GFMS_Maxdepth_Maxpt"])
+        + _gfms_score_np(duration, w["GFMS_Duration_wt"], w["GFMS_Duration_Minpt"], w["GFMS_Duration_Maxpt"])
+    )
+
+
+def _gfms_hazard(gfms, glofas):
+    """the MoM hazard of the GFMS score (GloFAS + GFMS, twice GFMS without
+    GloFAS), 0 without GFMS"""
+    return np.where(gfms > 0, np.where(glofas > 0, glofas + gfms, 2 * gfms), 0)
+
+
+def gfms_step_durations(steps, history):
+    """GFMS_Duration of every step row of a GFMS step file: the history
+    (pfaf_id -> GFMS_Duration of the summary 3 h before; 0 without) until the
+    first step whose running maximum floods over 100 km2, then 3 h more for
+    that step and every later one (the running maximum only grows)"""
+    area = steps.pivot_table(index="pfaf_id", columns="step_h", values="area", aggfunc="first")
+    hours = range(int(min(area.columns)), int(max(area.columns)) + 1, 3)
+    area = area.reindex(columns=hours).fillna(0)
+    duration = history.reindex(area.index).fillna(0).to_numpy(dtype=float)
+    table = {}
+    for h in hours:
+        duration = np.where(area[h].to_numpy() > 100.0, duration + 3, duration)
+        table[h] = duration
+    table = pd.DataFrame(table, index=area.index)
+    return table.stack().reindex(
+        pd.MultiIndex.from_arrays([steps["pfaf_id"], steps["step_h"]])
+    ).to_numpy()
+
+
+def gfms_lead(gfms_csv, glofas_score, risk, target, alert_func):
+    """Lead_h_GFMS per pfaf_id (index of risk): hours from target (YYYYMMDDHH)
+    to the first 3 h step of the GFMS window whose GFMS hazard gives an alert
+    above Information (alert_func): the GFMS score of the running maximum
+    up to that step (each pixel the highest value so far, as the summary
+    aggregates the window) with its duration, plus the GloFAS score (twice
+    the GFMS score without GloFAS), as the MoM adds them. The duration
+    (gfms_step_durations) is that of the summary 3 h before until the
+    running maximum floods over 100 km2, then 3 h more per step. At least 0; -1 where the summary's GFMS hazard (the one the MoM uses)
+    gives no such alert, or no step does.
+
+    glofas_score: the GloFAS Sum_Score per pfaf_id before the doubling;
+    risk: Scaled_Riverine_Risk, Scaled_Coastal_Risk per pfaf_id."""
+    path = steps_csv(gfms_csv)
+    if not os.path.exists(path):
+        logging.warning(f"no GFMS step file, Lead_h_GFMS -1: {path}")
+        return pd.Series(-1, index=risk.index).groupby(level=0).first()
+    steps = pd.read_csv(path)
+    summary = read_data(gfms_csv).set_index("pfaf_id")
+    stamp = datetime.strptime(
+        os.path.basename(gfms_csv)[len("Flood_byStor_") : -len(".csv")], "%Y%m%d%H"
+    )
+    before = os.path.join(
+        os.path.dirname(gfms_csv),
+        f"Flood_byStor_{(stamp - timedelta(hours=3)).strftime('%Y%m%d%H')}.csv",
+    )
+    history = (
+        read_data(before).set_index("pfaf_id")["GFMS_Duration"]
+        if os.path.exists(before)
+        else pd.Series(dtype=float)
+    )
+    duration = gfms_step_durations(steps, history)
+    gfms = gfms_sum_score(steps["area"], steps["perc_area"], steps["mean"], steps["max"], duration)
+    glofas = steps["pfaf_id"].map(glofas_score).fillna(0).to_numpy()
+    steps["Hazard_Score"] = _gfms_hazard(gfms, glofas)
+    offset = (stamp - datetime.strptime(target, "%Y%m%d%H")).total_seconds() / 3600
+    steps["lead_h"] = (offset + steps["step_h"]).clip(lower=0).astype(int)
+    leads = lead_hours(steps, risk, alert_func)
+
+    # the summary's GFMS hazard decides whether GFMS triggers at all
+    whole = summary.reset_index()
+    whole["Hazard_Score"] = _gfms_hazard(
+        gfms_sum_score(
+            whole["GFMS_TotalArea_km"], whole["GFMS_perc_Area"],
+            whole["GFMS_MeanDepth"], whole["GFMS_MaxDepth"], whole["GFMS_Duration"],
+        ),
+        whole["pfaf_id"].map(glofas_score).fillna(0).to_numpy(),
+    )
+    whole["lead_h"] = 0
+    triggered = lead_hours(whole, risk, alert_func) >= 0
+    return leads.where(triggered, -1)
+
+
+def glofas_lead(glofas_csv, glofas_score, gfms_score, risk, target, alert_func):
+    """Lead_h_GloFAS per pfaf_id (index of risk): (forecast date of the
+    GloFAS file + (Days_until_peak - 1) days - target) in hours, at least 0,
+    where the GloFAS hazard as the MoM adds it (GloFAS + GFMS score, twice
+    GloFAS without GFMS) gives an alert above Information (alert_func); -1
+    otherwise or without GloFAS data. Days_until_peak: the earliest peak of
+    the watershed's stations with an alert (Alert_level > 0), else of its
+    stations with any exceedance probability.
+
+    glofas_score, gfms_score: the Sum_Scores per pfaf_id before the doubling;
+    risk: Scaled_Riverine_Risk, Scaled_Coastal_Risk per pfaf_id."""
+    stations = read_data(glofas_csv)
+    stamp = datetime.strptime(
+        os.path.basename(glofas_csv)[len("threspoints_") : len("threspoints_") + 8],
+        "%Y%m%d",
+    )
+    eps = stations[["GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr"]].clip(lower=0).sum(axis=1)
+    alerted = stations[stations["Alert_level"] > 0].groupby("pfaf_id")["Days_until_peak"].min()
+    signal = stations[eps > 0].groupby("pfaf_id")["Days_until_peak"].min()
+    days = alerted.combine_first(signal)
+
+    df = pd.DataFrame({"pfaf_id": days.index, "days": days.to_numpy()})
+    glofas = df["pfaf_id"].map(glofas_score).fillna(0).to_numpy()
+    gfms = df["pfaf_id"].map(gfms_score).fillna(0).to_numpy()
+    df["Hazard_Score"] = np.where(
+        glofas > 0, np.where(gfms > 0, glofas + gfms, 2 * glofas), 0
+    )
+    offset = (stamp - datetime.strptime(target, "%Y%m%d%H")).total_seconds() / 3600
+    df["lead_h"] = (offset + 24 * (df["days"] - 1)).clip(lower=0).astype(int)
+    return lead_hours(df, risk, alert_func)
 
 
 def gfms_scores(gfms_csv, out_csv):
@@ -308,6 +444,9 @@ def flood_severity(GFMS_Table, GloFas_Table, adate):
     Final_Attributes[["Sum_Score_x", "Sum_Score_y"]] = Final_Attributes[
         ["Sum_Score_x", "Sum_Score_y"]
     ].fillna(value=0)
+    # GloFAS and GFMS scores before the doubling, for the lead times
+    glofas_score = Final_Attributes["Sum_Score_x"].groupby(level=0).first()
+    gfms_score = Final_Attributes["Sum_Score_y"].groupby(level=0).first()
 
     Final_Attributes.loc[Final_Attributes["Sum_Score_y"] == 0, "Sum_Score_x"] = (
         Final_Attributes["Sum_Score_x"] * 2
@@ -355,6 +494,21 @@ def flood_severity(GFMS_Table, GloFas_Table, adate):
     Final_Attributes["Severity"] = severity_from_hazard_and_risk_scores(Final_Attributes)
 
     Final_Attributes["Alert"] = Final_Attributes.apply(mofunc_gfms, axis=1)
+    risk = Final_Attributes[["Scaled_Riverine_Risk", "Scaled_Coastal_Risk"]]
+    leads = {
+        "Lead_h_GFMS": lambda: gfms_lead(
+            GFMS_Table, glofas_score, risk, adate + "00", mofunc_gfms
+        ),
+        "Lead_h_GloFAS": lambda: glofas_lead(
+            GloFas_Table, glofas_score, gfms_score, risk, adate + "00", mofunc_gfms
+        ),
+    }
+    for column, lead in leads.items():
+        try:
+            Final_Attributes[column] = Final_Attributes.index.map(lead())
+        except Exception as e:
+            logging.warning(f"{column} failed for {adate}, set to -1: {e}")
+            Final_Attributes[column] = -1
     # Final_Attributes['Mod_Alert'] = Final_Attributes.apply(func, axis=1)
     # Final_Attributes.to_csv('Final_Attributes', encoding='utf-8-sig')
     Final_Attributes.to_csv(Final_Attributes_csv, encoding="utf-8-sig")
