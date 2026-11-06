@@ -345,13 +345,30 @@ def write_empty_rain_summary(path):
         csv.writer(f).writerow(RAIN_SUMMARY_HEADERS)
 
 
+HOST_RETRIES = 3
+
+
+def request_retry(method, url, **kwargs):
+    """requests.get or requests.head of a url, retried HOST_RETRIES times when
+    it times out"""
+    for attempt in range(1, HOST_RETRIES + 1):
+        try:
+            return method(url, **kwargs)
+        except requests.Timeout:
+            logging.warning(f"timed out, retry {attempt} of {HOST_RETRIES}: {url}")
+    return method(url, **kwargs)
+
+
 def hafs_storms(cycle):
     """storm ids (e.g. 20e, 09l) HAFS has published for a cycle (YYYYMMDDHH);
     raises on a failed request"""
     host = settings.HAFS_HOST.rstrip("/") + "/"
     prefix = f"{settings.HAFS_MODEL}/{cycle[:8]}/{cycle[8:]}/"
-    reqs = requests.get(
-        host, params={"list-type": "2", "prefix": prefix, "delimiter": "."}, timeout=60
+    reqs = request_retry(
+        requests.get,
+        host,
+        params={"list-type": "2", "prefix": prefix, "delimiter": "."},
+        timeout=60,
     )
     reqs.raise_for_status()
     found = re.findall(rf"<Prefix>{re.escape(prefix)}(\d\d[a-z])\.</Prefix>", reqs.text)
