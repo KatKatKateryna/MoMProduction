@@ -5,28 +5,32 @@ HWRF_MoM.py
 
 import csv
 import glob
+import io
 import logging
 import os
 from datetime import date, datetime, timedelta, timezone
 
 import numpy as np
 import pandas as pd
-import requests
 
 import settings
-from processing.gfms.GFMS_MoM import gfms_lead, gfms_scores, glofas_lead
-from processing.utilities import (
+from processing.gfms.GFMS_MoM import gfms_lead, gfms_scores
+from processing.glofas.GloFAS_tool import (
+    GloFAS_process_until,
     find_latest_glofas,
+    glofas_lead,
+    glofas_scores,
+    glofas_summary,
+)
+from processing.utilities import (
     find_latest_viirs,
     get_current_processing_datehour,
     get_latestitems,
-    hafs_storms,
     hwrf_today,
     lead_hours,
     read_data,
     severity_from_hazard_and_risk_scores,
     steps_csv,
-    write_empty_rain_summary,
 )
 
 
@@ -176,68 +180,34 @@ def observed_lead(df, score, alert_func):
     )
 
 
-# the previous cycle's HWRF rainfall is waited for until it is this old; after
-# that the MoM is written without it
-HWRF_MISSING_AFTER = timedelta(hours=12)
-# from this age, a missing cycle that neither the HWRF host nor HAFS has any
-# storm for gets an empty summary right away
-HWRF_NO_STORMS_AFTER = timedelta(hours=6)
+def make_gfms_summary(adate):
+    """make the missing GFMS summaries when the one of adate does not exist"""
+    gfms_sum = os.path.join(settings.GFMS_SUM_DIR, "Flood_byStor_{}.csv".format(adate))
+    if os.path.exists(gfms_sum):
+        return
+    logging.warning(f"GFMS summary not found: {gfms_sum}")
+    logging.info(f"making the missing GFMS summaries up to: {adate[:8]}")
+    from processing.gfms.GFMS_tool import GFMS_processing
 
-
-def hwrf_host_has_cycle(hwrf_cycle):
-    """True/False from the HWRF host listings, None if they cannot be read
-    (the host answers 403 both for a missing cycle and when rate limiting)"""
-    host = settings.config.get("hwrf", "HOST").rstrip("/")
-    day = f"hwrf.{hwrf_cycle[:8]}/"
+    # the day before first: a summary continues the duration of the one
+    # before it
+    day_before = datetime.strptime(adate[:8], "%Y%m%d") - timedelta(days=1)
     try:
-        top = requests.get(f"{host}/", timeout=60)
-        if top.status_code != 200:
-            return None
-        if f'href="{day}"' not in top.text:
-            return False
-        listing = requests.get(f"{host}/{day}", timeout=60)
-        if listing.status_code != 200:
-            return None
-        return f'href="{hwrf_cycle[8:]}/"' in listing.text
-    except requests.exceptions.RequestException:
-        return None
+        GFMS_processing([day_before.strftime("%Y%m%d") + "00", adate[:8] + "00"])
+    except Exception:
+        logging.exception(f"GFMS summaries failed for {adate}")
 
 
-def no_storms_published(hwrf_cycle):
-    """True only when both hosts confirm there are no storms for the cycle:
-    the HWRF host has no such cycle and HAFS lists no storms for it"""
-    if not settings.HAFS_ENABLED:
-        return False
-    try:
-        if hafs_storms(hwrf_cycle):
-            return False
-    except requests.exceptions.RequestException:
-        return False
-    return hwrf_host_has_cycle(hwrf_cycle) is False
-
-
-def previous_rain_ready(hwrf_cycle, now=None):
-    """True when the MoM can use, or go on without, the HWRF rainfall of
-    hwrf_cycle (YYYYMMDDHH): its summary exists (empty when there was no
-    rain), no storm is published for it (an empty summary is written then),
-    or it is HWRF_MISSING_AFTER old"""
-    hwrf_sum = os.path.join(
-        settings.HWRF_SUM_DIR, f"{settings.HWRF_SUM_PREFIX}.{hwrf_cycle}rainfall.csv"
-    )
-    if os.path.exists(hwrf_sum):
-        return True
-    now = now or datetime.now(timezone.utc)
-    age = now - datetime.strptime(hwrf_cycle, "%Y%m%d%H").replace(tzinfo=timezone.utc)
-    if age >= HWRF_MISSING_AFTER:
-        return True
-    if age >= HWRF_NO_STORMS_AFTER and no_storms_published(hwrf_cycle):
-        write_empty_rain_summary(hwrf_sum)
-        logging.info(
-            f"HWRF {hwrf_cycle}: no storms on the HWRF host or in HAFS, empty "
-            f"summary written: {hwrf_sum}"
-        )
-        return True
-    return False
+def latest_gfms_summary(adate):
+    """the GFMS summary of adate, else the latest of the 12 h before it; None
+    without any"""
+    cycle = datetime.strptime(adate, "%Y%m%d%H")
+    for hours in range(0, 13, 3):
+        stamp = (cycle - timedelta(hours=hours)).strftime("%Y%m%d%H")
+        gfms_sum = os.path.join(settings.GFMS_SUM_DIR, f"Flood_byStor_{stamp}.csv")
+        if os.path.exists(gfms_sum):
+            return gfms_sum
+    return None
 
 
 def update_HWRF_MoM(adate):
@@ -245,9 +215,7 @@ def update_HWRF_MoM(adate):
     print(f"___________update_HWRF_MoM: {adate}")
 
     gfms_sum = os.path.join(settings.GFMS_SUM_DIR, "Flood_byStor_{}.csv".format(adate))
-    glofas_sum = os.path.join(
-        settings.GLOFAS_DIR, "threspoints_{}00.csv".format(adate[:-2])
-    )
+    glofas_sum = glofas_summary(adate)
     # use the HWRF rainfall of the previous cycle: the current cycle's rainfall
     # is only published hours after the cycle time
     hwrf_cycle = (datetime.strptime(adate, "%Y%m%d%H") - timedelta(hours=6)).strftime(
@@ -257,30 +225,24 @@ def update_HWRF_MoM(adate):
         settings.HWRF_SUM_DIR, f"{settings.HWRF_SUM_PREFIX}.{hwrf_cycle}rainfall.csv"
     )
 
-    # wait for the previous cycle's rainfall unless it is long overdue: a MoM
-    # written without it is final and would not be redone when it arrives
-    if not previous_rain_ready(hwrf_cycle):
-        logging.info(
-            f"HWRF MoM {adate}: rainfall of the previous cycle {hwrf_cycle} not "
-            f"processed yet, waiting (written without it once "
-            f"{HWRF_MISSING_AFTER.total_seconds() / 3600:.0f}h old)"
-        )
-        return
+    make_gfms_summary(adate)
+    gfms_sum = latest_gfms_summary(adate)
+    if gfms_sum is None:
+        logging.error(f"no GFMS available for {adate}, using no GFMS data")
 
-    # first check if file exists
-    if not os.path.exists(gfms_sum):
-        logging.warning(f"GFMS summary not found: {gfms_sum}")
-        logging.info(f"making the missing GFMS summaries up to: {adate[:8]}")
-        from processing.gfms.GFMS_tool import GFMS_processing
+    # before 12:00 the file of the day before is used: today's is not looked for
+    early = int(adate[8:10]) < 12
+    # a GloFAS file looked for and not there: try the host
+    if not early and not os.path.exists(glofas_sum):
+        GloFAS_process_until(lambda: os.path.exists(glofas_sum))
 
-        # the day before first: a summary continues the duration of the one
-        # before it
-        day_before = datetime.strptime(adate[:8], "%Y%m%d") - timedelta(days=1)
-        GFMS_processing([day_before.strftime("%Y%m%d") + "00", adate[:8] + "00"])
-
-    # if it's processed early in the day, older Glofas file will be used
-    if not os.path.exists(glofas_sum) or int(adate[8:10]) < 10:
+    if early or not os.path.exists(glofas_sum):
         glofas_latest = find_latest_glofas(settings.GLOFAS_DIR, adate, "csv")
+        if not glofas_latest:
+            GloFAS_process_until(
+                lambda: find_latest_glofas(settings.GLOFAS_DIR, adate, "csv")
+            )
+            glofas_latest = find_latest_glofas(settings.GLOFAS_DIR, adate, "csv")
         if glofas_latest:
             glofas_sum = os.path.join(settings.GLOFAS_DIR, glofas_latest)
             logging.warning(
@@ -293,10 +255,25 @@ def update_HWRF_MoM(adate):
                 f"{os.path.basename(glofas_sum)}"
             )
         else:
-            logging.error(f"no GloFAS available for {adate}, HWRF MoM skipped")
-            return
+            logging.error(f"no GloFAS available for {adate}, using no GloFAS data")
+            glofas_sum = None
 
-    # previous cycle not available, continue without HWRF
+    # previous cycle not available: the cycle before it, at most 12 h old
+    if not os.path.exists(hwrf_sum):
+        older_cycle = (
+            datetime.strptime(adate, "%Y%m%d%H") - timedelta(hours=12)
+        ).strftime("%Y%m%d%H")
+        older_sum = os.path.join(
+            settings.HWRF_SUM_DIR,
+            f"{settings.HWRF_SUM_PREFIX}.{older_cycle}rainfall.csv",
+        )
+        if os.path.exists(older_sum):
+            logging.warning(
+                f"no rainfall of {hwrf_cycle} for {adate}, using {older_cycle}"
+            )
+            hwrf_cycle, hwrf_sum = older_cycle, older_sum
+
+    # no rainfall of these cycles, continue without HWRF
     if not os.path.exists(hwrf_sum):
         logging.warning(
             f"no HWRF rainfall of the previous cycle {hwrf_cycle} for {adate}, "
@@ -330,14 +307,6 @@ def update_HWRF_MoM(adate):
     HWRF_weightage = read_data(
         os.path.join(settings.BASE_DATA_DIR, "HWRF_Weightage.csv")
     )
-    add_field_GloFas = [
-        "Alert_Score",
-        "PeakArrivalScore",
-        "TwoYScore",
-        "FiveYScore",
-        "TwtyYScore",
-        "Sum_Score",
-    ]
     add_field_HWRF = [
         "HWRF_area_score",
         "HWRF_percarea_score",
@@ -351,181 +320,9 @@ def update_HWRF_MoM(adate):
     GFMS_w_score_csv = os.path.join(settings.HWRF_PROC_DIR, GFMS_w_score_csv)
     gfms_scores(gfms_sum, GFMS_w_score_csv)
 
-    ##Read GloFas data and Calculate score
-    with open(glofas_sum, "r", encoding="UTF-8") as GloFas_file:
-        GloFas_reader = csv.reader(GloFas_file)
-        GloFas_w_score_csv = "GloFas_w_score_{}.csv".format(adate)
-        GloFas_w_score_csv = os.path.join(settings.HWRF_PROC_DIR, GloFas_w_score_csv)
-        GloFas_Error_csv = "GloFas_Error_{}.csv".format(adate)
-        GloFas_Error_csv = os.path.join(settings.HWRF_PROC_DIR, GloFas_Error_csv)
-        csvfile = open(GloFas_w_score_csv, "w", newline="\n", encoding="utf-8")
-        txtfile = open(GloFas_Error_csv, "w", newline="\n")
-        GloFas_w_score = csv.writer(csvfile)
-        errorfile = csv.writer(txtfile)
-        row_count = 1
-        error_flag = False
-        for row in GloFas_reader:
-            # GloFAS writes -9999 for the 2/5/20 yr EPS when no exceedance is forecast
-            if row_count > 1:
-                row[9:12] = ["0" if float(x) < 0 else x for x in row[9:12]]
-            if row_count == 1:
-                for x in add_field_GloFas:
-                    row.append(x)
-                write = [
-                    row[14],
-                    row[12],
-                    row[13],
-                    row[9],
-                    row[10],
-                    row[11],
-                    row[15],
-                    row[16],
-                    row[17],
-                    row[18],
-                    row[19],
-                    row[20],
-                ]
-                GloFas_w_score.writerow(write)
-                errorfile.writerow([row[0], row[1], row[14], "Error"])
-                row_count = row_count + 1
-            elif float(row[12]) > 3 or float(row[12]) < 0:
-                error = "Alert less than 0 or greater than 3 is encountered"
-                errorfile.writerow([row[0], row[1], row[14], error])
-                error_flag = True
-            elif float(row[9]) > 100:
-                error = "2 yr EPS greater than 100 is encountered"
-                errorfile.writerow([row[0], row[1], row[14], error])
-                error_flag = True
-            elif float(row[10]) > 100:
-                error = "5 yr EPS greater than 100 is encountered"
-                errorfile.writerow([row[0], row[1], row[14], error])
-                error_flag = True
-            elif float(row[11]) > 100:
-                error = "20 yr EPS greater than 100 is encountered"
-                errorfile.writerow([row[0], row[1], row[14], error])
-                error_flag = True
-            elif float(row[13]) > 30:
-                error = "Peak arrival days greater than 30 is encountered"
-                errorfile.writerow([row[0], row[1], row[14], error])
-                error_flag = True
-            else:
-                Alert_Score = str(
-                    round(float(row[12]) * float(weightage.Alert_score[0]))
-                )
-                TwoYScore = str(float(row[9]) / float(weightage.EPS_Twoyear_wt[0]))
-                FiveYScore = str(float(row[10]) / float(weightage.EPS_Fiveyear_wt[0]))
-                TwtyYScore = str(float(row[11]) / float(weightage.EPS_Twtyyear_wt[0]))
-                if (
-                    int(row[9]) == 0
-                    and int(row[10]) == 0
-                    and int(row[11]) == 0
-                    and int(row[12]) == 0
-                ):
-                    PeakArrival_Score = str(0)
-                elif int(row[13]) == 10 or int(row[13]) > 10:
-                    PeakArrival_Score = str(1)
-                elif int(row[13]) == 9:
-                    PeakArrival_Score = str(2)
-                elif int(row[13]) == 8:
-                    PeakArrival_Score = str(3)
-                elif int(row[13]) == 7:
-                    PeakArrival_Score = str(4)
-                elif int(row[13]) == 6:
-                    PeakArrival_Score = str(5)
-                elif int(row[13]) == 5:
-                    PeakArrival_Score = str(6)
-                elif int(row[13]) == 4:
-                    PeakArrival_Score = str(7)
-                elif int(row[13]) == 3:
-                    PeakArrival_Score = str(8)
-                elif int(row[13]) == 2:
-                    PeakArrival_Score = str(9)
-                elif int(row[13]) == 1:
-                    PeakArrival_Score = str(10)
-                Sum_Score = str(
-                    float(Alert_Score)
-                    + float(PeakArrival_Score)
-                    + float(TwoYScore)
-                    + float(FiveYScore)
-                    + float(TwtyYScore)
-                )
-                score_field = [
-                    Alert_Score,
-                    PeakArrival_Score,
-                    TwoYScore,
-                    FiveYScore,
-                    TwtyYScore,
-                    Sum_Score,
-                ]
-                for x in score_field:
-                    row.append(x)
-                write = [
-                    row[14],
-                    row[12],
-                    row[13],
-                    row[9],
-                    row[10],
-                    row[11],
-                    row[15],
-                    row[16],
-                    row[17],
-                    row[18],
-                    row[19],
-                    row[20],
-                ]
-                GloFas_w_score.writerow(write)
-
-    csvfile.close()
-    txtfile.close()
-    if not error_flag:
-        os.remove(GloFas_Error_csv)
-    GloFas = read_data(GloFas_w_score_csv)
-    GloFas.sort_values(by="pfaf_id", ascending=True, inplace=True)
-    GloFas_w_score_sort_csv = "GloFas_w_score_sort_{}.csv".format(adate)
-    GloFas_w_score_sort_csv = os.path.join(
-        settings.HWRF_PROC_DIR, GloFas_w_score_sort_csv
+    GloFas_w_score_csv, GloFas_w_Avgscore_csv = glofas_scores(
+        glofas_sum, weightage, settings.HWRF_PROC_DIR, adate
     )
-    GloFas.set_index("pfaf_id").to_csv(GloFas_w_score_sort_csv, encoding="utf-8")
-
-    with open(GloFas_w_score_sort_csv, "r") as GloFas_file:
-        GloFas_reader = csv.reader(GloFas_file)
-        GloFas_w_Avgscore_csv = "GloFas_w_Avgscore_{}.csv".format(adate)
-        GloFas_w_Avgscore_csv = os.path.join(
-            settings.HWRF_PROC_DIR, GloFas_w_Avgscore_csv
-        )
-        csvfile = open(GloFas_w_Avgscore_csv, "w", newline="\n", encoding="utf-8")
-        GloFas_w_score = csv.writer(csvfile)
-        Haz_Score = 0
-        pfaf_id = -1
-        similarity = 0
-        i = 1
-        To_be_written = "False"
-        write = []
-        for row in GloFas_reader:
-            if i == 1:
-                i = i + 1
-                GloFas_w_score.writerow(row)
-            else:
-                if pfaf_id == -1 or pfaf_id == row[0]:
-                    pfaf_id = row[0]
-                    Haz_Score = Haz_Score + float(row[11])
-                    similarity = similarity + 1
-                    last_row = row
-                    To_be_written = "True"
-                else:
-                    last_row[11] = str(Haz_Score / similarity)
-                    GloFas_w_score.writerow(last_row)
-                    last_row = row
-                    pfaf_id = row[0]
-                    Haz_Score = float(row[11])
-                    similarity = 1
-                    To_be_written = "True"
-    if To_be_written == "True":
-        last_row[11] = str(Haz_Score / similarity)
-        GloFas_w_score.writerow(last_row)
-    csvfile.close()
-    # Glofas Done
-    os.remove(GloFas_w_score_sort_csv)
 
     ## Read HWRF rainfall processed data and calculate separate hazard Score
     try:
@@ -709,18 +506,15 @@ def find_latest_summary(datestr, scanfolder, namepattern, hours):
     """find the latest summary data (DFO), from the start day of the cycle
     back; VIIRS: utilities.find_latest_viirs"""
 
-    # NOTE (cron, to adjust): the day used depends on which summaries exist
-    # when the job runs, so it follows the publication times and is not
-    # reproducible. From the production logs (Sep-Oct 2026):
-    #  - DFO of D is written on D by the 03:00 DFO run, but the 06 and 12
-    #    cycles (run at 07:00 / 13:00) only look from D-1 (startd below)
+    # DFO of D is written at 03:00 on D+1: the 00 cycle (00:30) looks from
+    # D-2, the others from D-1
     # turn the datestr into a real date
     da = datetime.strptime(datestr, "%Y%m%d")
     startd = 1
-    if hours == "18":
-        startd = 0
+    if hours == "00":
+        startd = 2
     # check the data
-    for i in range(startd, 10):
+    for i in range(startd, 6):
         cdate = da - timedelta(days=i)
         cdatestr = cdate.strftime("%Y%m%d")
         cfile = os.path.join(scanfolder, namepattern.format(cdatestr))
@@ -728,6 +522,18 @@ def find_latest_summary(datestr, scanfolder, namepattern, hours):
             return [cdatestr, cfile]
 
     return ["", ""]
+
+
+# no summary: no watershed flooded, one row of zeros scores nothing
+DFO_NO_DATA = (
+    ",pfaf_id,1-Day_TotalArea_km2,1-Day_perc_Area,1-Day_CS_TotalArea_km2,"
+    "1-Day_CS_perc_Area,2-Day_TotalArea_km2,2-Day_perc_Area,3-Day_TotalArea_km2,"
+    "3-Day_perc_Area\n0,0,0,0,0,0,0,0,0,0\n"
+)
+VIIRS_NO_DATA = (
+    "pfaf_id,onedayFlood_Area_km,onedayperc_Area,fivedayFlood_Area_km,"
+    "fivedayperc_Area\n0,0,0,0,0\n"
+)
 
 
 def update_HWRFMoM_DFO_VIIRS(adate):
@@ -753,12 +559,16 @@ def update_HWRFMoM_DFO_VIIRS(adate):
         datestr, settings.DFO_SUM_DIR, "DFO_{}.csv", hourstr
     )
     if dfo_date == "":
-        return
+        logging.warning(f"no DFO summary for {adate}, using no DFO data")
+        dfo_date = "none"
+        dfo_summary = None
     [viirs_date, summary_viirs_all] = find_latest_viirs(
         settings.VIIRS_SUM_DIR, datestr, hourstr
     )
     if viirs_date == "":
-        return
+        logging.warning(f"no VIIRS summary for {adate}, using no VIIRS data")
+        viirs_date = "none"
+        summary_viirs_all = None
 
     # geneate HWRF_DFO_MoM
     MOMOutput = os.path.join(
@@ -796,7 +606,9 @@ def update_HWRFMoM_DFO_VIIRS(adate):
     ]
 
     # Read DFO Processing data and calculate score
-    with open(DFO, "r", encoding="UTF-8") as DFO_file:
+    with (
+        open(DFO, "r", encoding="UTF-8") if DFO else io.StringIO(DFO_NO_DATA)
+    ) as DFO_file:
         DFO_reader = csv.reader(DFO_file)
         DFO_w_score_csv = "DFO_w_score_{}.csv".format(dfo_date)
         csvfile = open(DFO_w_score_csv, "w", newline="\n", encoding="utf-8")
@@ -1027,7 +839,11 @@ def update_HWRFMoM_DFO_VIIRS(adate):
     ]
 
     # Read VIIRS Processing data and calculate score
-    with open(VIIRS_summary_csv, "r", encoding="UTF-8") as VIIRS_file:
+    with (
+        open(VIIRS_summary_csv, "r", encoding="UTF-8")
+        if VIIRS_summary_csv
+        else io.StringIO(VIIRS_NO_DATA)
+    ) as VIIRS_file:
         VIIRS_reader = csv.reader(VIIRS_file)
         VIIRS_w_score_csv = "VIIRS_w_score_{}.csv".format(viirs_date)
         csvfile = open(VIIRS_w_score_csv, "w", newline="\n", encoding="utf-8")
@@ -1214,8 +1030,8 @@ def update_HWRFMoM_DFO_VIIRS(adate):
 
 def find_pair_HWRFoutput(adate):
     """return pair of HWRF Mom output
-    [MoM_adate, MoM_1daybefore]
-    if not found: ["",""]
+    [MoM_adate, MoM of the previous cycle]
+    if not found: ["",""], or [MoM_adate, ""] without the previous cycle
     """
     # first find the hwrf hour output
     hwrfh_list = glob.glob(os.path.join(settings.HWRF_MOM_DIR, "Final*.csv"))
@@ -1226,23 +1042,16 @@ def find_pair_HWRFoutput(adate):
 
     MoM_adate = matching[0]
 
-    # generate string from the previous day
-    # turn the datestr into a real date
-    datestr = adate[:-2]
-    hh = adate[-2:]
-    da = datetime.strptime(datestr, "%Y%m%d")
-    pda = da - timedelta(days=1)
-    pdatestr = pda.strftime("%Y%m%d")
-    # pdate
-    pdate = pdatestr + hh
+    # the previous cycle
+    pdate = (datetime.strptime(adate, "%Y%m%d%H") - timedelta(hours=6)).strftime(
+        "%Y%m%d%H"
+    )
     matching = [s for s in hwrfh_list if pdate + settings.HWRF_FILE_TAG + "+" in s]
-    # no previous date
+    # no previous cycle
     if len(matching) < 1:
         return [MoM_adate, ""]
 
-    MoM_1daybefore = matching[0]
-
-    return [MoM_adate, MoM_1daybefore]
+    return [MoM_adate, matching[0]]
 
 
 def final_alert_pdc(adate):
@@ -1258,13 +1067,18 @@ def final_alert_pdc(adate):
         return
 
     [aAlert, pAlert] = find_pair_HWRFoutput(adate)
-    if aAlert == "" or pAlert == "":
+    if aAlert == "":
         logging.warning(f"mathing HWRF output is not found: {adate}")
         return
 
     mapping = {"Information": 1, "Advisory": 2, "Watch": 3, "Warning": 4}
     # read data
-    pa_df = read_data(pAlert)
+    # without the previous cycle every watershed is New (Alert_0 = 5)
+    if pAlert:
+        pa_df = read_data(pAlert)
+    else:
+        logging.warning(f"no previous cycle for {adate}, all watersheds are New")
+        pa_df = pd.DataFrame(columns=["pfaf_id", "Alert"], dtype=float)
     # for PA, the only two columns needed
     pa_df = pa_df[["pfaf_id", "Alert"]]
     ca_df = read_data(aAlert)

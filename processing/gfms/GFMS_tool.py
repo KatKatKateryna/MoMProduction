@@ -1,7 +1,7 @@
 """
 GFMS_tool.py
 
-Download and process GFMS and GloFAS data
+Download and process GFMS data (GloFAS: processing/glofas/GloFAS_tool.py)
 
 Two main function:
     * GFMS_cron : run the daily cron job
@@ -25,13 +25,11 @@ import glob
 import logging
 import os
 import shutil
-import sys
 import tempfile
 import time
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
-import geopandas
 import numpy as np
 import pandas as pd
 import rasterio
@@ -39,13 +37,17 @@ import requests
 import zipfile
 
 from processing.gfms.GFMS_MoM import flood_severity
+from processing.glofas.GloFAS_tool import (
+    GloFAS_process,
+    find_latest_glofas,
+    glofas_summary,
+)
 from processing.watershed_cells import cells_summary, raster_summary
 
 # from HWRF_MoM import update_HWRF_MoM, update_HWRFMoM_DFO_VIIRS, final_alert_pdc
 from processing.hwrf.HWRF_MoM import hwrf_workflow
 import settings
 from processing.utilities import (
-    find_latest_glofas,
     hwrf_today,
     steps_csv,
     watersheds_gdb_reader,
@@ -67,292 +69,6 @@ GFMS_STEP_HOURS = ("00", "06", "12", "18")
 
 # no need for cron-job
 # from progressbar import progress
-
-
-def _glofas_station_lines(txt_file):
-    """the number of lines of a GloFAS text file that are stations (18 or
-    more fields ending in the alert level); 0 for a missing file"""
-    if not os.path.exists(txt_file):
-        return 0
-    count = 0
-    with open(txt_file, "r", encoding="utf-8", errors="replace") as f:
-        for line in f:
-            p = line.strip().split(",")
-            if len(p) >= 18 and p[-1].strip().isdigit():
-                count += 1
-    return count
-
-
-def GloFAS_download():
-    """download glofas data from ftp"""
-    ftpsite = {}
-    ftpsite["host"] = settings.config.get("glofas", "HOST")
-    ftpsite["user"] = (
-        settings.config.get("glofas", "USER")
-        if "???" not in settings.config.get("glofas", "USER")
-        else os.getenv("AUTH_GLOFAS_USER")
-    )
-    ftpsite["passwd"] = (
-        settings.config.get("glofas", "PASSWD")
-        if "???" not in settings.config.get("glofas", "PASSWD")
-        else os.getenv("AUTH_GLOFAS_PASSWD")
-    )
-    ftpsite["directory"] = settings.config.get("glofas", "DIRECTORY")
-    from ftplib import FTP
-
-    last_exc: Exception = Exception("FTP connection failed")
-    for attempt in range(3):
-        try:
-            ftp = FTP(
-                host=ftpsite["host"], user=ftpsite["user"], passwd=ftpsite["passwd"]
-            )
-            break
-        except Exception as e:
-            logging.warning(f"FTP connect attempt {attempt + 1} failed: {e}")
-            last_exc = e
-            time.sleep(2)
-    else:
-        raise last_exc
-
-    ftp.cwd(ftpsite["directory"])
-    file_list = ftp.nlst()
-    job_list = []
-    for txt in file_list:
-        save_txt = os.path.join(settings.GLOFAS_PROC_DIR, txt)
-
-        # add date to job list. Even if GloFAS file already exists, it's not a guarantee it was processed
-        if "threspoints_" in txt:
-            job_list.append((txt.split(".")[0]).replace("threspoints_", ""))
-
-        # downloaded next to it first: a file without station lines (empty,
-        # blank, an error page) never replaces a local copy that has some;
-        # a file with any station line always replaces it
-        tmp_txt = save_txt + ".part"
-        with open(tmp_txt, "wb") as fp:
-            ftp.retrbinary("RETR " + txt, fp.write)
-        if _glofas_station_lines(tmp_txt) == 0 and _glofas_station_lines(save_txt) > 0:
-            logging.warning(
-                f"GloFAS host sent {txt} without stations, keeping the local copy"
-            )
-            os.remove(tmp_txt)
-        else:
-            os.replace(tmp_txt, save_txt)
-
-    ftp.quit()
-    return job_list
-
-
-# station text fields, in file order before the country: fixed and dynamic
-# files order them differently
-GLOFAS_TEXT_FIELDS = {
-    False: ["Basin", "Location", "Station"],
-    True: ["Station", "Basin", "Location"],
-}
-
-
-def _is_number(value):
-    try:
-        float(value)
-        return True
-    except ValueError:
-        return False
-
-
-def GloFAS_read_points(txt_file, dynamic=False):
-    """GloFAS stations of a threspoints (dynamic=False) or threspointsDyn
-    (dynamic=True) text file
-
-    The files are unquoted csv whose station and country names can hold
-    commas ("Moldova, Republic of", "Al Furat, Euphrates, Firat"), and the
-    position of lon/lat among the "-" placeholders varies from line to line,
-    so a line is read from its end: Alert_level, 20/5/2 yr EPS,
-    Days_until_peak, one unused number, then lon and lat as the two numbers
-    among the three fields before it, then upstream area, country code and
-    continent (a few dynamic lines have the country code one field later,
-    without the upstream area). The names are what lies between the station
-    ID and the continent. An empty or missing file has no stations."""
-    columns = (
-        ["Point No", "ID"]
-        + GLOFAS_TEXT_FIELDS[dynamic]
-        + ["Country", "Continent", "Country_code", "Upstream area", "Lon", "Lat"]
-        + ["Days_until_peak", "GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr", "Alert_level"]
-    )
-    rows = []
-    if os.path.exists(txt_file):
-        with open(txt_file, "r", encoding="utf-8", errors="replace") as f:
-            for line in f:
-                raw = line.rstrip("\r\n").split(",")
-                p = [x.strip() for x in raw]
-                if len(p) < 18:
-                    if line.strip():
-                        logging.warning(
-                            f"GloFAS line skipped in {txt_file}: {line.strip()}"
-                        )
-                    continue
-                lon, lat = [x for x in p[-9:-6] if _is_number(x)][:2]
-                if p[-10] in ("-", "NA") or _is_number(p[-10]):
-                    country_code, upstream = p[-11], p[-10]
-                else:
-                    country_code, upstream = p[-10], "-"
-                # a comma inside a name: the piece after it starts with a space
-                names = []
-                for piece, raw_piece in zip(p[2:-12], raw[2:-12]):
-                    if names and raw_piece.startswith(" "):
-                        names[-1] = names[-1] + ", " + piece
-                    else:
-                        names.append(piece)
-                country = names[-1]
-                text = names[:-1]
-                if len(text) > 3:
-                    text = [text[0], ", ".join(text[1:-1]), text[-1]]
-                text = text + ["-"] * (3 - len(text))
-                rows.append(
-                    [p[0], p[1]]
-                    + text
-                    + [country, p[-12], country_code, upstream, lon, lat]
-                    + p[-5:]
-                )
-    df = pd.DataFrame(rows, columns=columns)
-    numeric = [
-        "Point No",
-        "Lon",
-        "Lat",
-        "Days_until_peak",
-        "GloFAS_2yr",
-        "GloFAS_5yr",
-        "GloFAS_20yr",
-        "Alert_level",
-    ]
-    df[numeric] = df[numeric].apply(pd.to_numeric)
-    # "NA" and "-" when not known
-    df["Upstream area"] = pd.to_numeric(df["Upstream area"], errors="coerce")
-    df = df.astype({"Point No": int, "Days_until_peak": int, "Alert_level": int})
-    return df
-
-
-def GloFAS_stations(fixed_sites, dyn_sites, data_date):
-    """the fixed and dynamic GloFAS stations of data_date with the pfaf_id of
-    the watershed they are in"""
-    global WATERSHEDS
-    if WATERSHEDS is None:
-        WATERSHEDS = watersheds_gdb_reader()
-
-    fixed_data = GloFAS_read_points(fixed_sites, dynamic=False)
-    dyn_data = GloFAS_read_points(dyn_sites, dynamic=True)
-    logging.info(
-        f"GloFAS {data_date}: {len(fixed_data)} fixed, {len(dyn_data)} dynamic stations"
-    )
-    total_data = pd.concat([fixed_data, dyn_data], ignore_index=True)
-
-    # create a geopanda dataset
-    gdf = geopandas.GeoDataFrame(
-        total_data,
-        geometry=geopandas.points_from_xy(total_data.Lon, total_data.Lat),
-    )
-    gdf.crs = "EPSG:4326"
-    # generate sindex
-    gdf.sindex
-
-    # sjoin
-    gdf_watersheds = geopandas.sjoin(gdf, WATERSHEDS, predicate="within")
-    gdf_watersheds.rename(columns={"index_right": "pfaf_id"}, inplace=True)
-
-    forcast_time = datetime.strptime(data_date[:8], "%Y%m%d")
-    # add column "Forecast Date"
-    gdf_watersheds["Forecast Date"] = forcast_time.isoformat()
-
-    # convert "GloFAS_2yr","GloFAS_5yr","GloFAS_20y" to 0~100
-    if gdf_watersheds["GloFAS_2yr"].max() <= 1.0:
-        gdf_watersheds["GloFAS_2yr"] = gdf_watersheds["GloFAS_2yr"] * 100
-        gdf_watersheds["GloFAS_5yr"] = gdf_watersheds["GloFAS_5yr"] * 100
-        gdf_watersheds["GloFAS_20yr"] = gdf_watersheds["GloFAS_20yr"] * 100
-    gdf_watersheds = gdf_watersheds.astype(
-        {"GloFAS_2yr": int, "GloFAS_5yr": int, "GloFAS_20yr": int}
-    )
-
-    # fill max_EPS
-    gdf_watersheds["max_EPS"] = gdf_watersheds.apply(
-        lambda row: str(row["GloFAS_2yr"])
-        + "/"
-        + str(row["GloFAS_5yr"])
-        + "/"
-        + str(row["GloFAS_20yr"]),
-        axis=1,
-    )
-    return gdf_watersheds
-
-
-def GloFAS_write(data_date):
-    """the GloFAS csv and geojson of data_date from its downloaded fixed and
-    dynamic station files, written over any existing ones"""
-    out_csv = os.path.join(settings.GLOFAS_DIR, "threspoints_" + data_date + ".csv")
-    out_geojson = os.path.join(
-        settings.GLOFAS_DIR, "threspoints_" + data_date + ".geojson"
-    )
-    logging.info(f"processing GLoFAS: {data_date}")
-    fixed_sites = os.path.join(
-        settings.GLOFAS_PROC_DIR, "threspoints_" + data_date + ".txt"
-    )
-    dyn_sites = os.path.join(
-        settings.GLOFAS_PROC_DIR, "threspointsDyn_" + data_date + ".txt"
-    )
-    gdf_watersheds = GloFAS_stations(fixed_sites, dyn_sites, data_date)
-
-    # write out csv file
-    out_columns = [
-        "Point No",
-        "Station",
-        "Basin",
-        "Country",
-        "Lat",
-        "Lon",
-        "Upstream area",
-        "Forecast Date",
-        "max_EPS",
-        "GloFAS_2yr",
-        "GloFAS_5yr",
-        "GloFAS_20yr",
-        "Alert_level",
-        "Days_until_peak",
-        "pfaf_id",
-    ]
-    gdf_watersheds.to_csv(
-        out_csv, index=False, columns=out_columns, float_format="%.3f"
-    )
-    logging.info(f"generated: {out_csv}")
-
-    # write to excel
-    # out_excel = glofasdata + "threspoints_" + data_date + ".xlsx"
-    # gdf_watersheds.to_excel(out_excel,index=False,columns=out_columns,sheet_name='Sheet_name_1')
-
-    # to geojson
-    gdf_watersheds.to_file(out_geojson, driver="GeoJSON")
-    logging.info(f"generated: {out_geojson}")
-
-
-def GloFAS_process():
-    """process glofas data"""
-
-    processing_dates = GloFAS_download()
-
-    if len(processing_dates) == 0:
-        logging.info("no new glofas file to process!")
-        sys.exit()
-
-    for data_date in processing_dates:
-
-        # final file names
-        out_csv = os.path.join(settings.GLOFAS_DIR, "threspoints_" + data_date + ".csv")
-        out_geojson = os.path.join(
-            settings.GLOFAS_DIR, "threspoints_" + data_date + ".geojson"
-        )
-        if os.path.exists(out_csv) and os.path.exists(out_geojson):
-            continue
-
-        GloFAS_write(data_date)
-
-    # return a list date to be processed with GFMS
-    return processing_dates
 
 
 def GFMS_url(bin_file):
@@ -819,9 +535,7 @@ def _GFMS_processing(proc_dates_list, window_dir):
         gfmscsv = os.path.join(
             settings.GFMS_SUM_DIR, "Flood_byStor_" + data_date + ".csv"
         )
-        glofascsv = os.path.join(
-            settings.GLOFAS_DIR, "threspoints_" + data_date + ".csv"
-        )
+        glofascsv = glofas_summary(data_date)
 
         # in case of glofascsv data is missing, use the latest
         if not os.path.exists(glofascsv):
@@ -845,7 +559,6 @@ def _GFMS_processing(proc_dates_list, window_dir):
             logging.error(
                 f"Flood severity calculation (GFMS_MoM) failed for {real_date}: {e}"
             )
-            sys.exit(1)
 
         # zip GFMS data after processing
         zipped = os.path.join(settings.GFMS_PROC_DIR, f"gfms_{real_date}.zip")
@@ -918,7 +631,7 @@ def GFMS_cron():
     tstr = datetime.strftime(today, "%Y%m%d")
     tstr = tstr + "00"
     gfmscsv = os.path.join(settings.GFMS_SUM_DIR, "Flood_byStor_" + tstr + ".csv")
-    glofascsv = os.path.join(settings.GLOFAS_DIR, "threspoints_" + tstr + ".csv")
+    glofascsv = glofas_summary(tstr)
     if os.path.exists(gfmscsv) and os.path.exists(glofascsv):
         logging.info(f"no hwrf: {tstr}, generating ...")
         # update_HWRF_MoM(tstr)

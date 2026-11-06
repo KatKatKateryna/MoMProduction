@@ -15,7 +15,11 @@ import pandas as pd
 
 import settings
 from processing.hwrf.HWRF_MoM import hwrf_workflow
-from processing.utilities import read_data, severity_from_hazard_and_risk_scores
+from processing.utilities import (
+    in_mom_folders,
+    read_data,
+    severity_from_hazard_and_risk_scores,
+)
 
 
 def mofunc_dfo(row):
@@ -29,6 +33,7 @@ def mofunc_dfo(row):
         return "Information"
 
 
+@in_mom_folders
 def update_DFO_MoM(adate):
     """update MoM - DFO at a given date"""
 
@@ -71,8 +76,14 @@ def update_DFO_MoM(adate):
             f"Final_Attributes_{adate}{hh0}{settings.HWRF_FILE_TAG}Updated.csv",
         )
         if not os.path.exists(MOMOutput):
-            logging.info(f"force generate HWRF : {MOMOutput}")
-            hwrf_workflow(adate + hh0)
+            logging.info(f"force generate {settings.HWRF_FILE_TAG} : {MOMOutput}")
+            if settings.HAFS_ENABLED:
+                # with its rain and the previous cycle settled, as the HAFS job
+                from processing.hafs.HAFS_tool import hafs_workflow
+
+                hafs_workflow(adate + hh0)
+            else:
+                hwrf_workflow(adate + hh0)
     MOMOutput = os.path.join(
         settings.HWRF_MOM_DIR, f"Final_Attributes_{adate}{hh}{settings.HWRF_FILE_TAG}Updated.csv"
     )
