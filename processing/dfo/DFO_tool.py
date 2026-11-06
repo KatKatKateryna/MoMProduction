@@ -374,8 +374,10 @@ def DFO_process(folder, adate):
         subfolder = flood.replace(" ", "_")
         
         vrt = f"{subfolder}.vrt"
-        # skip existing VRT except 3-days (needs tiff generation)
-        if os.path.exists(vrt) and "3-Day" not in vrt:
+        # DFO_20210603_Flood_3-Day_250m.tiff
+        tiff = os.path.join(settings.DFO_IMG_DIR, f"DFO_{adate}_{subfolder}.tiff")
+        # skip existing VRT when its image is there too
+        if os.path.exists(vrt) and os.path.exists(tiff):
             vrt_list.append(vrt)
             continue
 
@@ -404,18 +406,8 @@ def DFO_process(folder, adate):
         dfo_extract_by_watershed(vrt)
 
         # build geotiff
-        if "3-Day" in vrt:
-            # tiff =  outputfolder + os.path.sep + "DFO_image/DFO_" + datestr + "_" + vrt.replace(".vrt",".tiff")
-            # DFO_20210603_Flood_3-Day_250m.tiff
-            tiff = f"DFO_{adate}_{subfolder}.tiff"
-            tiff = os.path.join(settings.DFO_IMG_DIR, tiff)
-            # gdal_translate -co TILED=YES -co COMPRESS=PACKBITS -of GTiff Flood_1-Day_250m.vrt Flood_1-Day_250m.tiff
-            # gdaladdo -r average Flood_1-Day_250m.tiff 2 4 8 16 32
-            gdalcmd = f"gdal_translate -co TILED=YES -co COMPRESS=LZW -of GTiff {vrt} {tiff}"
-            os.system(gdalcmd)
-            # build overview
-            # gdalcmd = f'gdaladdo -r average {tiff} 2 4 8 16 32'
-            # os.system(gdalcmd)
+        gdalcmd = f"gdal_translate -co TILED=YES -co COMPRESS=LZW -of GTiff {vrt} {tiff}"
+        os.system(gdalcmd)
 
         # delete tiff folder
         if os.path.exists(subfolder):

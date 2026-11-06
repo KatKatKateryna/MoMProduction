@@ -134,7 +134,7 @@ WATERSHED_SHP = os.path.join(WATERSHED_DIR, "Watershed_pfaf_id.shp")
 # all DFO tiles of a date are rewritten in one batch of 7–14 minutes, between 01:20 and 02:45 UTC on next day
 # VIIRS full date is on the host by about 10:00–11:30 UTC the next day
 CRON_SCHEDULE = {
-    "GFMS": ("0", "4,11,14,21"),
+    "GFMS": ("0", "0,6,12,18"),
     "HWRF": ("40", "0,6,12,18"),
     "DFO": ("0", "3"),
     "VIIRS": ("30", "11"),

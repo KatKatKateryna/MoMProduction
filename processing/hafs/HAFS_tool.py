@@ -27,8 +27,7 @@ HAFS_tool.py
         DFO/DFO_HAFS_MoM         <- DFO/DFO_MoM
         VIIRS/VIIRS_HAFS_MoM     <- VIIRS/VIIRS_MoM
         Final_Alerts_hafs        <- Final_Alert
-    The shared inputs (GFMS, GloFAS, DFO, VIIRS summaries) are read; a
-    missing GFMS summary is made as the HWRF MoM makes it (GFMS_fixdate).
+    The shared inputs (GFMS, GloFAS, DFO, VIIRS summaries) are read.
 
     Turned on and off with ENABLED in the [hafs] section of production.cfg.
 
