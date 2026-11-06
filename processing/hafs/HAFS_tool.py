@@ -12,11 +12,11 @@ HAFS_tool.py
     (lead times, HWRF_MoM.hafs_lead):
         HAFS/HAFS_image/hafs.YYYYMMDDHHrainfall.tiff
         HAFS/HAFS_summary/hafs.YYYYMMDDHHrainfall.csv
-        HAFS/HAFS_summary_steps/hafs.YYYYMMDDHHrainfall.csv
 
     The rain rate records of the swath files, copied unchanged from the host
-    (parent.swath.prate.grb2), are kept in the Processing folder
-    (settings.HAFS_PROC_DIR) only while their cycle is processed.
+    (parent.swath.prate.grb2), are kept in HAFS/HAFS_steps/<cycle>/: the rain,
+    its 3 h steps and the lead times are read from there, so a rerun needs no
+    download.
 
     The MoM chain is then run with the unchanged HWRF functions, reading the
     HAFS summaries (settings.HWRF_SUM_DIR / HWRF_SUM_PREFIX) and with every
@@ -65,7 +65,8 @@ from processing.utilities import (
     hafs_folders,
     hafs_storms,
     request_retry,
-    steps_csv,
+    hafs_steps_csv,
+    retry_step,
     write_empty_rain_summary,
 )
 
@@ -108,6 +109,7 @@ def make_dirs():
         settings.HAFS_SUM_DIR,
         settings.HAFS_IMG_DIR,
         settings.HAFS_MOM_DIR,
+        settings.HAFS_STEPS_DIR,
         settings.DFO_HAFS_DIR,
         settings.VIIRS_HAFS_DIR,
         settings.FINAL_HAFS_DIR,
@@ -180,13 +182,14 @@ def rain_ranges(url):
 
 def HAFS_download(cycle, storm):
     """rain rate records of a storm's swath file, unchanged, saved from the
-    host in WORK_DIR for its cycle (the swath file is ~300 MB, these ~1/10,
-    and with the host's .idx only those are downloaded)"""
+    host in HAFS_steps/<cycle>/ (the swath file is ~300 MB, these ~1/10, and
+    with the host's .idx only those are downloaded)"""
     url = swath_url(cycle, storm)
     name = f"{storm}.{cycle}.{settings.HAFS_MODEL}.parent.swath.prate.grb2"
-    path = os.path.join(WORK_DIR, name)
+    path = os.path.join(settings.HAFS_STEPS_DIR, cycle, name)
     if os.path.exists(path):
         return path
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     part = f"{path}.{os.getpid()}.part"
     with tempfile.TemporaryFile(dir=WORK_DIR) as tmp:
         ranges = rain_ranges(url)
@@ -234,12 +237,6 @@ def norm_lons(lons):
     if west.max() - west.min() <= 180:
         return west
     return np.where(west < 0, west + 360, west)
-
-
-def remove_rain_files(cycle):
-    """delete the rain rate records of a cycle from WORK_DIR"""
-    for f in glob.glob(os.path.join(WORK_DIR, f"*.{cycle}.*.prate.grb2*")):
-        os.remove(f)
 
 
 def storm_rain_steps(cycle, storm):
@@ -389,9 +386,9 @@ def write_tiff(path, grid, top, left):
 
 def HAFS_extract_by_watershed(output_csv, grid, top, left, steps=None, steps_path=None, n_steps=42):
     """per-watershed summary with the HWRF calculation (watershed_cells.py,
-    exact cell shares); True if any watershed has rain. With steps
-    ((hour, grid, top, left) of the running totals that end with grid, as
-    merged_steps gives them), also the step file steps_path: per step the
+    exact cell shares); True if any watershed has rain. With steps (a function
+    giving the (hour, grid, top, left) of the running totals that end with
+    grid, as merged_steps), also the step file steps_path: per step the
     total so far, and that step's 3 h rain alone times n_steps (the cycle's
     number of 3 h steps; the summary's max is of the cell totals too)"""
     from processing.hwrf.HWRF_tool import rain_summary_rows
@@ -414,11 +411,11 @@ def HAFS_extract_by_watershed(output_csv, grid, top, left, steps=None, steps_pat
         writer.writerow(RAIN_SUMMARY_HEADERS)
         writer.writerows(rows)
     if rows and steps is not None:
-        # no step file (lead times -1) rather than no summary
-        try:
+
+        def write_step_file():
             summaries, alone = [], []
             prev = np.zeros(grid.shape)
-            for hour, step_grid, step_top, step_left in steps:
+            for hour, step_grid, step_top, step_left in steps():
                 if (step_top, step_left, step_grid.shape) != (top, left, grid.shape):
                     raise RuntimeError(f"step {hour} h not on the grid of the total")
                 summaries.append(
@@ -442,8 +439,9 @@ def HAFS_extract_by_watershed(output_csv, grid, top, left, steps=None, steps_pat
                 )
             write_steps(steps_path, summaries, alone)
             logging.info(f"generated: {steps_path} ({len(summaries)} steps)")
-        except Exception:
-            logging.exception(f"HAFS step file failed: {steps_path}")
+
+        # no step file (lead times -1) rather than no summary
+        retry_step(write_step_file, f"HAFS step file {steps_path}")
     return len(rows) > 0
 
 
@@ -523,10 +521,10 @@ def process_rain(cycle):
     raintiff = os.path.join(WORK_DIR, f"hafs.{cycle}rainfall.tiff")
     output_csv = os.path.join(WORK_DIR, f"hafs.{cycle}rainfall.csv")
     # the step file goes straight to its folder; only read with the summary
-    steps_path = steps_csv(os.path.join(settings.HAFS_SUM_DIR, os.path.basename(output_csv)))
+    steps_path = hafs_steps_csv(output_csv)
     write_tiff(raintiff, grid, top, left)
     if np.nanmax(np.nan_to_num(grid)) > 0 and HAFS_extract_by_watershed(
-        output_csv, grid, top, left, merged_steps(cycle, ready), steps_path,
+        output_csv, grid, top, left, lambda: merged_steps(cycle, ready), steps_path,
         n_steps=hours // 3,
     ):
         shutil.move(
@@ -593,16 +591,17 @@ def hafs_workflow(cycle, with_alert=True):
     run_step("GFMS", make_gfms_summary, cycle)
     # the HWRF MoM of a cycle uses the rain of the previous cycle
     previous = shift_cycle(cycle, -6)
-    try:
-        process_rain_retried(previous)
-    finally:
-        remove_rain_files(previous)
+    process_rain_retried(previous)
     # without it, update_HWRF_MoM uses the cycle before, or goes on without rain
     with hafs_folders():
         run_step("MoM", update_HWRF_MoM, cycle)
         run_step("MoM+DFO+VIIRS", update_HWRFMoM_DFO_VIIRS, cycle)
         if with_alert:
             run_step("final alert", final_alert_pdc, cycle)
+    # the last cycle a later one can fall back on is the one before this one
+    old_steps = hafs_steps_csv(f"hafs.{shift_cycle(cycle, -12)}rainfall.csv")
+    if os.path.exists(old_steps):
+        os.remove(old_steps)
     return True
 
 

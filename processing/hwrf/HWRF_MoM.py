@@ -30,7 +30,7 @@ from processing.utilities import (
     lead_hours,
     read_data,
     severity_from_hazard_and_risk_scores,
-    steps_csv,
+    hafs_steps_csv,
 )
 
 
@@ -89,7 +89,7 @@ def hafs_lead(rain_csv, cycle, risk, target, alert_func):
     the number of steps, or of the rain total up to that step; valid time cycle +
     step, at least 0. -1 where the cycle's total does not give such an alert
     (HAFS does not trigger it), or no step does"""
-    path = steps_csv(rain_csv)
+    path = hafs_steps_csv(rain_csv)
     if not os.path.exists(path):
         if os.path.exists(rain_csv) and os.path.getsize(rain_csv) > 0:
             logging.warning(f"no HAFS step file, Lead_h_HAFS -1: {path}")
@@ -199,10 +199,10 @@ def make_gfms_summary(adate):
 
 
 def latest_gfms_summary(adate):
-    """the GFMS summary of adate, else the latest of the 12 h before it; None
+    """the GFMS summary of adate, else of the cycle 6 or 12 h before it; None
     without any"""
     cycle = datetime.strptime(adate, "%Y%m%d%H")
-    for hours in range(0, 13, 3):
+    for hours in (0, 6, 12):
         stamp = (cycle - timedelta(hours=hours)).strftime("%Y%m%d%H")
         gfms_sum = os.path.join(settings.GFMS_SUM_DIR, f"Flood_byStor_{stamp}.csv")
         if os.path.exists(gfms_sum):

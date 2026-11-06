@@ -14,7 +14,7 @@ from processing.utilities import (
     lead_hours,
     read_data,
     severity_from_hazard_and_risk_scores,
-    steps_csv,
+    gfms_steps_csv,
 )
 
 GFMS_HEADER = (
@@ -94,7 +94,7 @@ def gfms_lead(gfms_csv, glofas_score, risk, target, alert_func):
 
     glofas_score: the GloFAS Sum_Score per pfaf_id before the doubling;
     risk: Scaled_Riverine_Risk, Scaled_Coastal_Risk per pfaf_id."""
-    path = steps_csv(gfms_csv)
+    path = gfms_steps_csv(gfms_csv)
     if not os.path.exists(path):
         logging.warning(f"no GFMS step file, Lead_h_GFMS -1: {path}")
         return pd.Series(-1, index=risk.index).groupby(level=0).first()

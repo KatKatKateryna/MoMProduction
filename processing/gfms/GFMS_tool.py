@@ -15,9 +15,10 @@ run makes the others. The following grids are downloaded again on every run
 (the host rewrites its files); their .bin files go to a temporary folder that
 is removed afterwards.
 
-Every grid downloaded, of a summarized time or a following one, is saved as
-an image. An image is only replaced when the new grid differs from the
-stored one; the stored one is then moved to GFMS_images_expired.
+The image of a cycle time (GFMS_STEP_HOURS) holds its grid and the window as
+bands (GFMS_save_steps); the other times have no image. An image is only
+replaced when its first band differs from the stored one; the stored one is
+then moved to GFMS_images_expired.
 """
 
 import csv
@@ -49,7 +50,8 @@ from processing.hwrf.HWRF_MoM import hwrf_workflow
 import settings
 from processing.utilities import (
     hwrf_today,
-    steps_csv,
+    gfms_steps_csv,
+    retry_step,
     watersheds_gdb_reader,
     write_steps,
 )
@@ -59,12 +61,14 @@ WATERSHEDS = None
 
 # summary = per-pixel maximum over the time and the following hours
 GFMS_WINDOW_HOURS = 96
+# bands of a cycle's image: the time itself, then every 3 h of the window
+GFMS_BANDS = GFMS_WINDOW_HOURS // 3 + 1
 # a file the host does not give yet is requested again this many times, this
 # far apart
 GFMS_ONLINE_RETRIES = 3
 GFMS_ONLINE_WAIT_SECONDS = 600
 # the summaries the MoM reads (GFMS MoM: 00, HWRF/HAFS MoM: every cycle) also
-# get a step file (utilities.steps_csv), for the lead times
+# get a step file (utilities.gfms_steps_csv), for the lead times
 GFMS_STEP_HOURS = ("00", "06", "12", "18")
 
 # no need for cron-job
@@ -192,9 +196,7 @@ def GFMS_window_vrt(bin_file, window_dir):
         return None
     with open(binfile_local, "wb") as f:
         f.write(r.content)
-    vrt_file = GFMS_write_vrt(binfile_local)
-    GFMS_save_image(vrt_file)
-    return vrt_file
+    return GFMS_write_vrt(binfile_local)
 
 
 def GFMS_max_grid(paths):
@@ -302,14 +304,14 @@ def GFMS_extract_by_watershed(vrt_file, window_dir=None):
         summary = raster_summary("gfms", vrt_file, WATERSHEDS, cells=cells)
         if window:
             # no step file (lead times -1) rather than no summary
-            try:
-                GFMS_write_steps(
-                    window,
+            retry_step(
+                lambda: GFMS_write_steps(
+                    GFMS_save_steps(window, stamp),
                     cells,
                     os.path.join(settings.GFMS_SUM_DIR, os.path.basename(summary_file)),
-                )
-            except Exception:
-                logging.exception(f"GFMS step file failed: {summary_file}")
+                ),
+                f"GFMS step file {summary_file}",
+            )
 
     with open(summary_file, "a") as f:
         writer = csv.writer(f)
@@ -344,28 +346,83 @@ def GFMS_extract_by_watershed(vrt_file, window_dir=None):
     return
 
 
-def GFMS_write_steps(window, cells, summary_csv):
-    """step file of a summary (utilities.steps_csv): the summary of the
-    per-pixel maximum up to each step of the window, over the cells of the
-    whole window's maximum (cells, from raster_summary)"""
+def GFMS_save_steps(window, stamp):
+    """the image of a cycle with the window as bands: GFMS_BANDS, band n is
+    +3(n-1) h (band 1 the time itself); a time the host does not have is a
+    nodata band, described "missing". Returns the stored image; one that has
+    the bands already is done."""
+    tiff_name = f"Flood_byStor_{stamp}.tiff"
+    tiff_file = os.path.join(settings.GFMS_IMG_DIR, tiff_name)
+    if os.path.exists(tiff_file):
+        with rasterio.open(tiff_file) as src:
+            if src.count == GFMS_BANDS:
+                return tiff_file
+    grids = dict(window)
+    with rasterio.open(grids[0]) as src:
+        profile = {
+            "driver": "GTiff",
+            "width": src.width,
+            "height": src.height,
+            "count": GFMS_BANDS,
+            "dtype": "float32",
+            "crs": src.crs,
+            "transform": src.transform,
+            "nodata": src.nodata,
+            "compress": "lzw",
+            "tiled": True,
+        }
+    new_tiff = os.path.join(settings.GFMS_PROC_DIR, "new_" + tiff_name)
+    with rasterio.open(new_tiff, "w", **profile) as dst:
+        for band in range(1, GFMS_BANDS + 1):
+            hours = 3 * (band - 1)
+            if hours in grids:
+                with rasterio.open(grids[hours]) as src:
+                    dst.write(src.read(1), band)
+                dst.set_band_description(band, f"+{hours}h")
+            else:
+                dst.write(
+                    np.full((dst.height, dst.width), dst.nodata, "float32"), band
+                )
+                dst.set_band_description(band, "missing")
+    # the same grid as the stored single band: only the bands are new
+    if os.path.exists(tiff_file) and GFMS_same_image(new_tiff, tiff_file):
+        os.replace(new_tiff, tiff_file)
+    else:
+        GFMS_store_image(new_tiff, tiff_file)
+    return tiff_file
+
+
+def GFMS_write_steps(image, cells, summary_csv):
+    """step file of a summary (utilities.gfms_steps_csv): the summary of the
+    per-pixel maximum up to each step of the image's bands (GFMS_save_steps),
+    over the cells of the whole window's maximum (cells, from raster_summary)"""
     running, steps = None, []
-    for hours, path in window:
-        with rasterio.open(path) as src:
-            grid, nodata = src.read(1), src.nodata
-        running = grid if running is None else np.maximum(running, grid)
-        values = running.astype(np.float64)
-        if nodata is not None:
-            values[values == nodata] = np.nan
-        steps.append((hours, cells_summary("gfms", cells, values, WATERSHEDS)))
-    path = steps_csv(summary_csv)
+    with rasterio.open(image) as src:
+        nodata = src.nodata
+        for band, description in enumerate(src.descriptions, start=1):
+            if description == "missing":
+                continue
+            grid = src.read(band)
+            running = grid if running is None else np.maximum(running, grid)
+            values = running.astype(np.float64)
+            if nodata is not None:
+                values[values == nodata] = np.nan
+            steps.append(
+                (3 * (band - 1), cells_summary("gfms", cells, values, WATERSHEDS))
+            )
+    path = gfms_steps_csv(summary_csv)
     write_steps(path, steps)
     logging.info(f"generated: {path} ({len(steps)} steps)")
+    # only the recent ones are read
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=2)).strftime("%Y%m%d")
+    for old in glob.glob(os.path.join(os.path.dirname(path), "Flood_byStor_*.csv")):
+        if os.path.basename(old)[len("Flood_byStor_") :][:8] < cutoff:
+            os.remove(old)
 
 
 def GFMS_data_extractor(bin_file, window_dir=None):
     """extract data from a given binfile (see GFMS_extract_by_watershed
-    for window_dir); returns the image status of GFMS_store_image, or None
-    without an image"""
+    for window_dir)"""
 
     # download GFMS binfile, generate vrt file
     vrt_file = GFMS_download(bin_file)
@@ -373,32 +430,6 @@ def GFMS_data_extractor(bin_file, window_dir=None):
     # extract data by watershed
     logging.info(f"processing: {vrt_file}")
     GFMS_extract_by_watershed(vrt_file, window_dir)
-
-    if not os.path.exists(vrt_file):
-        print(f"VRT not found: {bin_file}")
-        return None
-
-    return GFMS_save_image(vrt_file)
-
-
-def GFMS_save_image(vrt_file):
-    """save the grid of vrt_file as GFMS_IMG_DIR/<name>.tiff (see
-    GFMS_store_image); returns its status, or None if it failed"""
-    # generate tiff from bin file
-    tiff_name = os.path.basename(vrt_file).replace(".vrt", ".tiff")
-    tiff_file = os.path.join(settings.GFMS_IMG_DIR, tiff_name)
-    # made in the processing folder (same disk: putting it in place is a
-    # rename), the image folder is public
-    new_tiff = os.path.join(settings.GFMS_PROC_DIR, "new_" + tiff_name)
-
-    gdalcmd = f'gdal_translate -co TILED=YES -co COMPRESS=LZW -of GTiff "{vrt_file}" "{new_tiff}"'
-    if os.system(gdalcmd) != 0:
-        logging.error(f"gdal_translate failed: {tiff_file}")
-        if os.path.exists(new_tiff):
-            os.remove(new_tiff)
-        return None
-
-    return GFMS_store_image(new_tiff, tiff_file)
 
 
 def GFMS_same_image(tiff_a, tiff_b):

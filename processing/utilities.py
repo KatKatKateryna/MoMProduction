@@ -12,6 +12,7 @@ import hashlib
 import logging
 import os
 import re
+import time
 from datetime import date, datetime, timedelta, timezone
 
 import geopandas
@@ -84,21 +85,50 @@ def severity_from_hazard_and_risk_scores(df):
     return result
 
 
-# columns of the step files (steps_csv) of the GFMS and HAFS summaries
+# columns of the step files (gfms_steps_csv, hafs_steps_csv) of the GFMS and HAFS summaries
 STEP_HEADERS = ["pfaf_id", "step_h", "area", "perc_area", "mean", "max"]
 # HAFS step files also: the summary of that 3 h step's rain alone, times the
 # number of steps (as if it rained like that the whole forecast)
 STEP_ALONE_HEADERS = ["step_area", "step_perc_area", "step_mean", "step_max"]
 
 
-def steps_csv(summary_csv):
-    """the step file of a summary: <summary folder>_steps/<same name>, one row
+# a step file that fails is written again this many times, this far apart
+STEP_RETRIES = 3
+STEP_WAIT_SECONDS = 60
+
+
+def gfms_steps_csv(summary_csv):
+    """the step file of a GFMS summary, in the Processing folder, one row
     per watershed with data and 3 h step (STEP_HEADERS), the summary of the
     data up to that step (GFMS: running maximum, HAFS: running total);
     step_h counted from the summary's time stamp (GFMS: valid time, HAFS:
     cycle); also STEP_ALONE_HEADERS"""
-    folder, name = os.path.split(os.path.abspath(summary_csv))
-    return os.path.join(folder + "_steps", name)
+    return os.path.join(settings.GFMS_PROC_DIR, "steps", os.path.basename(summary_csv))
+
+
+def hafs_steps_csv(rain_csv):
+    """the step file of a HAFS summary, in the Processing folder: rebuilt from
+    HAFS_steps when a cycle is processed again"""
+    return os.path.join(settings.HAFS_PROC_DIR, "steps", os.path.basename(rain_csv))
+
+
+def retry_step(func, name):
+    """func, retried STEP_RETRIES times while it fails; each failure is
+    logged, a last failure is left at that (no step file, lead times -1)"""
+    for retry in range(1, STEP_RETRIES + 1):
+        try:
+            func()
+            return
+        except Exception:
+            logging.exception(
+                f"{name} failed, retry {retry} of {STEP_RETRIES} in "
+                f"{STEP_WAIT_SECONDS}s"
+            )
+            time.sleep(STEP_WAIT_SECONDS)
+    try:
+        func()
+    except Exception:
+        logging.exception(f"{name} failed")
 
 
 def write_steps(path, step_summaries, alone=None):
