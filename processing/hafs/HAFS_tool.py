@@ -13,12 +13,10 @@ HAFS_tool.py
         HAFS/HAFS_image/hafs.YYYYMMDDHHrainfall.tiff
         HAFS/HAFS_summary/hafs.YYYYMMDDHHrainfall.csv
         HAFS/HAFS_summary_steps/hafs.YYYYMMDDHHrainfall.csv
-        HAFS/HAFS_track/hafs.<storm>.YYYYMMDDHH.track.geojson
 
-    The host data used is kept in HAFS/HAFS_host_data_backups/hfsa.YYYYMMDD/HH/
-    (host layout and names): the track (trak.atcfunix) and the rain rate
-    records of the swath file, copied unchanged (parent.swath.prate.grb2).
-    A cycle already kept there is read from it instead of the host.
+    The rain rate records of the swath files, copied unchanged from the host
+    (parent.swath.prate.grb2), are kept in the Processing folder
+    (settings.HAFS_PROC_DIR) only while their cycle is processed.
 
     The MoM chain is then run with the unchanged HWRF functions, reading the
     HAFS summaries (settings.HWRF_SUM_DIR / HWRF_SUM_PREFIX) and with every
@@ -37,14 +35,12 @@ HAFS_tool.py
 **EXAMPLE** (from the repository root)
     python -m processing.hafs.HAFS_tool                  # same as the cron job
     python -m processing.hafs.HAFS_tool --days 3 --end 20261012 --overwrite
-    python -m processing.hafs.HAFS_tool --backup         # host data only
 """
 
 import argparse
 import contextlib
 import csv
 import glob
-import json
 import logging
 import os
 import shutil
@@ -68,6 +64,7 @@ import settings
 from processing.utilities import (
     RAIN_SUMMARY_HEADERS,
     hafs_storms,
+    request_retry,
     steps_csv,
     write_empty_rain_summary,
 )
@@ -108,11 +105,9 @@ def make_dirs():
         settings.HAFS_SUM_DIR,
         settings.HAFS_IMG_DIR,
         settings.HAFS_MOM_DIR,
-        settings.HAFS_TRACK_DIR,
         settings.DFO_HAFS_DIR,
         settings.VIIRS_HAFS_DIR,
         settings.FINAL_HAFS_DIR,
-        settings.HAFS_BACKUP_DIR,
         DONE_DIR,
         WORK_DIR,
     ):
@@ -120,7 +115,7 @@ def make_dirs():
 
 
 # ---------------------------------------------------------------------------
-# HAFS data: storms, tracks and rain
+# HAFS data: storms and rain
 # ---------------------------------------------------------------------------
 
 
@@ -130,29 +125,7 @@ def list_storms(cycle):
 
 
 def exists(url):
-    return requests.head(url, timeout=60).status_code == 200
-
-
-def backup_path(cycle, name):
-    """host file kept in HAFS_host_data_backups, host layout"""
-    return os.path.join(
-        settings.HAFS_BACKUP_DIR, f"{settings.HAFS_MODEL}.{cycle[:8]}", cycle[8:], name
-    )
-
-
-def track_file(cycle, storm):
-    """trak.atcfunix of a storm, from the backups or saved there from the host"""
-    name = f"{storm}.{cycle}.{settings.HAFS_MODEL}.trak.atcfunix"
-    path = backup_path(cycle, name)
-    if not os.path.exists(path):
-        part = f"{path}.{os.getpid()}.part"
-        reqs = requests.get(cycle_url(cycle) + name, timeout=60)
-        reqs.raise_for_status()
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(part, "wb") as f:
-            f.write(reqs.content)
-        os.replace(part, path)
-    return path
+    return request_retry(requests.head, url, timeout=60).status_code == 200
 
 
 def is_rain_rate(gid):
@@ -178,7 +151,7 @@ def rain_ranges(url):
     None when the index is missing or does not parse -- then the whole file
     is downloaded, as before."""
     try:
-        reqs = requests.get(url + ".idx", timeout=60)
+        reqs = request_retry(requests.get, url + ".idx", timeout=60)
         if reqs.status_code != 200:
             return None
         records = [line.split(":") for line in reqs.text.splitlines() if line.strip()]
@@ -203,16 +176,14 @@ def rain_ranges(url):
 
 
 def rain_file(cycle, storm):
-    """rain rate records of a storm's swath file, unchanged, from the backups
-    or saved there from the host (the swath file is ~300 MB, these ~1/10, and
-    with the host's .idx only those are downloaded)"""
+    """rain rate records of a storm's swath file, unchanged, saved from the
+    host in WORK_DIR for its cycle (the swath file is ~300 MB, these ~1/10,
+    and with the host's .idx only those are downloaded)"""
     url = swath_url(cycle, storm)
-    path = backup_path(
-        cycle, f"{storm}.{cycle}.{settings.HAFS_MODEL}.parent.swath.prate.grb2"
-    )
+    name = f"{storm}.{cycle}.{settings.HAFS_MODEL}.parent.swath.prate.grb2"
+    path = os.path.join(WORK_DIR, name)
     if os.path.exists(path):
         return path
-    os.makedirs(os.path.dirname(path), exist_ok=True)
     part = f"{path}.{os.getpid()}.part"
     with tempfile.TemporaryFile(dir=WORK_DIR) as tmp:
         ranges = rain_ranges(url)
@@ -222,7 +193,9 @@ def rain_file(cycle, storm):
             else [None]
         ):
             headers = {"Range": span} if span else {}
-            with requests.get(url, headers=headers, stream=True, timeout=600) as reqs:
+            with request_retry(
+                requests.get, url, headers=headers, stream=True, timeout=600
+            ) as reqs:
                 reqs.raise_for_status()
                 for block in reqs.iter_content(chunk_size=1 << 22):
                     tmp.write(block)
@@ -251,45 +224,6 @@ def rain_file(cycle, storm):
     return path
 
 
-def backup_cycle(cycle):
-    """keep the host data of every storm of a cycle published so far"""
-    if utc_now() - cycle_time(cycle) < PUBLISHED_AFTER:
-        return
-    for storm in list_storms(cycle):
-        base = f"{cycle_url(cycle)}{storm}.{cycle}.{settings.HAFS_MODEL}"
-        if exists(base + ".parent.swath.grb2") and exists(base + ".trak.atcfunix"):
-            track_file(cycle, storm)
-            rain_file(cycle, storm)
-
-
-def fetch_track(cycle, storm):
-    """forecast track from trak.atcfunix: one point per forecast hour
-    (the file repeats each hour for the 34/50/64 kt wind radii)"""
-    path = track_file(cycle, storm)
-    with open(path) as f:
-        text = f.read()
-    track = {}
-    for line in text.splitlines():
-        p = [x.strip() for x in line.split(",")]
-        if len(p) < 10:
-            continue
-        fhour = int(p[5])
-        if fhour in track:
-            continue
-        lat = int(p[6][:-1]) / 10 * (1 if p[6][-1] == "N" else -1)
-        lon = int(p[7][:-1]) / 10 * (-1 if p[7][-1] == "W" else 1)
-        track[fhour] = {
-            "fhour": fhour,
-            "lat": lat,
-            "lon": lon,
-            "vmax_kt": int(p[8]),
-            "mslp_hpa": int(p[9]),
-        }
-    if not track:
-        raise RuntimeError(f"no track positions in {path}")
-    return [track[h] for h in sorted(track)]
-
-
 def norm_lons(lons):
     """longitudes in -180..180, or 0..360 when the storm crosses the dateline
     (as HWRF rainfall.ascii does)"""
@@ -297,6 +231,12 @@ def norm_lons(lons):
     if west.max() - west.min() <= 180:
         return west
     return np.where(west < 0, west + 360, west)
+
+
+def remove_rain_files(cycle):
+    """delete the rain rate records of a cycle from WORK_DIR"""
+    for f in glob.glob(os.path.join(WORK_DIR, f"*.{cycle}.*.prate.grb2*")):
+        os.remove(f)
 
 
 def storm_rain_steps(cycle, storm):
@@ -377,7 +317,7 @@ def lattice_index(lats, lons):
     return ri, ci, top, left
 
 
-def storm_rain(cycle, storm, track):
+def storm_rain(cycle, storm):
     """0-126 h rain (inches) of one storm over its whole parent domain on a
     0.05 deg grid, the sum of its 3 h steps: (grid, top, left, last hour)"""
     for hour, grid, top, left in storm_rain_steps(cycle, storm):
@@ -404,36 +344,6 @@ def merged_steps(cycle, storms):
             return
         for i, item in ahead:
             latest[i] = item
-
-
-def track_lons(track, left, ncols):
-    """track longitudes in the same convention as the grid"""
-    east = left + ncols * RES > 180
-    return [t["lon"] + 360 if east and t["lon"] < 0 else t["lon"] for t in track]
-
-
-def write_track(path, storm, cycle, track, left, ncols):
-    lons = track_lons(track, left, ncols)
-    features = [
-        {
-            "type": "Feature",
-            "properties": {"storm": storm, "cycle": cycle},
-            "geometry": {
-                "type": "LineString",
-                "coordinates": [[x, t["lat"]] for t, x in zip(track, lons)],
-            },
-        }
-    ]
-    for t, x in zip(track, lons):
-        features.append(
-            {
-                "type": "Feature",
-                "properties": {"storm": storm, "cycle": cycle, **t},
-                "geometry": {"type": "Point", "coordinates": [x, t["lat"]]},
-            }
-        )
-    with open(path, "w") as f:
-        json.dump({"type": "FeatureCollection", "features": features}, f)
 
 
 def merge(grids):
@@ -554,7 +464,7 @@ def empty_summary(cycle, note):
 
 
 def process_cycle(cycle):
-    """HAFS summary, image and tracks of one cycle; True once the cycle is
+    """HAFS summary and image of one cycle; True once the cycle is
     settled (processed, or known to have nothing; then the summary is empty)"""
     if is_done(cycle):
         return True
@@ -571,8 +481,7 @@ def process_cycle(cycle):
 
     ready = []
     for storm in storms:
-        base = f"{cycle_url(cycle)}{storm}.{cycle}.{settings.HAFS_MODEL}"
-        if exists(base + ".parent.swath.grb2") and exists(base + ".trak.atcfunix"):
+        if exists(swath_url(cycle, storm)):
             ready.append(storm)
         elif age < STORMS_FINAL:
             logging.info(f"HAFS {cycle}: {storm} not published yet, waiting")
@@ -584,19 +493,8 @@ def process_cycle(cycle):
     grids = []
     hours = 0
     for storm in ready:
-        track = fetch_track(cycle, storm)
-        grid, top, left, hour = storm_rain(cycle, storm, track)
+        grid, top, left, hour = storm_rain(cycle, storm)
         hours = max(hours, hour)
-        write_track(
-            os.path.join(
-                settings.HAFS_TRACK_DIR, f"hafs.{storm}.{cycle}.track.geojson"
-            ),
-            storm,
-            cycle,
-            track,
-            left,
-            grid.shape[1],
-        )
         grids.append((grid, top, left))
         logging.info(f"HAFS {cycle}: {storm} max {np.nanmax(grid):.2f} in")
     if not grids:
@@ -749,6 +647,8 @@ def run(dates, warmup=None, overwrite=False):
             process_cycle(cycle)
         except Exception:
             logging.exception(f"HAFS data failed for {cycle}")
+        finally:
+            remove_rain_files(cycle)
 
     for adate in days:
         due = True
@@ -775,22 +675,6 @@ def HAFS_cron():
     run(dates)
 
 
-def HAFS_backup():
-    """cron (with the HWRF host backup): keep the host data of the last
-    LOOKBACK_DAYS days"""
-    make_dirs()
-    start = (utc_now() - timedelta(days=settings.HAFS_LOOKBACK_DAYS)).strftime(
-        "%Y%m%d"
-    ) + "00"
-    cycle = start
-    while cycle_time(cycle) <= utc_now():
-        try:
-            backup_cycle(cycle)
-        except Exception:
-            logging.exception(f"HAFS backup failed for {cycle}")
-        cycle = shift_cycle(cycle, 6)
-
-
 def main():
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -806,20 +690,12 @@ def main():
         action="store_true",
         help="delete the HAFS MoM, DFO/VIIRS and final alert outputs of these days first",
     )
-    parser.add_argument(
-        "--backup",
-        action="store_true",
-        help="only keep the host data of the last LOOKBACK_DAYS days",
-    )
     args = parser.parse_args()
 
     settings.configure_logging("HAFS")
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
     if not settings.HAFS_ENABLED:
         logging.info("HAFS disabled in production.cfg, nothing to do")
-        return
-    if args.backup:
-        HAFS_backup()
         return
     if not args.days:
         HAFS_cron()

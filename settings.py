@@ -68,7 +68,6 @@ HWRF_SUM_PREFIX = "hwrf"
 HWRF_FILE_TAG = "HWRF"
 HWRF_IMG_DIR = os.path.join(HWRF_DIR, "HWRF_image")
 HWRF_MOM_DIR = os.path.join(HWRF_DIR, "HWRF_MoM")
-HWRF_BACKUP_DIR = os.path.join(HWRF_DIR, "HWRF_host_data_backups")
 # HWRF time_delay: 6 hours
 HWRF_TIME_DELAY = 6
 
@@ -92,14 +91,6 @@ HAFS_DIR = os.path.join(PRODUCT_DIR, "HAFS")
 HAFS_SUM_DIR = os.path.join(HAFS_DIR, "HAFS_summary")
 HAFS_IMG_DIR = os.path.join(HAFS_DIR, "HAFS_image")
 HAFS_MOM_DIR = os.path.join(HAFS_DIR, "HAFS_MoM")
-HAFS_TRACK_DIR = os.path.join(HAFS_DIR, "HAFS_track")
-HAFS_BACKUP_DIR = os.path.expanduser(
-    config.get(
-        "hafs",
-        "BACKUP_DIR",
-        fallback=os.path.join(HAFS_DIR, "HAFS_host_data_backups"),
-    )
-)
 DFO_HAFS_DIR = os.path.join(DFO_DIR, "DFO_HAFS_MoM")
 VIIRS_HAFS_DIR = os.path.join(VIIRS_DIR, "VIIRS_HAFS_MoM")
 FINAL_HAFS_DIR = os.path.join(PRODUCT_DIR, "Final_Alerts_hafs")
@@ -137,5 +128,4 @@ def configure_logging(job=None):
 
 
 # default target until the job name is known: MoM_run calls this again with it
-logfile = logfile_path()
 configure_logging()
