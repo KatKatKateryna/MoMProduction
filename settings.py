@@ -131,14 +131,16 @@ WATERSHED_SHP = os.path.join(WATERSHED_DIR, "Watershed_pfaf_id.shp")
 # a new log for each month, and a separate file per job when the job is known
 # the cron schedule of each job: minute and hours (UTC), as cron reads them;
 # read by setup_crontab.sh and MoM_run.py
+# GloFAS publishes at about 08:50–09:06 UTC
+# HAFS data is published up to 20 min after <now-6h> cycle
 # all DFO tiles of a date are rewritten in one batch of 7–14 minutes, between 01:20 and 02:45 UTC on next day
 # VIIRS full date is on the host by about 10:00–11:30 UTC the next day
 CRON_SCHEDULE = {
-    "GFMS": ("0", "0,6,12,18"),
+    # "GFMS": ("0", "0,6,12,18"),
     "HWRF": ("40", "0,6,12,18"),
     "DFO": ("0", "3"),
     "VIIRS": ("30", "11"),
-    "HAFS": ("30", "0,6,12,18"),
+    "HAFS": ("0", "0,6,12,18"),
 }
 
 LOG_DIR = os.path.join(WORKING_DIR, config.get("processing_dir", "logs"))

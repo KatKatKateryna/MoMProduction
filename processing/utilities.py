@@ -4,7 +4,9 @@ routines shared across the modules
 
 """
 
+import contextlib
 import csv
+import functools
 import glob
 import hashlib
 import logging
@@ -286,16 +288,6 @@ def hour_diff(adate1, adate2):
     return dhours
 
 
-def find_latest_glofas(apath, adate, atype):
-    """return the latest GloFAS file dated BEFORE adate (YYYYMMDD[HH])"""
-    target = f"threspoints_{adate[:8]}00.{atype}"
-    candidates = [
-        os.path.basename(f)
-        for f in glob.glob(os.path.join(apath, f"threspoints_*.{atype}"))
-        if os.path.basename(f) < target
-    ]
-    return max(candidates) if candidates else ""
-
 def find_latest_hwrf(apath, adate, atype):
     """return the latest HWRF rainfall file dated BEFORE adate (YYYYMMDDHH)"""
     target = f"hwrf.{adate[:10]}rainfall.{atype}"
@@ -315,7 +307,7 @@ def find_latest_viirs(apath, adate, hours):
     # 12:00 VIIRS run, at times only at 17:00 or a day later
     da = datetime.strptime(adate[:8], "%Y%m%d")
     startd = 2 if hours in ("00", "06") else 1
-    for i in range(startd, 10):
+    for i in range(startd, 6):
         cdatestr = (da - timedelta(days=i)).strftime("%Y%m%d")
         cfile = os.path.join(apath, f"VIIRS_Flood_{cdatestr}.csv")
         if os.path.exists(cfile):
@@ -357,6 +349,50 @@ def request_retry(method, url, **kwargs):
         except requests.Timeout:
             logging.warning(f"timed out, retry {attempt} of {HOST_RETRIES}: {url}")
     return method(url, **kwargs)
+
+
+HAFS_WORK_DIR = os.path.join(settings.HAFS_PROC_DIR, "work")
+
+
+@contextlib.contextmanager
+def hafs_folders():
+    """point the HWRF/DFO/VIIRS MoM and final alert folders at the HAFS ones
+    for the duration of the block, and always put them back"""
+    patched = {
+        "HWRF_SUM_DIR": settings.HAFS_SUM_DIR,
+        "HWRF_SUM_PREFIX": "hafs",
+        "HWRF_FILE_TAG": "HAFS",
+        "HWRF_MOM_DIR": settings.HAFS_MOM_DIR,
+        "HWRF_PROC_DIR": HAFS_WORK_DIR,
+        "DFO_MOM_DIR": settings.DFO_HAFS_DIR,
+        "DFO_PROC_DIR": HAFS_WORK_DIR,
+        "VIIRS_MOM_DIR": settings.VIIRS_HAFS_DIR,
+        "VIIRS_PROC_DIR": HAFS_WORK_DIR,
+        "FINAL_MOM_DIR": settings.FINAL_HAFS_DIR,
+    }
+    saved = {k: getattr(settings, k) for k in patched}
+    cwd = os.getcwd()
+    try:
+        for k, v in patched.items():
+            setattr(settings, k, v)
+        yield
+    finally:
+        for k, v in saved.items():
+            setattr(settings, k, v)
+        os.chdir(cwd)
+
+
+def in_mom_folders(func):
+    """run func on the HAFS MoM folders when HAFS is enabled"""
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if not settings.HAFS_ENABLED:
+            return func(*args, **kwargs)
+        with hafs_folders():
+            return func(*args, **kwargs)
+
+    return wrapper
 
 
 def hafs_storms(cycle):
@@ -450,6 +486,8 @@ def main():
     print("{} - {} = {} hours".format(da1, da2, dhours))
 
     print("==> find latest")
+    from processing.glofas.GloFAS_tool import find_latest_glofas
+
     lastest_csv = find_latest_glofas(settings.GLOFAS_SUM_DIR, da2, "csv")
     print(lastest_csv)
 

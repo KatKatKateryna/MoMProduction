@@ -1,4 +1,5 @@
 import csv
+import io
 import os
 
 import logging
@@ -8,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 import settings
+from processing.glofas.GloFAS_tool import glofas_lead, glofas_scores
 from processing.utilities import (
     lead_hours,
     read_data,
@@ -15,6 +17,10 @@ from processing.utilities import (
     steps_csv,
 )
 
+GFMS_HEADER = (
+    "pfaf_id,GFMS_TotalArea_km,GFMS_perc_Area,GFMS_MeanDepth,GFMS_MaxDepth,"
+    "GFMS_Duration\n"
+)
 GFMS_SCORE_FIELDS = [
     "GFMS_area_score",
     "GFMS_perc_area_score",
@@ -128,47 +134,16 @@ def gfms_lead(gfms_csv, glofas_score, risk, target, alert_func):
     return leads.where(triggered, -1)
 
 
-def glofas_lead(glofas_csv, glofas_score, gfms_score, risk, target, alert_func):
-    """Lead_h_GloFAS per pfaf_id (index of risk): (forecast date of the
-    GloFAS file + (Days_until_peak - 1) days - target) in hours, at least 0,
-    where the GloFAS hazard as the MoM adds it (GloFAS + GFMS score, twice
-    GloFAS without GFMS) gives an alert above Information (alert_func); -1
-    otherwise or without GloFAS data. Days_until_peak: the earliest peak of
-    the watershed's stations with an alert (Alert_level > 0), else of its
-    stations with any exceedance probability.
-
-    glofas_score, gfms_score: the Sum_Scores per pfaf_id before the doubling;
-    risk: Scaled_Riverine_Risk, Scaled_Coastal_Risk per pfaf_id."""
-    stations = read_data(glofas_csv)
-    stamp = datetime.strptime(
-        os.path.basename(glofas_csv)[len("threspoints_") : len("threspoints_") + 8],
-        "%Y%m%d",
-    )
-    eps = stations[["GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr"]].clip(lower=0).sum(axis=1)
-    alerted = stations[stations["Alert_level"] > 0].groupby("pfaf_id")["Days_until_peak"].min()
-    signal = stations[eps > 0].groupby("pfaf_id")["Days_until_peak"].min()
-    days = alerted.combine_first(signal)
-
-    df = pd.DataFrame({"pfaf_id": days.index, "days": days.to_numpy()})
-    glofas = df["pfaf_id"].map(glofas_score).fillna(0).to_numpy()
-    gfms = df["pfaf_id"].map(gfms_score).fillna(0).to_numpy()
-    df["Hazard_Score"] = np.where(
-        glofas > 0, np.where(gfms > 0, glofas + gfms, 2 * glofas), 0
-    )
-    offset = (stamp - datetime.strptime(target, "%Y%m%d%H")).total_seconds() / 3600
-    df["lead_h"] = (offset + 24 * (df["days"] - 1)).clip(lower=0).astype(int)
-    return lead_hours(df, risk, alert_func)
-
-
 def gfms_scores(gfms_csv, out_csv):
     """the GFMS summary gfms_csv with the GFMS_SCORE_FIELDS added, scored
     with GFMS_Weightage.csv, written to out_csv; used by the GFMS MoM
     (flood_severity) and the HWRF/HAFS MoM (update_HWRF_MoM)"""
     weightage = read_data(os.path.join(settings.BASE_DATA_DIR, "GFMS_Weightage.csv"))
     w = {c: weightage[c][0] for c in weightage.columns}
-    with open(gfms_csv, "r", encoding="UTF-8") as GFMS_file, open(
-        out_csv, "w", newline="\n", encoding="utf-8"
-    ) as csvfile:
+    # no gfms_csv: no watershed flooded
+    with (
+        open(gfms_csv, "r", encoding="UTF-8") if gfms_csv else io.StringIO(GFMS_HEADER)
+    ) as GFMS_file, open(out_csv, "w", newline="\n", encoding="utf-8") as csvfile:
         GFMS_w_score = csv.writer(csvfile)
         for row_count, row in enumerate(csv.reader(GFMS_file)):
             if row_count == 0:
@@ -224,14 +199,6 @@ def flood_severity(GFMS_Table, GloFas_Table, adate):
 
     # GFMS_Weightage.csv
     weightage = read_data(os.path.join(settings.BASE_DIR, "data", "GFMS_Weightage.csv"))
-    add_field_GloFas = [
-        "Alert_Score",
-        "PeakArrivalScore",
-        "TwoYScore",
-        "FiveYScore",
-        "TwtyYScore",
-        "Sum_Score",
-    ]
 
     GFMS_w_score_csv = os.path.join(
         settings.GFMS_PROC_DIR, "GFMS_w_score_{}.csv".format(adate)
@@ -239,183 +206,9 @@ def flood_severity(GFMS_Table, GloFas_Table, adate):
     gfms_scores(GFMS_Table, GFMS_w_score_csv)
     # GFMS Done
 
-    # Reading GloFas Table
-
-    with open(GloFas_Table, "r", encoding="UTF-8") as GloFas_file:
-        GloFas_reader = csv.reader(GloFas_file)
-        GloFas_w_score_csv = os.path.join(
-            settings.GFMS_PROC_DIR, "GloFas_w_score_{}.csv".format(adate)
-        )
-        GloFas_Error_csv = os.path.join(
-            settings.GFMS_PROC_DIR, "GloFas_Error_{}.csv".format(adate)
-        )
-        csvfile = open(GloFas_w_score_csv, "w", newline="\n", encoding="utf-8")
-        txtfile = open(GloFas_Error_csv, "w", newline="\n")
-        GloFas_w_score = csv.writer(csvfile)
-        errorfile = csv.writer(txtfile)
-        error_flag = False
-        row_count = 1
-        for row in GloFas_reader:
-            # GloFAS writes -9999 for the 2/5/20 yr EPS when no exceedance is forecast
-            if row_count > 1:
-                row[9:12] = ["0" if float(x) < 0 else x for x in row[9:12]]
-            if row_count == 1:
-                for x in add_field_GloFas:
-                    row.append(x)
-                write = [
-                    row[14],
-                    row[12],
-                    row[13],
-                    row[9],
-                    row[10],
-                    row[11],
-                    row[15],
-                    row[16],
-                    row[17],
-                    row[18],
-                    row[19],
-                    row[20],
-                ]
-                GloFas_w_score.writerow(write)
-                errorfile.writerow([row[0], row[1], row[14], "Error"])
-                row_count = row_count + 1
-            elif float(row[12]) > 3 or float(row[12]) < 0:
-                error = "Alert less than 0 or greater than 3 is encountered"
-                errorfile.writerow([row[0], row[1], row[14], error])
-                error_flag = True
-            elif float(row[9]) > 100:
-                error = "2 yr EPS greater than 100 is encountered"
-                errorfile.writerow([row[0], row[1], row[14], error])
-                error_flag = True
-            elif float(row[10]) > 100:
-                error = "5 yr EPS greater than 100 is encountered"
-                errorfile.writerow([row[0], row[1], row[14], error])
-                error_flag = True
-            elif float(row[11]) > 100:
-                error = "20 yr EPS greater than 100 is encountered"
-                errorfile.writerow([row[0], row[1], row[14], error])
-                error_flag = True
-            elif float(row[13]) > 30:
-                error = "Peak arrival days greater than 30 is encountered"
-                errorfile.writerow([row[0], row[1], row[14], error])
-                error_flag = True
-            else:
-                Alert_Score = str(
-                    round(float(row[12]) * float(weightage.Alert_score[0]))
-                )
-                TwoYScore = str(float(row[9]) / float(weightage.EPS_Twoyear_wt[0]))
-                FiveYScore = str(float(row[10]) / float(weightage.EPS_Fiveyear_wt[0]))
-                TwtyYScore = str(float(row[11]) / float(weightage.EPS_Twtyyear_wt[0]))
-                if (
-                    int(row[9]) == 0
-                    and int(row[10]) == 0
-                    and int(row[11]) == 0
-                    and int(row[12]) == 0
-                ):
-                    PeakArrival_Score = str(0)
-                elif int(row[13]) == 10 or int(row[13]) > 10:
-                    PeakArrival_Score = str(1)
-                elif int(row[13]) == 9:
-                    PeakArrival_Score = str(2)
-                elif int(row[13]) == 8:
-                    PeakArrival_Score = str(3)
-                elif int(row[13]) == 7:
-                    PeakArrival_Score = str(4)
-                elif int(row[13]) == 6:
-                    PeakArrival_Score = str(5)
-                elif int(row[13]) == 5:
-                    PeakArrival_Score = str(6)
-                elif int(row[13]) == 4:
-                    PeakArrival_Score = str(7)
-                elif int(row[13]) == 3:
-                    PeakArrival_Score = str(8)
-                elif int(row[13]) == 2:
-                    PeakArrival_Score = str(9)
-                elif int(row[13]) == 1:
-                    PeakArrival_Score = str(10)
-                Sum_Score = str(
-                    float(Alert_Score)
-                    + float(PeakArrival_Score)
-                    + float(TwoYScore)
-                    + float(FiveYScore)
-                    + float(TwtyYScore)
-                )
-                score_field = [
-                    Alert_Score,
-                    PeakArrival_Score,
-                    TwoYScore,
-                    FiveYScore,
-                    TwtyYScore,
-                    Sum_Score,
-                ]
-                for x in score_field:
-                    row.append(x)
-                write = [
-                    row[14],
-                    row[12],
-                    row[13],
-                    row[9],
-                    row[10],
-                    row[11],
-                    row[15],
-                    row[16],
-                    row[17],
-                    row[18],
-                    row[19],
-                    row[20],
-                ]
-                GloFas_w_score.writerow(write)
-    csvfile.close()
-    txtfile.close()
-    if not error_flag:
-        os.remove(GloFas_Error_csv)
-
-    # Taking average of Hazard score from glofas for same pfaf_id
-    GloFas = read_data(GloFas_w_score_csv)
-    GloFas.sort_values(by="pfaf_id", ascending=True, inplace=True)
-    GloFas_w_score_sort_csv = os.path.join(
-        settings.GFMS_PROC_DIR, "GloFas_w_score_sort_{}.csv".format(adate)
+    GloFas_w_score_csv, GloFas_w_Avgscore_csv = glofas_scores(
+        GloFas_Table, weightage, settings.GFMS_PROC_DIR, adate
     )
-    GloFas.set_index("pfaf_id").to_csv(GloFas_w_score_sort_csv, encoding="utf-8")
-
-    with open(GloFas_w_score_sort_csv, "r") as GloFas_file:
-        GloFas_reader = csv.reader(GloFas_file)
-        GloFas_w_Avgscore_csv = os.path.join(
-            settings.GFMS_PROC_DIR, "GloFas_w_Avgscore_{}.csv".format(adate)
-        )
-        csvfile = open(GloFas_w_Avgscore_csv, "w", newline="\n", encoding="utf-8")
-        GloFas_w_score = csv.writer(csvfile)
-        Haz_Score = 0
-        pfaf_id = -1
-        similarity = 0
-        i = 1
-        To_be_written = "False"
-        write = []
-        for row in GloFas_reader:
-            if i == 1:
-                i = i + 1
-                GloFas_w_score.writerow(row)
-            else:
-                if pfaf_id == -1 or pfaf_id == row[0]:
-                    pfaf_id = row[0]
-                    Haz_Score = Haz_Score + float(row[11])
-                    similarity = similarity + 1
-                    last_row = row
-                    To_be_written = "True"
-                else:
-                    last_row[11] = str(Haz_Score / similarity)
-                    GloFas_w_score.writerow(last_row)
-                    last_row = row
-                    pfaf_id = row[0]
-                    Haz_Score = float(row[11])
-                    similarity = 1
-                    To_be_written = "True"
-    if To_be_written == "True":
-        last_row[11] = str(Haz_Score / similarity)
-        GloFas_w_score.writerow(last_row)
-    csvfile.close()
-    # Glofas Done
-    os.remove(GloFas_w_score_sort_csv)
 
     # Read Watershed attribute and join the GloFas and GFMs Score and calculate severity
     GFMS = read_data(GFMS_w_score_csv)

@@ -37,7 +37,6 @@ HAFS_tool.py
 """
 
 import argparse
-import contextlib
 import csv
 import glob
 import logging
@@ -45,6 +44,7 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 from datetime import datetime, timedelta, timezone
 
 import geopandas as gpd  # noqa: F401  (load order for eccodes, below)
@@ -63,6 +63,7 @@ import settings
 from processing.utilities import (
     RAIN_SUMMARY_HEADERS,
     bbox_wanted,
+    hafs_folders,
     hafs_storms,
     request_retry,
     steps_csv,
@@ -76,8 +77,11 @@ MM_PER_INCH = 25.4
 # HAFS posts a cycle ~6 h after its time; a cycle with no storm by EMPTY_FINAL
 # is taken as empty, and storm files still missing by STORMS_FINAL are skipped
 PUBLISHED_AFTER = timedelta(hours=5)
-EMPTY_FINAL = timedelta(hours=8)
+EMPTY_FINAL = timedelta(hours=5)
 STORMS_FINAL = timedelta(hours=12)
+# a storm not published yet is checked again this many times, this far apart
+HAFS_RETRIES = 3
+HAFS_WAIT_SECONDS = 600
 
 # internal folders: processed-cycle markers and temporary files
 DONE_DIR = os.path.join(settings.HAFS_PROC_DIR, "done")
@@ -236,7 +240,7 @@ def rain_ranges(url):
     return ranges or None
 
 
-def rain_file(cycle, storm):
+def HAFS_download(cycle, storm):
     """rain rate records of a storm's swath file, unchanged, saved from the
     host in WORK_DIR for its cycle (the swath file is ~300 MB, these ~1/10,
     and with the host's .idx only those are downloaded)"""
@@ -306,7 +310,7 @@ def storm_rain_steps(cycle, storm):
     its whole parent domain on a 0.05 deg grid: yields (hour, grid, top,
     left), the same top/left at every step; the last step is the storm's
     0-126 h total"""
-    path = rain_file(cycle, storm)
+    path = HAFS_download(cycle, storm)
     with open(path, "rb") as tmp:
         # first pass: where the 0-N h average rain rates are
         rates = []
@@ -445,7 +449,7 @@ def write_tiff(path, grid, top, left):
         dst.write(out, 1)
 
 
-def summarize(output_csv, grid, top, left, steps=None, steps_path=None, n_steps=42):
+def HAFS_extract_by_watershed(output_csv, grid, top, left, steps=None, steps_path=None, n_steps=42):
     """per-watershed summary with the HWRF calculation (watershed_cells.py,
     exact cell shares); True if any watershed has rain. With steps
     ((hour, grid, top, left) of the running totals that end with grid, as
@@ -524,7 +528,15 @@ def empty_summary(cycle, note):
     mark_done(cycle, note)
 
 
-def process_cycle(cycle):
+def published_storms(cycle, storms):
+    """(storms with their swath file on the host, storms without it)"""
+    ready, missing = [], []
+    for storm in storms:
+        (ready if exists(swath_url(cycle, storm)) else missing).append(storm)
+    return ready, missing
+
+
+def process_rain(cycle):
     """HAFS summary and image of one cycle; True once the cycle is
     settled (processed, or known to have nothing; then the summary is empty)"""
     if is_done(cycle):
@@ -540,15 +552,22 @@ def process_cycle(cycle):
             return True
         return False
 
-    ready = []
-    for storm in storms:
-        if exists(swath_url(cycle, storm)):
-            ready.append(storm)
-        elif age < STORMS_FINAL:
-            logging.info(f"HAFS {cycle}: {storm} not published yet, waiting")
-            return False
-        else:
-            logging.warning(f"HAFS {cycle}: {storm} files missing, skipped")
+    for retry in range(1, HAFS_RETRIES + 1):
+        ready, missing = published_storms(cycle, storms)
+        if not missing or age >= STORMS_FINAL:
+            break
+        logging.info(
+            f"HAFS {cycle}: {missing[0]} not published yet, retry {retry} of "
+            f"{HAFS_RETRIES} in {HAFS_WAIT_SECONDS}s"
+        )
+        time.sleep(HAFS_WAIT_SECONDS)
+    else:
+        ready, missing = published_storms(cycle, storms)
+    if missing and age < STORMS_FINAL:
+        logging.info(f"HAFS {cycle}: {missing[0]} not published yet, exiting")
+        return False
+    for storm in missing:
+        logging.warning(f"HAFS {cycle}: {storm} files missing, skipped")
     logging.info(f"HAFS {cycle}: storms {' '.join(ready)}")
 
     grids = []
@@ -573,7 +592,7 @@ def process_cycle(cycle):
     # the step file goes straight to its folder; only read with the summary
     steps_path = steps_csv(os.path.join(settings.HAFS_SUM_DIR, os.path.basename(output_csv)))
     write_tiff(raintiff, grid, top, left)
-    if np.nanmax(np.nan_to_num(grid)) > 0 and summarize(
+    if np.nanmax(np.nan_to_num(grid)) > 0 and HAFS_extract_by_watershed(
         output_csv, grid, top, left, merged_steps(cycle, ready), steps_path,
         n_steps=hours // 3,
     ):
@@ -600,34 +619,6 @@ def process_cycle(cycle):
 # ---------------------------------------------------------------------------
 
 
-@contextlib.contextmanager
-def hafs_folders():
-    """point the HWRF/DFO/VIIRS MoM and final alert folders at the HAFS ones
-    for the duration of the block, and always put them back"""
-    patched = {
-        "HWRF_SUM_DIR": settings.HAFS_SUM_DIR,
-        "HWRF_SUM_PREFIX": "hafs",
-        "HWRF_FILE_TAG": "HAFS",
-        "HWRF_MOM_DIR": settings.HAFS_MOM_DIR,
-        "HWRF_PROC_DIR": WORK_DIR,
-        "DFO_MOM_DIR": settings.DFO_HAFS_DIR,
-        "DFO_PROC_DIR": WORK_DIR,
-        "VIIRS_MOM_DIR": settings.VIIRS_HAFS_DIR,
-        "VIIRS_PROC_DIR": WORK_DIR,
-        "FINAL_MOM_DIR": settings.FINAL_HAFS_DIR,
-    }
-    saved = {k: getattr(settings, k) for k in patched}
-    cwd = os.getcwd()
-    try:
-        for k, v in patched.items():
-            setattr(settings, k, v)
-        yield
-    finally:
-        for k, v in saved.items():
-            setattr(settings, k, v)
-        os.chdir(cwd)
-
-
 def run_step(name, func, *args):
     try:
         func(*args)
@@ -635,21 +626,45 @@ def run_step(name, func, *args):
         logging.exception(f"HAFS {name} failed for {args}")
 
 
-def run_cycle_mom(cycle, with_alert=True):
+def process_rain_retried(cycle):
+    """process_rain, retried while the download fails"""
+    for retry in range(1, HAFS_RETRIES + 1):
+        try:
+            process_rain(cycle)
+            return
+        except Exception:
+            logging.exception(
+                f"HAFS data failed for {cycle}, retry {retry} of {HAFS_RETRIES} "
+                f"in {HAFS_WAIT_SECONDS}s"
+            )
+            time.sleep(HAFS_WAIT_SECONDS)
+    try:
+        process_rain(cycle)
+    except Exception:
+        logging.exception(f"HAFS data failed for {cycle}")
+
+
+def hafs_workflow(cycle, with_alert=True):
     """HAFS MoM, +DFO+VIIRS and final alert of a cycle; False if the cycle is
     not due yet (later cycles are not either)"""
     from processing.hwrf.HWRF_MoM import (
         final_alert_pdc,
+        make_gfms_summary,
         update_HWRF_MoM,
         update_HWRFMoM_DFO_VIIRS,
     )
 
     if cycle_time(cycle) > utc_now():
         return False
+    # GFMS first: the last rain files land while it runs
+    run_step("GFMS", make_gfms_summary, cycle)
     # the HWRF MoM of a cycle uses the rain of the previous cycle
-    if not is_done(shift_cycle(cycle, -6)):
-        logging.info(f"HAFS MoM {cycle}: previous cycle not settled yet")
-        return False
+    previous = shift_cycle(cycle, -6)
+    try:
+        process_rain_retried(previous)
+    finally:
+        remove_rain_files(previous)
+    # without it, update_HWRF_MoM uses the cycle before, or goes on without rain
     with hafs_folders():
         run_step("MoM", update_HWRF_MoM, cycle)
         run_step("MoM+DFO+VIIRS", update_HWRFMoM_DFO_VIIRS, cycle)
@@ -693,7 +708,7 @@ def hafs_outputs(adate):
 # ---------------------------------------------------------------------------
 
 
-def run(dates, warmup=None, overwrite=False):
+def batchrun_HAFS_MoM(dates, warmup=None, overwrite=False):
     """HAFS data and MoM for the given days (oldest first); the warm-up day
     only provides the previous-day pairs of the final alerts"""
     make_dirs()
@@ -704,22 +719,10 @@ def run(dates, warmup=None, overwrite=False):
                 os.remove(f)
 
     days = ([warmup] if warmup else []) + list(dates)
-    first = days[0] + "00"
-    cycles = [shift_cycle(first, -6)] + [d + hh for d in days for hh in HOURS]
-    for cycle in cycles:
-        if cycle_time(cycle) > utc_now():
-            break
-        try:
-            process_cycle(cycle)
-        except Exception:
-            logging.exception(f"HAFS data failed for {cycle}")
-        finally:
-            remove_rain_files(cycle)
-
     for adate in days:
         due = True
         for hh in HOURS:
-            due = run_cycle_mom(adate + hh, with_alert=adate != warmup)
+            due = hafs_workflow(adate + hh, with_alert=adate != warmup)
             if not due:
                 break
         if adate != warmup:
@@ -738,7 +741,7 @@ def HAFS_cron():
         (today - timedelta(days=i)).strftime("%Y%m%d")
         for i in range(settings.HAFS_LOOKBACK_DAYS - 1, -1, -1)
     ]
-    run(dates)
+    batchrun_HAFS_MoM(dates)
 
 
 def main():
@@ -773,7 +776,7 @@ def main():
     ]
     warmup = (end - timedelta(days=args.days)).strftime("%Y%m%d")
     logging.info(f"HAFS backfill {dates[0]} - {dates[-1]}, overwrite={args.overwrite}")
-    run(dates, warmup=warmup, overwrite=args.overwrite)
+    batchrun_HAFS_MoM(dates, warmup=warmup, overwrite=args.overwrite)
     logging.info("HAFS backfill finished")
 
 

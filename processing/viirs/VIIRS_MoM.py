@@ -13,7 +13,11 @@ import sys
 import pandas as pd
 
 import settings
-from processing.utilities import read_data, severity_from_hazard_and_risk_scores
+from processing.utilities import (
+    in_mom_folders,
+    read_data,
+    severity_from_hazard_and_risk_scores,
+)
 
 
 def mofunc_viirs(row):
@@ -27,6 +31,7 @@ def mofunc_viirs(row):
         return "Information"
 
 
+@in_mom_folders
 def update_VIIRS_MoM(adate):
     """update VIIRS_MoM for a given date"""
 
