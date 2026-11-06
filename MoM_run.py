@@ -46,13 +46,10 @@ from processing.viirs.VIIRS_MoM import batchrun_VIIRS_MoM
 from processing.viirs.VIIRS_tool import VIIRS_cron
 from processing.utilities import bbox_prepare, run_label
 
-# the cron schedule of each job, as setup_crontab.sh installs it
-CRON_SCHEDULE = {
-    "GFMS": [4, 11, 14, 21],
-    "HWRF": [2, 7, 13, 19],
-    "DFO": [3, 10, 23],
-    "VIIRS": [5, 12, 17],
-    "HAFS": ["02:30", "07:30", "13:30", "19:30"],
+# the run times of each job, "HH:MM"
+CRON_TIMES = {
+    job: [f"{int(hour):02d}:{int(minute):02d}" for hour in hours.split(",")]
+    for job, (minute, hours) in settings.CRON_SCHEDULE.items()
 }
 
 
@@ -119,7 +116,7 @@ def require_tools():
 
 def run_job(cronjob):
     """run various cron job"""
-    logging.info(f"run {cronjob} ({run_label(CRON_SCHEDULE.get(cronjob, []))})")
+    logging.info(f"run {cronjob} ({run_label(CRON_TIMES.get(cronjob, []))})")
     logging.info(f"main PID: {os.getpid()}")
     if cronjob == "GFMS":
         GFMS_cron()

@@ -26,7 +26,7 @@ from osgeo import gdal
 
 from processing.dfo.DFO_MoM import update_DFO_MoM
 import settings
-from processing.utilities import bbox_wanted, from_today, watersheds_gdb_reader
+from processing.utilities import bbox_wanted, watersheds_gdb_reader
 from processing.watershed_cells import raster_summary
 
 load_dotenv()
@@ -100,8 +100,8 @@ def generate_procesing_list():
     for day_num in days:
         real_date = get_real_date(cur_year, day_num)
         # compare date in iso str
-        # skip the later date, there is no data
-        if real_date > today_str:
+        # skip today and later: a date's final tiles come the next day
+        if real_date >= today_str:
             continue
         # check if the date is already processed
         if check_status(real_date):
@@ -209,6 +209,12 @@ def dfo_download(subfolder):
         # is file cases
         if os.path.isfile(d_dir):
             os.remove(d_dir)
+        elif (
+            len([f for f in os.listdir(d_dir) if f.endswith(".hdf")])
+            >= 0.9 * DFO_TOTAL_TILES
+        ):
+            # enough tiles from an earlier run, nothing to download
+            return True
         else:
             # remove the subfolder
             shutil.rmtree(d_dir)
@@ -358,13 +364,9 @@ def DFO_process(folder, adate):
         hdffiles.append(HDF)
 
     # check the number of files
-    # need check the date first
-    ddays = from_today(adate)
-    # for the previous day, just process what ever it has
-    if ddays >= 0:
-        if len(hdffiles) < expected_tiles(hdffolder):
-            logging.warning(f"Not enough files: {folder}")
-            return
+    if len(hdffiles) < 0.9 * expected_tiles(hdffolder):
+        logging.warning(f"Not enough files: {folder}")
+        return
 
     # one step one image operation
     vrt_list = []
