@@ -18,6 +18,7 @@ import math
 import os
 import shutil
 import sys
+import time
 import zipfile
 
 import pandas as pd
@@ -31,6 +32,14 @@ from processing.viirs.VIIRS_MoM import update_VIIRS_MoM
 from processing.watershed_cells import raster_summary
 
 import xml.etree.ElementTree as ET
+
+
+# the global VIIRS grid: 4448 cells per 15 degrees, from 180 W, 75 N
+VIIRS_PIXEL = 15 / 4448
+VIIRS_BOUNDS = (-180, -60, 180, 75)
+# a date not online yet is checked again this many times, this far apart
+VIIRS_ONLINE_RETRIES = 3
+VIIRS_ONLINE_WAIT_SECONDS = 600
 
 
 def generate_adate(delay=1):
@@ -58,7 +67,20 @@ def check_status(adate):
 
 
 def check_data_online(adate):
-    """check data is online for a given date"""
+    """check data is online for a given date, retried while it is not"""
+    for retry in range(1, VIIRS_ONLINE_RETRIES + 1):
+        if parts_online(adate):
+            return True
+        logging.info(
+            f"not online yet: {adate}, retry {retry} of {VIIRS_ONLINE_RETRIES} "
+            f"in {VIIRS_ONLINE_WAIT_SECONDS}s"
+        )
+        time.sleep(VIIRS_ONLINE_WAIT_SECONDS)
+    return parts_online(adate)
+
+
+def parts_online(adate):
+    """the first and last parts of both products are on the host"""
     # total 136 AOIs
     # 5-day composite
     # https://floodlight.ssec.wisc.edu/composite/RIVER-FLDglobal-composite_*_000900.part*.tif
@@ -66,17 +88,20 @@ def check_data_online(adate):
     # https://floodlight.ssec.wisc.edu/composite/RIVER-FLDglobal-composite1_*_000000.part*.tif
 
     baseurl = settings.config.get("viirs", "HOST")
-    testurl_t = "RIVER-FLDglobal-composite_{}_000000.part00{}.tif"
-    for i in [1, 2, 3, 4, 5]:
-        testurl = f"{baseurl.rstrip('/')}/{testurl_t.format(adate, str(i))}"
-        r = requests.head(testurl)
-        if r.status_code == 404:
-            online = False
-        else:
-            online = True
-            break
+    # both products: the host publishes the 1-day parts after the 5-day ones
+    parts = [1, 2, 3, 4, 5, 132, 133, 134, 135, 136]
+    for product in ("composite", "composite1"):
+        testurl_t = f"RIVER-FLDglobal-{product}_{{}}_000000.part{{}}.tif"
+        available = 0
+        for i in parts:
+            testurl = f"{baseurl.rstrip('/')}/{testurl_t.format(adate, str(i).zfill(3))}"
+            r = requests.head(testurl)
+            if r.status_code == 200:
+                available += 1
+        if available / len(parts) < 0.9:
+            return False
 
-    return online
+    return True
 
 
 def list_tif_files(*, bucket_url: str, prefix: str) -> list[str]:
@@ -227,6 +252,18 @@ def build_tiff(adate):
             # store .tifs in memory buffer and build vrt from there, to avoid writing many files to disk
             mem_path = f"/vsimem/{filename}"
             gdal.FileFromMemBuffer(mem_path, r.content)
+            # the host rounds the pixel size in its headers: a part spans whole
+            # degrees, so its true pixel size is that span over its width
+            part = gdal.Open(mem_path, gdal.GA_Update)
+            left, pixel, _, top, _, _ = part.GetGeoTransform()
+            pixel = round(part.RasterXSize * pixel) / part.RasterXSize
+            # parts off the 15 degree lines go to the nearest whole cell, so
+            # the mosaic copies them as they are, without repeating a row
+            if pixel == VIIRS_PIXEL:
+                left = -180 + round((left + 180) / pixel) * pixel
+                top = 75 - round((75 - top) / pixel) * pixel
+            part.SetGeoTransform((left, pixel, 0, top, 0, -pixel))
+            part = None
             tiff_list_per_job.append(mem_path)
 
         vrt = None
@@ -244,7 +281,11 @@ def build_tiff(adate):
             # create compressed tiff using gdal.Warp
             # slower than VRT + Translate, but gdal.BuildVRT on Windows doesn't read memory buffers properly
             options = gdal.WarpOptions(
-                format="GTiff", creationOptions=tiff_creation_options
+                format="GTiff",
+                creationOptions=tiff_creation_options,
+                xRes=VIIRS_PIXEL,
+                yRes=VIIRS_PIXEL,
+                outputBounds=VIIRS_BOUNDS,
             )
             gdal.Warp(tiff_file, tiff_list_per_job, format="GTiff", options=options)
 
@@ -252,7 +293,16 @@ def build_tiff(adate):
 
             # build vrt (4GB in size)
             vrt_file = tiff_file.replace("tiff", "vrt")
-            vrt = gdal.BuildVRT(vrt_file, tiff_list_per_job)
+            vrt = gdal.BuildVRT(
+                vrt_file,
+                tiff_list_per_job,
+                options=gdal.BuildVRTOptions(
+                    resolution="user",
+                    xRes=VIIRS_PIXEL,
+                    yRes=VIIRS_PIXEL,
+                    outputBounds=VIIRS_BOUNDS,
+                ),
+            )
 
             # translate to compressed TIFF
             translate_options = gdal.TranslateOptions(
