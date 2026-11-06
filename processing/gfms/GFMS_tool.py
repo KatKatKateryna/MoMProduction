@@ -431,6 +431,24 @@ def gfms_fetch(url, binfile_local):
         f.write(f"0 {GFMS_NROWS}")
 
 
+def GFMS_fetch(url):
+    """the host's answer for a bin file, retried while it does not give it"""
+    for retry in range(1, GFMS_ONLINE_RETRIES + 1):
+        try:
+            r = requests.get(url, allow_redirects=True)
+            r.raise_for_status()
+            return r
+        except requests.exceptions.RequestException as e:
+            logging.info(
+                f"not online yet: {url}: {e}, retry {retry} of "
+                f"{GFMS_ONLINE_RETRIES} in {GFMS_ONLINE_WAIT_SECONDS}s"
+            )
+            time.sleep(GFMS_ONLINE_WAIT_SECONDS)
+    r = requests.get(url, allow_redirects=True)
+    r.raise_for_status()
+    return r
+
+
 def gfms_fetch_retried(url, binfile_local):
     """gfms_fetch, retried while the host does not give the file"""
     for retry in range(1, GFMS_ONLINE_RETRIES + 1):
@@ -467,7 +485,12 @@ def GFMS_download(bin_file):
     if not os.path.exists(binfile_local):
         # download the data
         try:
-            gfms_fetch_retried(download_data_url, binfile_local)
+            if settings.BBOX is None:
+                r = GFMS_fetch(download_data_url)
+                with open(binfile_local, "wb") as f:
+                    f.write(r.content)
+            else:
+                gfms_fetch_retried(download_data_url, binfile_local)
 
         except (requests.exceptions.RequestException, ValueError) as e:
             logging.error(f"Download failed: {e}")
