@@ -270,10 +270,13 @@ def update_HWRF_MoM(adate):
     # first check if file exists
     if not os.path.exists(gfms_sum):
         logging.warning(f"GFMS summary not found: {gfms_sum}")
-        logging.info(f"calling GFMS_fixdate for: {adate[:8]}")
-        from processing.gfms.GFMS_tool import GFMS_fixdate
+        logging.info(f"making the missing GFMS summaries up to: {adate[:8]}")
+        from processing.gfms.GFMS_tool import GFMS_processing
 
-        GFMS_fixdate(adate[:8])
+        # the day before first: a summary continues the duration of the one
+        # before it
+        day_before = datetime.strptime(adate[:8], "%Y%m%d") - timedelta(days=1)
+        GFMS_processing([day_before.strftime("%Y%m%d") + "00", adate[:8] + "00"])
 
     # if it's processed early in the day, older Glofas file will be used
     if not os.path.exists(glofas_sum) or int(adate[8:10]) < 10:

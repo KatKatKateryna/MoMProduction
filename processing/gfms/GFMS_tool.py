@@ -57,6 +57,10 @@ WATERSHEDS = None
 
 # summary = per-pixel maximum over the time and the following hours
 GFMS_WINDOW_HOURS = 96
+# a file the host does not give yet is requested again this many times, this
+# far apart
+GFMS_ONLINE_RETRIES = 3
+GFMS_ONLINE_WAIT_SECONDS = 600
 # the summaries the MoM reads (GFMS MoM: 00, HWRF/HAFS MoM: every cycle) also
 # get a step file (utilities.steps_csv), for the lead times
 GFMS_STEP_HOURS = ("00", "06", "12", "18")
@@ -358,6 +362,24 @@ def GFMS_url(bin_file):
     return f"{baseurl.rstrip('/')}/{datestr[:4]}/{datestr[:6]}/{bin_file}"
 
 
+def GFMS_fetch(url):
+    """the host's answer for a bin file, retried while it does not give it"""
+    for retry in range(1, GFMS_ONLINE_RETRIES + 1):
+        try:
+            r = requests.get(url, allow_redirects=True)
+            r.raise_for_status()
+            return r
+        except requests.exceptions.RequestException as e:
+            logging.info(
+                f"not online yet: {url}: {e}, retry {retry} of "
+                f"{GFMS_ONLINE_RETRIES} in {GFMS_ONLINE_WAIT_SECONDS}s"
+            )
+            time.sleep(GFMS_ONLINE_WAIT_SECONDS)
+    r = requests.get(url, allow_redirects=True)
+    r.raise_for_status()
+    return r
+
+
 def GFMS_download(bin_file):
     """download a given bin file"""
 
@@ -377,8 +399,7 @@ def GFMS_download(bin_file):
     if not os.path.exists(binfile_local):
         # download the data
         try:
-            r = requests.get(download_data_url, allow_redirects=True)
-            r.raise_for_status()
+            r = GFMS_fetch(download_data_url)
 
         except requests.exceptions.RequestException as e:
             logging.error(f"Download failed: {e.strerror}")
@@ -878,6 +899,11 @@ def GFMS_cron():
 
     # process GloFAS data
     processing_dates = GloFAS_process()
+    # today too, before its GloFAS is published: _GFMS_processing then uses the
+    # latest one, and only makes the summaries that are missing
+    today_date = datetime.now(timezone.utc).strftime("%Y%m%d") + "00"
+    if today_date not in processing_dates:
+        processing_dates.append(today_date)
     # process GFMS data
     # processing_dates = ['2021120200']
     GFMS_processing(processing_dates)
