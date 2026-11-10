@@ -45,6 +45,8 @@ GLOFAS_CSV_COLUMNS = [
 GLOFAS_RETRIES = 3
 GLOFAS_WAIT_SECONDS = 600
 
+WATERSHEDS = None
+
 
 def _glofas_station_lines(txt_file):
     """the number of lines of a GloFAS text file that are stations (18 or
