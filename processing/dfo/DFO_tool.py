@@ -293,8 +293,8 @@ def DFO_process(folder, adate):
         for HDF in hdffiles:
             nameprefix = "_".join(HDF.split(".")[1:3])
             inputlayer = f'HDF4_EOS:EOS_GRID:"{HDF}":Grid_Water_Composite:{subdataset}'
-            tiff = nameprefix + "_" + subfolder
-            outputtiff = os.path.join(subfolder, tiff + ".tiff")
+            tile_tiff = nameprefix + "_" + subfolder
+            outputtiff = os.path.join(subfolder, tile_tiff + ".tiff")
             tiff_list.append(outputtiff)
             if not os.path.exists(outputtiff):
                 # gdal cmd
