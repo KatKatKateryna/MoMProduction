@@ -5,10 +5,15 @@ offline_mom_from_summaries.py
        summaries that already exist locally, into --out-dir
 
     Everything is read from the Products tree of a root; the processing tree
-    is never read, and its folders are pointed at the temporary folder. The
-    per-step data a lead time needs lives in Products too (the GFMS cycle
-    image, the HAFS rain records), but is not rebuilt yet, so Lead_h_GFMS and
-    Lead_h_HAFS come out -1.
+    is never read, and its folders are pointed at the temporary folder.
+
+    Step files (the lead times): a cycle's step file is read from the input
+    root's summary folders (GFMS/GFMS_summary/steps, HAFS/HAFS_summary/steps)
+    when it is there. When it is not, it is rebuilt from the per-step data in
+    Products (the GFMS cycle images in GFMS_image and GFMS_steps, the HAFS
+    rain records in HAFS_steps) and written to the
+    same folders under --out-dir, where production keeps them, and kept
+    there: a later run finds it instead of rebuilding it.
 
     Inputs, only read: the GFMS, HWRF, HAFS and VIIRS summaries under
     --input-root (default: the parent of PRODUCT_DIR), and the GloFAS and DFO
@@ -32,6 +37,8 @@ offline_mom_from_summaries.py
     cron jobs write: Products/GFMS/GFMS_MoM, HWRF/HWRF_MoM, DFO/DFO_MoM,
     VIIRS/VIIRS_MoM, HAFS/HAFS_MoM, DFO/DFO_HAFS_MoM, VIIRS/VIIRS_HAFS_MoM,
     the final alert folder of production.cfg and Final_Alerts_hafs.
+    Step files the input root has not got are written to OUT's
+    Products/GFMS/GFMS_summary/steps and Products/HAFS/HAFS_summary/steps.
     An output already in OUT is kept, unless --overwrite: then the outputs of
     the days in the window are deleted from OUT first.
 
@@ -97,11 +104,10 @@ from datetime import datetime, timedelta, timezone
 # the project modules are one folder up
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import numpy as np  # noqa: E402
 import rasterio  # noqa: E402
 
 import settings  # noqa: E402
-from processing.gfms import GFMS_tool  # noqa: E402
+from processing.gfms import GFMS_MoM, GFMS_tool  # noqa: E402
 from processing.gfms.GFMS_tool import GFMS_write_steps  # noqa: E402
 from processing.hwrf import HWRF_MoM  # noqa: E402
 from processing.dfo.DFO_MoM import update_DFO_MoM  # noqa: E402
@@ -115,11 +121,7 @@ from processing.cycle_inputs import (  # noqa: E402
     rain_for_cycle,
     viirs_for_cycle,
 )
-from processing.utilities import (  # noqa: E402
-    gfms_steps_csv,
-    hafs_steps_csv,
-    watersheds_gdb_reader,
-)
+from processing.utilities import watersheds_gdb_reader  # noqa: E402
 from processing.viirs.VIIRS_MoM import update_VIIRS_MoM  # noqa: E402
 from processing.watershed_cells import raster_summary  # noqa: E402
 
@@ -128,14 +130,14 @@ LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
 DEFAULT_ROOT = os.path.dirname(settings.PRODUCT_DIR)  # holds Products/
 PROC_DIRS = ["GFMS_PROC_DIR", "HWRF_PROC_DIR", "DFO_PROC_DIR", "VIIRS_PROC_DIR",
              "HAFS_PROC_DIR", "HAFS_WORK_DIR", "HAFS_DONE_DIR", "DFO_FILLED_DIR"]
-# the step files are rebuilt from the Products data, never read from the
-# processing tree; one folder for the whole run, so the parallel processes
-# rebuild a cycle once between them instead of once each
+# the step files: read from the input root when there (step_file), else
+# rebuilt into the same folders under the out-dir, one folder for the whole
+# run, so the parallel processes rebuild a cycle once between them
 STEP_DIRS = ["GFMS_STEP_DIR", "HAFS_STEP_DIR"]
 INPUT_DIRS = ["GFMS_SUM_DIR", "GLOFAS_DIR", "GLOFAS_SUM_DIR", "DFO_SUM_DIR",
               "VIIRS_SUM_DIR", "HWRF_SUM_DIR", "HAFS_SUM_DIR",
               # the per-step data the lead times are rebuilt from
-              "GFMS_IMG_DIR", "HAFS_STEPS_DIR"]
+              "GFMS_IMG_DIR", "GFMS_STEPS_DIR", "HAFS_STEPS_DIR"]
 OUT_DIRS = ["GFMS_MOM_DIR", "HWRF_MOM_DIR", "DFO_MOM_DIR", "VIIRS_MOM_DIR",
             "FINAL_MOM_DIR", "HAFS_MOM_DIR", "DFO_HAFS_DIR", "VIIRS_HAFS_DIR",
             "FINAL_HAFS_DIR"]
@@ -173,8 +175,7 @@ def _no_download(*args):
 class Folders:
     """input and output folders of the run"""
 
-    def __init__(self, input_root, glofas_dfo_root, out_dir, steps_dir):
-        self.steps_dir = steps_dir
+    def __init__(self, input_root, glofas_dfo_root, out_dir):
         self.input_root = os.path.abspath(input_root)
         self.glofas_dfo_root = os.path.abspath(glofas_dfo_root)
         self.out_dir = os.path.abspath(out_dir)
@@ -209,6 +210,17 @@ class Folders:
         return os.path.join(self.input(sum_dir), f"{prefix}.{cycle}rainfall.csv")
 
 
+def step_file(folders, step_dir, summary_csv):
+    """the step file of a summary (step_dir: GFMS_STEP_DIR or HAFS_STEP_DIR):
+    the input root's when it has one, else the one in the out-dir (settings,
+    patched by offline()), which is where a rebuilt one is written"""
+    name = os.path.basename(summary_csv)
+    found = os.path.join(folders.input(step_dir), name)
+    if os.path.exists(found):
+        return found
+    return os.path.join(getattr(settings, step_dir), name)
+
+
 @contextlib.contextmanager
 def offline(folders, tmpdir):
     """no host access, the inputs under the input root, temporary files in
@@ -217,11 +229,20 @@ def offline(folders, tmpdir):
     saved_fixdate = GFMS_tool.GFMS_fixdate
     saved_processing = GFMS_tool.GFMS_processing
     saved_glofas = GloFAS_tool.download_glofas_until_found
+    # the MoM and GFMS_write_steps find a step file through these
+    saved_steps = (
+        GFMS_MoM.gfms_steps_csv, GFMS_tool.gfms_steps_csv, HWRF_MoM.hafs_steps_csv
+    )
     try:
         for k in PROC_DIRS:
             setattr(settings, k, folders.temp(tmpdir, k))
         for k in STEP_DIRS:
-            setattr(settings, k, folders.temp(folders.steps_dir, k))
+            setattr(settings, k, folders.out(k))
+        gfms_steps = lambda summary_csv: step_file(folders, "GFMS_STEP_DIR", summary_csv)  # noqa: E731
+        GFMS_MoM.gfms_steps_csv = GFMS_tool.gfms_steps_csv = gfms_steps
+        HWRF_MoM.hafs_steps_csv = lambda rain_csv: step_file(  # noqa: E731
+            folders, "HAFS_STEP_DIR", rain_csv
+        )
         for k in INPUT_DIRS:
             setattr(settings, k, folders.input(k))
         settings.GFMS_MOM_DIR = folders.out("GFMS_MOM_DIR")
@@ -244,6 +265,9 @@ def offline(folders, tmpdir):
         GFMS_tool.GFMS_fixdate = saved_fixdate
         GFMS_tool.GFMS_processing = saved_processing
         GloFAS_tool.download_glofas_until_found = saved_glofas
+        (
+            GFMS_MoM.gfms_steps_csv, GFMS_tool.gfms_steps_csv, HWRF_MoM.hafs_steps_csv
+        ) = saved_steps
 
 
 def pair_cycle(first_day):
@@ -381,49 +405,46 @@ def mom_outputs(folders, adate):
 
 
 def gfms_steps_from_image(folders, stamp, tmpdir):
-    """the GFMS step file of a cycle, written into GFMS_STEP_DIR (temporary)
-    from the cycle image in Products, which holds every 3 h step as a band:
-    the same two steps GFMS_tool takes when it processes a cycle, the cells of
-    the window's maximum (raster_summary) and then GFMS_write_steps over the
-    bands. Without it the GFMS lead time would be -1."""
+    """the GFMS step file of a cycle: the input root's (step_file), else
+    rebuilt into the out-dir's GFMS_STEP_DIR from the cycle's images in
+    Products as GFMS_tool makes it when it processes a cycle: the cells of the
+    window's maximum (raster_summary over the GFMS_image one), then
+    GFMS_write_steps over the bands of the GFMS_steps one. Without it the
+    GFMS lead time is -1."""
     summary_csv = os.path.join(settings.GFMS_SUM_DIR, f"Flood_byStor_{stamp}.csv")
-    path = gfms_steps_csv(summary_csv)
+    path = step_file(folders, "GFMS_STEP_DIR", summary_csv)
     if os.path.exists(path):
+        logging.info(f"GFMS step file found: {path}")
         return path
-    image = os.path.join(folders.input("GFMS_IMG_DIR"), f"Flood_byStor_{stamp}.tiff")
-    if not os.path.exists(image):
-        logging.warning(f"no GFMS cycle image for {stamp}: {image}")
+    name = f"Flood_byStor_{stamp}.tiff"
+    image = os.path.join(folders.input("GFMS_IMG_DIR"), name)
+    steps_image = os.path.join(folders.input("GFMS_STEPS_DIR"), name)
+    for f in (image, steps_image):
+        if not os.path.exists(f):
+            logging.warning(f"no GFMS image for {stamp}: {f}")
+            return None
+    with rasterio.open(steps_image) as src:
+        bands = src.count
+    if bands != GFMS_tool.GFMS_BANDS:
+        logging.warning(
+            f"GFMS steps image {stamp} has {bands} bands, not {GFMS_tool.GFMS_BANDS}: "
+            f"{steps_image}"
+        )
         return None
     if GFMS_tool.WATERSHEDS is None:
         GFMS_tool.WATERSHEDS = watersheds_gdb_reader()
 
-    # the window's maximum, the raster the cells are taken over
-    with rasterio.open(image) as src:
-        profile, running = src.profile, None
-        for band, description in enumerate(src.descriptions, start=1):
-            if description == "missing":
-                continue
-            grid = src.read(band)
-            running = grid if running is None else np.maximum(running, grid)
-    if running is None:
-        logging.warning(f"GFMS cycle image {stamp} has no step with data")
-        return None
-    window_max = os.path.join(tmpdir, f"gfms_window_max_{stamp}.tiff")
-    profile.update(count=1)
-    with rasterio.open(window_max, "w", **profile) as dst:
-        dst.write(running, 1)
-
     cells = []
-    raster_summary("gfms", window_max, GFMS_tool.WATERSHEDS, cells=cells)
-    GFMS_write_steps(image, cells, summary_csv)
-    os.remove(window_max)
-    logging.info(f"GFMS step file from the cycle image: {os.path.basename(path)}")
+    raster_summary("gfms", image, GFMS_tool.WATERSHEDS, cells=cells)
+    GFMS_write_steps(steps_image, cells, summary_csv)
+    logging.info(f"GFMS step file from the cycle images: {os.path.basename(path)}")
     return path
 
 
 def hafs_steps_from_records(folders, cycle, tmpdir):
-    """the HAFS step file of a rain cycle, written into HAFS_STEP_DIR from the
-    rain records kept in Products: every storm's 3 h steps merged and then
+    """the HAFS step file of a rain cycle: the input root's (step_file), else
+    rebuilt into the out-dir's HAFS_STEP_DIR from the rain records kept in
+    Products: every storm's 3 h steps merged and then
     HAFS_extract_by_watershed, as process_rain does it. Nothing is downloaded,
     HAFS_download returns the record already on disk. Without it the HAFS lead
     time would be -1."""
@@ -431,8 +452,9 @@ def hafs_steps_from_records(folders, cycle, tmpdir):
     from processing.hafs import HAFS_tool
 
     summary_csv = os.path.join(settings.HAFS_SUM_DIR, f"hafs.{cycle}rainfall.csv")
-    path = hafs_steps_csv(summary_csv)
+    path = step_file(folders, "HAFS_STEP_DIR", summary_csv)
     if os.path.exists(path):
+        logging.info(f"HAFS step file found: {path}")
         return path
     records = os.path.join(folders.input("HAFS_STEPS_DIR"), cycle)
     files = glob.glob(os.path.join(records, "*.grb2"))
@@ -632,10 +654,7 @@ def main():
     console.setFormatter(logging.Formatter("%(processName)s %(levelname)s %(message)s"))
     logging.getLogger().addHandler(console)
 
-    steps_dir = tempfile.mkdtemp(prefix="mom_backfill_steps_")
-    folders = Folders(
-        args.input_root, args.glofas_dfo_root or args.input_root, args.out_dir, steps_dir
-    )
+    folders = Folders(args.input_root, args.glofas_dfo_root or args.input_root, args.out_dir)
     dates = backfill_dates(args.end, args.days)
     chains = ["HWRF"] + (["HAFS"] if settings.HAFS_ENABLED else [])
     logging.info(
@@ -647,7 +666,7 @@ def main():
     )
 
     if not args.dry_run:
-        for name in OUT_DIRS:
+        for name in OUT_DIRS + STEP_DIRS:
             os.makedirs(folders.out(name), exist_ok=True)
     if args.overwrite:
         for adate in dates:
@@ -670,7 +689,6 @@ def main():
         phase2 = [pool.apply_async(run_dfo_viirs, (job, chain, cycles_done[chain])) for chain in chains]
         [r.get() for r in phase2]
 
-    shutil.rmtree(steps_dir, ignore_errors=True)
     logging.info(f"MoM backfill finished, log: {log_file}")
 
 

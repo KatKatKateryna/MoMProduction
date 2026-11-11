@@ -15,10 +15,12 @@ run makes the others. The following grids are downloaded again on every run
 (the host rewrites its files); their .bin files go to a temporary folder that
 is removed afterwards.
 
-The image of a cycle time (GFMS_STEP_HOURS) holds its grid and the window as
-bands (GFMS_save_steps); the other times have no image. An image is only
-replaced when its first band differs from the stored one; the stored one is
-then moved to GFMS_images_expired.
+A cycle time (GFMS_STEP_HOURS) gets two images: in GFMS_image the maximum
+over the window, the grid its summary is taken from (GFMS_save_max), and in
+GFMS_steps the window's grids as bands, one per 3 h step (GFMS_save_steps);
+the other times have no images. A maximum image is only replaced when it
+differs from the stored one; the stored one is then moved to
+GFMS_images_expired.
 """
 
 import csv
@@ -60,7 +62,7 @@ WATERSHEDS = None
 
 # summary = per-pixel maximum over the time and the following hours
 GFMS_WINDOW_HOURS = 96
-# bands of a cycle's image: the time itself, then every 3 h of the window
+# bands of a cycle's steps image: the time itself, then every 3 h of the window
 GFMS_BANDS = GFMS_WINDOW_HOURS // 3 + 1
 # a file the host does not give yet is requested again this many times, this
 # far apart
@@ -293,7 +295,7 @@ def GFMS_extract_by_watershed(vrt_file, window_dir=None):
         window = GFMS_window(vrt_file, window_dir)
 
     if window_dir and os.path.exists(vrt_file):
-        vrt_file = GFMS_window_max(vrt_file, window_dir)
+        vrt_file = window_max = GFMS_window_max(vrt_file, window_dir)
 
     # per-watershed flooded area (exact cell shares), depth mean and max
     # (watershed_cells.py); without the file every watershed gets 0s
@@ -303,6 +305,10 @@ def GFMS_extract_by_watershed(vrt_file, window_dir=None):
         summary = raster_summary("gfms", vrt_file, WATERSHEDS, cells=cells)
         if window:
             # no step file (lead times -1) rather than no summary
+            retry_step(
+                lambda: GFMS_save_max(window_max, stamp),
+                f"GFMS image {stamp}",
+            )
             retry_step(
                 lambda: GFMS_write_steps(
                     GFMS_save_steps(window, stamp),
@@ -345,13 +351,38 @@ def GFMS_extract_by_watershed(vrt_file, window_dir=None):
     return
 
 
-def GFMS_save_steps(window, stamp):
-    """the image of a cycle with the window as bands: GFMS_BANDS, band n is
-    +3(n-1) h (band 1 the time itself); a time the host does not have is a
-    nodata band, described "missing". Returns the stored image; one that has
-    the bands already is done."""
+def GFMS_save_max(window_max, stamp):
+    """the image of a cycle in GFMS_IMG_DIR: the window's maximum (window_max),
+    the grid the summary is taken from, one band; kept as GFMS_store_image
+    keeps images"""
     tiff_name = f"Flood_byStor_{stamp}.tiff"
-    tiff_file = os.path.join(settings.GFMS_IMG_DIR, tiff_name)
+    with rasterio.open(window_max) as src:
+        profile = {
+            "driver": "GTiff",
+            "width": src.width,
+            "height": src.height,
+            "count": 1,
+            "dtype": "float32",
+            "crs": src.crs,
+            "transform": src.transform,
+            "nodata": src.nodata,
+            "compress": "lzw",
+            "tiled": True,
+        }
+        grid = src.read(1)
+    new_tiff = os.path.join(settings.GFMS_PROC_DIR, "new_" + tiff_name)
+    with rasterio.open(new_tiff, "w", **profile) as dst:
+        dst.write(grid, 1)
+    GFMS_store_image(new_tiff, os.path.join(settings.GFMS_IMG_DIR, tiff_name))
+
+
+def GFMS_save_steps(window, stamp):
+    """the steps image of a cycle in GFMS_STEPS_DIR, the window as bands:
+    GFMS_BANDS, band n is +3(n-1) h (band 1 the time itself); a time the host
+    does not have is a nodata band, described "missing". Returns the stored
+    image; one that has the bands already is done."""
+    tiff_name = f"Flood_byStor_{stamp}.tiff"
+    tiff_file = os.path.join(settings.GFMS_STEPS_DIR, tiff_name)
     if os.path.exists(tiff_file):
         with rasterio.open(tiff_file) as src:
             if src.count == GFMS_BANDS:
@@ -383,25 +414,25 @@ def GFMS_save_steps(window, stamp):
                     np.full((dst.height, dst.width), dst.nodata, "float32"), band
                 )
                 dst.set_band_description(band, "missing")
-    # the same grid as the stored single band: only the bands are new
-    if os.path.exists(tiff_file) and GFMS_same_image(new_tiff, tiff_file):
-        os.replace(new_tiff, tiff_file)
-    else:
-        GFMS_store_image(new_tiff, tiff_file)
+    os.makedirs(settings.GFMS_STEPS_DIR, exist_ok=True)
+    shutil.move(new_tiff, tiff_file)
     return tiff_file
 
 
 def GFMS_write_steps(image, cells, summary_csv):
     """step file of a summary (utilities.gfms_steps_csv): the summary of the
-    per-pixel maximum up to each step of the image's bands (GFMS_save_steps),
-    over the cells of the whole window's maximum (cells, from raster_summary)"""
+    per-pixel maximum up to each step of the steps image's bands
+    (GFMS_save_steps), over the cells of the whole window's maximum (cells,
+    from raster_summary). Bands are taken by position, band n the step
+    +3(n-1) h; a band without any data (a time the host did not have) is no
+    step"""
     running, steps = None, []
     with rasterio.open(image) as src:
         nodata = src.nodata
-        for band, description in enumerate(src.descriptions, start=1):
-            if description == "missing":
-                continue
+        for band in range(1, src.count + 1):
             grid = src.read(band)
+            if nodata is not None and np.all(grid == nodata):
+                continue
             running = grid if running is None else np.maximum(running, grid)
             values = running.astype(np.float64)
             if nodata is not None:

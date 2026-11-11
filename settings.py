@@ -41,6 +41,9 @@ GFMS_SUM_DIR = os.path.join(GFMS_DIR, "GFMS_summary")
 # beside the summaries, never deleted
 GFMS_STEP_DIR = os.path.join(GFMS_SUM_DIR, "steps")
 GFMS_IMG_DIR = os.path.join(GFMS_DIR, "GFMS_image")
+# the 3-hourly grids of each cycle's window, one image per cycle with a band
+# per step: what its step file is made from, as HAFS_STEPS_DIR for HAFS
+GFMS_STEPS_DIR = os.path.join(GFMS_DIR, "GFMS_steps")
 # stored images replaced by a newer, different one
 GFMS_IMG_EXPIRED_DIR = os.path.join(GFMS_DIR, "GFMS_images_expired")
 GFMS_MOM_DIR = os.path.join(GFMS_DIR, "GFMS_MoM")
