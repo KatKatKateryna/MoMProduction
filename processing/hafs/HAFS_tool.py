@@ -62,7 +62,6 @@ import eccodes  # isort: skip
 import settings
 from processing.utilities import (
     RAIN_SUMMARY_HEADERS,
-    STEP_KEEP_DAYS,
     hafs_folders,
     hafs_storms,
     request_retry,
@@ -597,15 +596,6 @@ def hafs_workflow(cycle, with_alert=True):
         run_step("MoM+DFO+VIIRS", update_HWRFMoM_DFO_VIIRS, cycle)
         if with_alert:
             run_step("final alert", final_alert_pdc, cycle)
-    # the last cycle a later one can fall back on is the one before this one
-    # only the ones near this cycle are read, and the cutoff is the cycle's
-    # own date rather than today, as in GFMS_write_steps
-    cutoff = (
-        datetime.strptime(cycle[:8], "%Y%m%d") - timedelta(days=STEP_KEEP_DAYS)
-    ).strftime("%Y%m%d")
-    for old in glob.glob(os.path.join(settings.HAFS_STEP_DIR, "hafs.*rainfall.csv")):
-        if os.path.basename(old)[len("hafs.") :][:8] < cutoff:
-            os.remove(old)
     return True
 
 

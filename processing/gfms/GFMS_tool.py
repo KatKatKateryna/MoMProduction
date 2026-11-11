@@ -49,7 +49,6 @@ from processing.hwrf.HWRF_MoM import hwrf_workflow
 import settings
 from processing.utilities import (
     hwrf_today,
-    STEP_KEEP_DAYS,
     gfms_steps_csv,
     retry_step,
     watersheds_gdb_reader,
@@ -413,16 +412,6 @@ def GFMS_write_steps(image, cells, summary_csv):
     path = gfms_steps_csv(summary_csv)
     write_steps(path, steps)
     logging.info(f"generated: {path} ({len(steps)} steps)")
-    # only the ones near this cycle are read, and the cutoff is the cycle's
-    # own date rather than today: a backfill of an old cycle keeps its step
-    # files instead of deleting them the moment they are written
-    stamp = os.path.basename(path)[len("Flood_byStor_") : -len(".csv")]
-    cutoff = (
-        datetime.strptime(stamp[:8], "%Y%m%d") - timedelta(days=STEP_KEEP_DAYS)
-    ).strftime("%Y%m%d")
-    for old in glob.glob(os.path.join(os.path.dirname(path), "Flood_byStor_*.csv")):
-        if os.path.basename(old)[len("Flood_byStor_") :][:8] < cutoff:
-            os.remove(old)
 
 
 def GFMS_data_extractor(bin_file, window_dir=None):

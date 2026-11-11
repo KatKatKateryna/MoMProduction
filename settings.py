@@ -35,11 +35,11 @@ GLOFAS_SUM_DIR = os.path.join(PRODUCT_DIR, config.get("products_dir", "GLOFAS"))
 
 # config GFMS directory
 GFMS_PROC_DIR = os.path.join(WORKING_DIR, config.get("processing_dir", "gfms"))
-# the step files of the GFMS summaries, for the lead times: a folder of its
-# own, so it can be read from somewhere else than the processing folder
-GFMS_STEP_DIR = os.path.join(GFMS_PROC_DIR, "steps")
 GFMS_DIR = os.path.join(PRODUCT_DIR, config.get("products_dir", "GFMS"))
 GFMS_SUM_DIR = os.path.join(GFMS_DIR, "GFMS_summary")
+# the step files of the GFMS summaries, for the lead times: a product kept
+# beside the summaries, never deleted
+GFMS_STEP_DIR = os.path.join(GFMS_SUM_DIR, "steps")
 GFMS_IMG_DIR = os.path.join(GFMS_DIR, "GFMS_image")
 # stored images replaced by a newer, different one
 GFMS_IMG_EXPIRED_DIR = os.path.join(GFMS_DIR, "GFMS_images_expired")
@@ -92,15 +92,16 @@ HAFS_HOST = config.get(
 HAFS_MODEL = config.get("hafs", "MODEL", fallback="hfsa")
 HAFS_LOOKBACK_DAYS = config.getint("hafs", "LOOKBACK_DAYS", fallback=2)
 HAFS_PROC_DIR = os.path.join(WORKING_DIR, "hafs")
-# the step files of the HAFS summaries, for the lead times; not
-# HAFS_STEPS_DIR below, which keeps the rain records of the host
-HAFS_STEP_DIR = os.path.join(HAFS_PROC_DIR, "steps")
 # the HAFS job's working folders, named here so they can be pointed
 # somewhere else; they used to be built at import in the modules
 HAFS_WORK_DIR = os.path.join(HAFS_PROC_DIR, "work")
 HAFS_DONE_DIR = os.path.join(HAFS_PROC_DIR, "done")
 HAFS_DIR = os.path.join(PRODUCT_DIR, "HAFS")
 HAFS_SUM_DIR = os.path.join(HAFS_DIR, "HAFS_summary")
+# the step files of the HAFS summaries, for the lead times: a product kept
+# beside the summaries, never deleted; not HAFS_STEPS_DIR below, which keeps
+# the rain records of the host
+HAFS_STEP_DIR = os.path.join(HAFS_SUM_DIR, "steps")
 HAFS_IMG_DIR = os.path.join(HAFS_DIR, "HAFS_image")
 HAFS_MOM_DIR = os.path.join(HAFS_DIR, "HAFS_MoM")
 HAFS_STEPS_DIR = os.path.join(HAFS_DIR, "HAFS_steps")

@@ -15,8 +15,8 @@ offline_mom_from_summaries.py
     summaries under --glofas-dfo-root (default: --input-root, for an archive
     that keeps them somewhere else). A root is in the production layout:
     every folder where settings.py puts it, summaries under ROOT/Products
-    (GFMS/GFMS_summary, GLOFAS, ...) and the step files under ROOT/Processing
-    (gfms/steps, hafs/steps).
+    (GFMS/GFMS_summary, GLOFAS, ...), the step files beside the summaries
+    (GFMS/GFMS_summary/steps, HAFS/HAFS_summary/steps).
 
     Outputs, all under --out-dir and nowhere else. A flat OUT:
         OUT/gfms_mom          GFMS MoM

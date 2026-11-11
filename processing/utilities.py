@@ -95,14 +95,11 @@ STEP_ALONE_HEADERS = ["step_area", "step_perc_area", "step_mean", "step_max"]
 # a step file that fails is written again this many times, this far apart
 STEP_RETRIES = 3
 STEP_WAIT_SECONDS = 60
-# a step file this many days either side of the cycle being written is
-# kept; the cutoff is the cycle's own date, never today, so writing an old
-# cycle (a backfill) does not delete what it just made
-STEP_KEEP_DAYS = 10
 
 
 def gfms_steps_csv(summary_csv):
-    """the step file of a GFMS summary, in GFMS_STEP_DIR, one row
+    """the step file of a GFMS summary, in GFMS_STEP_DIR (the summary
+    folder's steps/), one row
     per watershed with data and 3 h step (STEP_HEADERS), the summary of the
     data up to that step (GFMS: running maximum, HAFS: running total);
     step_h counted from the summary's time stamp (GFMS: valid time, HAFS:
@@ -111,7 +108,8 @@ def gfms_steps_csv(summary_csv):
 
 
 def hafs_steps_csv(rain_csv):
-    """the step file of a HAFS summary, in HAFS_STEP_DIR: rebuilt from
+    """the step file of a HAFS summary, in HAFS_STEP_DIR (the summary
+    folder's steps/): rebuilt from
     HAFS_steps when a cycle is processed again"""
     return os.path.join(settings.HAFS_STEP_DIR, os.path.basename(rain_csv))
 
