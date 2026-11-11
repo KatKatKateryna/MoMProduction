@@ -18,14 +18,67 @@ BASE_DATA_DIR = os.path.join(BASE_DIR, "data")
 config = configparser.ConfigParser(allow_no_value=True)
 config.read(os.path.join(BASE_DIR, "production.cfg"))
 
+def _read_bbox():
+    """the area of interest of this installation: "minlon, minlat, maxlon,
+    maxlat" as BBOX in the [general] section of production.cfg, or None when
+    it is empty or absent -- then every job covers the whole globe, as it
+    always has.
+
+    With a box set, the jobs work on the watersheds it touches only and
+    download just the host data that covers it."""
+    raw = (config.get("general", "BBOX", fallback="") or "").strip()
+    if not raw:
+        return None
+    parts = [p.strip() for p in raw.replace(";", ",").split(",") if p.strip()]
+    if len(parts) != 4:
+        raise ValueError(
+            f"BBOX needs four numbers, minlon, minlat, maxlon, maxlat: {raw}"
+        )
+    # five decimals (about a metre) is as fine as a box needs to be, and the
+    # folder suffix is written from the same numbers
+    minlon, minlat, maxlon, maxlat = (round(float(p), 5) for p in parts)
+    if not (-180 <= minlon < maxlon <= 180 and -90 <= minlat < maxlat <= 90):
+        raise ValueError(
+            "BBOX must be minlon, minlat, maxlon, maxlat inside -180..180 and "
+            f"-90..90, and must not cross the antimeridian: {raw}"
+        )
+    return (minlon, minlat, maxlon, maxlat)
+
+
+BBOX = _read_bbox()
+
+
+def _bbox_number(value):
+    """a box coordinate for a folder name: at most five decimals, no
+    trailing zeros (72, 5.5, -10.12345)"""
+    text = f"{value:.5f}".rstrip("0").rstrip(".")
+    return "0" if text == "-0" else text
+
+
+def _bbox_dir(folder):
+    """a folder of a box run: it gets the suffix
+    _<minlon>_<minlat>_<maxlon>_<maxlat>, the BBOX numbers in their own
+    order, so a box never writes into the folders of the global run or of
+    another box (~/MoM/Processing -> ~/MoM/Processing_72_5_88_22); the folder
+    above it keeps its name. Unchanged without a box, and when the folder
+    already ends with the suffix."""
+    if BBOX is None:
+        return folder
+    suffix = "_" + "_".join(_bbox_number(v) for v in BBOX)
+    folder = os.path.normpath(folder)
+    if not os.path.basename(folder).endswith(suffix):
+        folder += suffix
+    return folder
+
+
 # config directory
-# base directory for downloading and processing data
-WORKING_DIR = os.path.expanduser(
-    config.get("general", "WORKING_DIR").replace("/", os.sep)
+# base directory for downloading and processing data, and for the data
+# products; with a BBOX each moves to a folder of the box's own (_bbox_dir)
+WORKING_DIR = _bbox_dir(
+    os.path.expanduser(config.get("general", "WORKING_DIR").replace("/", os.sep))
 )
-# base directory for the data products
-PRODUCT_DIR = os.path.expanduser(
-    config.get("general", "PRODUCT_DIR").replace("/", os.sep)
+PRODUCT_DIR = _bbox_dir(
+    os.path.expanduser(config.get("general", "PRODUCT_DIR").replace("/", os.sep))
 )
 
 # config GLOFAS directory

@@ -11,8 +11,10 @@ VIIRS_tool.py
 
 import argparse
 import csv
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone, timedelta
 import glob
+import json
 import logging
 import math
 import os
@@ -27,7 +29,7 @@ from multiprocessing import Pool
 from osgeo import gdal
 
 import settings
-from processing.utilities import read_data, watersheds_gdb_reader
+from processing.utilities import bbox_wanted, read_data, watersheds_gdb_reader
 from processing.viirs.VIIRS_MoM import update_VIIRS_MoM
 from processing.watershed_cells import raster_summary
 
@@ -164,8 +166,115 @@ def pop_matching_string_from_list(urls: list[str], str_to_match: str):
     return None  # if not found
 
 
-def build_tiff(adate):
-    """download and build geotiff"""
+# the global composite comes in 136 parts of 15 degrees; with a box only the
+# parts covering it are downloaded, picked from the parts' own GeoTIFF headers
+# on the host (a few KB each, read once and cached -- the tiling is the
+# product's and does not change with the date)
+PART_COUNT = 136
+PART_EXTENTS_FILE = "viirs_part_extents.json"
+
+
+def part_extent(url):
+    """(minlon, minlat, maxlon, maxlat) of one composite part, read from its
+    header on the host; None when it cannot be read"""
+    try:
+        # without GDAL_DISABLE_READDIR_ON_OPEN, /vsicurl lists the host's
+        # whole composite directory on every open -- thousands of files, all
+        # dates -- which cost about 25s a part against 0.3s for the header
+        # itself, and is the whole reason this probe was slow.
+        with gdal.config_options({"GDAL_DISABLE_READDIR_ON_OPEN": "EMPTY_DIR"}):
+            ds = gdal.Open("/vsicurl/" + url)
+    except Exception:
+        ds = None
+    if ds is None:
+        return None
+    gt = ds.GetGeoTransform()
+    return (
+        gt[0],
+        gt[3] + gt[5] * ds.RasterYSize,
+        gt[0] + gt[1] * ds.RasterXSize,
+        gt[3],
+    )
+
+
+def read_part_extents():
+    """the cached part extents of every product, {} when there are none"""
+    cache_file = os.path.join(settings.VIIRS_PROC_DIR, PART_EXTENTS_FILE)
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file) as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            pass
+    return {}
+
+
+def cache_part_extents(urls_by_part, product):
+    """read the headers of the parts the cached map does not place yet and
+    add them to it. Run once in VIIRS_cron before the jobs, which only read
+    the map: jobs running in parallel would otherwise read the same map and
+    overwrite each other's additions.
+
+    A map left short by a flaky host fills in on later runs rather than its
+    gaps being downloaded blind for ever."""
+    if settings.BBOX is None:
+        return
+    cache = read_part_extents()
+    extents = dict(cache.get(product) or {})
+    missing = [i for i in sorted(urls_by_part) if str(i) not in extents]
+    if not missing:
+        return
+    t0 = time.monotonic()
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        found = list(pool.map(part_extent, [urls_by_part[i] for i in missing]))
+    read = {str(i): e for i, e in zip(missing, found) if e}
+    extents.update(read)
+    logging.info(
+        f"VIIRS {product}: {len(read)} of {len(missing)} part headers read, "
+        f"{time.monotonic() - t0:.0f}s, map {len(extents)}/{len(urls_by_part)}"
+    )
+    if read:
+        cache[product] = extents
+        try:
+            with open(os.path.join(settings.VIIRS_PROC_DIR, PART_EXTENTS_FILE), "w") as f:
+                json.dump(cache, f)
+        except OSError as e:
+            logging.info(f"VIIRS part extents not cached: {e}")
+
+
+def bbox_parts(urls_by_part, product):
+    """the parts of a composite the box's watersheds reach, of those the host
+    has (urls_by_part: the part number of each one and where to get it), from
+    the map cache_part_extents made.
+
+    None without a box, and None as well when the map places fewer than half
+    the parts (the host was not answering header reads) -- then every part is
+    downloaded, as before. The extents are cached per product: the tiling is
+    the product's, the same for every date and on either host."""
+    if settings.BBOX is None:
+        return None
+    extents = read_part_extents().get(product) or {}
+    if len(extents) < len(urls_by_part) / 2:
+        logging.info(
+            f"VIIRS {product}: map {len(extents)}/{len(urls_by_part)}, every part downloaded"
+        )
+        return None
+    wanted = [
+        i
+        for i in sorted(urls_by_part)
+        # a part whose header could not be read is downloaded too: where it
+        # lies is unknown, and it is cheaper than losing its data
+        if str(i) not in extents or bbox_wanted(*extents[str(i)])
+    ]
+    logging.info(
+        f"VIIRS {product}: {len(wanted)} of {len(urls_by_part)} parts in the box"
+    )
+    return wanted
+
+
+def build_tiff(adate, extents_only=False):
+    """download and build geotiff; extents_only: only fill the part extents
+    map (cache_part_extents) for both products, download nothing"""
 
     use_aws = False
 
@@ -206,6 +315,9 @@ def build_tiff(adate):
             },
         ]
 
+    if extents_only and settings.BBOX is None:
+        return []
+
     final_2_tiffs = []
 
     for job_entry in joblist:
@@ -225,17 +337,35 @@ def build_tiff(adate):
 
         session = requests.Session()
         tiff_list_per_job = []
-        for i in range(1, 137):
 
+        # where each part of this composite comes from, before anything is
+        # downloaded, so the box can pick from them
+        urls_by_part = {}
+        for i in range(1, PART_COUNT + 1):
             if not use_aws:
                 # FTP server:
-                dataurl = job_entry["url"].format(adate, str(i).zfill(3))
-                filename = dataurl.split("/")[-1]
+                urls_by_part[i] = job_entry["url"].format(adate, str(i).zfill(3))
             else:
+                # the bucket listing names the parts GLB001..GLB136
                 dataurl = pop_matching_string_from_list(
                     all_available_aws_files, f"GLB{str(i).zfill(3)}"
                 )
-                filename = job_entry["filename"].format(adate, str(i).zfill(3))
+                if dataurl:
+                    urls_by_part[i] = dataurl
+
+        if extents_only:
+            cache_part_extents(urls_by_part, job_entry["product"])
+            continue
+
+        parts = bbox_parts(urls_by_part, job_entry["product"])
+        for i in parts if parts is not None else sorted(urls_by_part):
+
+            dataurl = urls_by_part[i]
+            filename = (
+                job_entry["filename"].format(adate, str(i).zfill(3))
+                if use_aws
+                else dataurl.split("/")[-1]
+            )
 
             # try download file
             try:
@@ -451,11 +581,19 @@ def VIIRS_cron(adate=""):
         "GDAL_NUM_THREADS", str(math.floor(os.cpu_count() / processes))
     )
 
+    dates = [generate_adate(delay) for delay in [2, 1]] if adate == "" else [adate]
+    # one full pass over the part extents map before any job: the jobs only
+    # read it, so the parallel ones do not race on the same cache file
+    os.chdir(settings.VIIRS_PROC_DIR)
+    for d in dates:
+        if not check_status(d) and check_data_online(d):
+            build_tiff(d, extents_only=True)
+    os.chdir(settings.BASE_DIR)
+
     if adate == "":
         # check two days
         with Pool(processes=2) as p:
             # p.map(run_job, [2, 1])
-            dates = [generate_adate(delay) for delay in [2, 1]]
             jobs = [p.apply_async(VIIRS_run_adate, (adate,)) for adate in dates]
 
             # wait for all to finish, handle exceptions inside the pool to avoid hanging

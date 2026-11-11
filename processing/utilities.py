@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 import requests
 import scipy.stats
+import shapely
 
 import settings
 
@@ -38,7 +39,19 @@ def watersheds_gdb_reader():
         return _WATERSHEDS
 
     # pfaf_id, areakm2
-    watersheds = geopandas.read_file(settings.WATERSHED_SHP)
+    if settings.BBOX is None:
+        watersheds = geopandas.read_file(settings.WATERSHED_SHP)
+    else:
+        # the one intersection of the run: the reader itself skips the
+        # features outside the box (so the other ~16000 are never built),
+        # then the ones that only share its bounding box are dropped. Every
+        # masking loop, summary and score downstream follows from this frame.
+        t0 = time.monotonic()
+        watersheds = geopandas.read_file(settings.WATERSHED_SHP, bbox=settings.BBOX)
+        watersheds = watersheds[watersheds.intersects(shapely.box(*settings.BBOX))]
+        logging.info(
+            f"watershed shapefile read for the box in {time.monotonic() - t0:.1f}s"
+        )
     # issue #1
     # some old code use aqid, need to be updated
     # watersheds.rename(columns={"pfaf_id": "aqid"},inplace=True)
@@ -50,9 +63,81 @@ def watersheds_gdb_reader():
     return watersheds
 
 
+# the box's watersheds and data extent, worked out once per run by
+# bbox_prepare() and reused by every step after it
+_BBOX = None
+
+
+def bbox_prepare():
+    """work out, once per run, which watersheds settings.BBOX covers and
+    which extent the host data has to cover for them.
+
+    Called at the start of a job, before any download or masking: the one
+    intersection of the run. Every step afterwards reuses the result -- the
+    masking loops, the per-source download filters and the MoM tables.
+    Without a box it does nothing and the jobs stay global."""
+    global _BBOX
+    if settings.BBOX is None or _BBOX is not None:
+        return _BBOX
+    watersheds = watersheds_gdb_reader()
+    # the watersheds are summarised whole, so the data has to cover all of
+    # each of them, not only the part inside the box: their own bounding
+    # boxes, and the one extent around them all
+    boxes = [
+        tuple(round(float(v), 6) for v in b)
+        for b in watersheds.geometry.bounds.itertuples(index=False)
+    ]
+    _BBOX = {
+        "pfaf_ids": set(watersheds.index.tolist()),
+        "boxes": boxes,
+        "extent": tuple(round(float(v), 6) for v in watersheds.total_bounds),
+    }
+    logging.info(
+        f"BBOX {settings.BBOX}: {len(_BBOX['pfaf_ids'])} watersheds, "
+        f"data extent {_BBOX['extent']}"
+    )
+    return _BBOX
+
+
+def bbox_pfaf_ids():
+    """the pfaf_ids settings.BBOX covers, None without a box"""
+    prepared = bbox_prepare()
+    return None if prepared is None else prepared["pfaf_ids"]
+
+
+def bbox_data_extent():
+    """(minlon, minlat, maxlon, maxlat) the host data has to cover: the
+    bounding box of every watershed the box touches, which reaches past the
+    box itself wherever one crosses its edge. None without a box."""
+    prepared = bbox_prepare()
+    return None if prepared is None else prepared["extent"]
+
+
+def bbox_wanted(minlon, minlat, maxlon, maxlat, pad=0.0):
+    """True if an area of host data (a tile, a composite part, a storm
+    domain) overlaps any watershed of the box, widened by pad degrees.
+
+    Tighter than the one extent around them all: the islands leave wide gaps
+    inside that extent which no watershed reaches.
+    True without a box, where everything is wanted."""
+    prepared = bbox_prepare()
+    if prepared is None:
+        return True
+    return any(
+        maxlon > a - pad and minlon < c + pad and maxlat > b - pad and minlat < d + pad
+        for a, b, c, d in prepared["boxes"]
+    )
+
+
 def read_data(datafile) -> pd.DataFrame:
     df = pd.read_csv(datafile)
     # df = pd.DataFrame(df)
+    ids = bbox_pfaf_ids()
+    if ids is not None and "pfaf_id" in df.columns:
+        # every table of the chain is keyed on pfaf_id -- the attributes, the
+        # resilience index, each model's scores -- and outside the box none
+        # of those rows are wanted
+        df = df[df["pfaf_id"].isin(ids)].reset_index(drop=True)
     return df
 
 

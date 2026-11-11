@@ -10,6 +10,7 @@ Two main function:
 
 import csv
 import logging
+import math
 import os
 import shutil
 import subprocess
@@ -25,7 +26,7 @@ from osgeo import gdal
 
 from processing.dfo.DFO_MoM import update_DFO_MoM
 import settings
-from processing.utilities import watersheds_gdb_reader
+from processing.utilities import bbox_wanted, watersheds_gdb_reader
 from processing.watershed_cells import raster_summary
 
 load_dotenv()
@@ -147,6 +148,94 @@ def generate_procesing_list():
     }
 
 
+# MCDWD tiles are 10 degrees: h counts east from 180 W, v south from 90 N,
+# so h20v05 is the tile at 20 E, 30-40 N. A global day is 287 tiles.
+TILE_DEG = 10
+# how many tiles of the box the host had, kept with the downloaded day
+EXPECTED_TILES_FILE = "bbox_tiles.txt"
+
+
+def bbox_tile_ids():
+    """the hXXvYY tile ids the box's watersheds reach, None without a box"""
+    if settings.BBOX is None:
+        return None
+    return {
+        f"h{h:02d}v{v:02d}"
+        for h in range(36)
+        for v in range(18)
+        if bbox_wanted(
+            -180 + h * TILE_DEG,
+            90 - (v + 1) * TILE_DEG,
+            -180 + (h + 1) * TILE_DEG,
+            90 - v * TILE_DEG,
+        )
+    }
+
+
+def dfo_download_tiles(subfolder, dataurl, tiles, dfokey):
+    """download only the box's tiles of a day: the folder is listed once and
+    each tile of the box is fetched by name, instead of the whole day"""
+    try:
+        reqs = requests.get(dataurl, timeout=120)
+        reqs.raise_for_status()
+    except requests.RequestException as e:
+        logging.warning(f"Listing failed: {dataurl}, error: {e}")
+        return False
+
+    soup = BeautifulSoup(reqs.text, "html.parser")
+    names = sorted(
+        link.string.strip()
+        for link in soup.find_all("a")
+        if link.string
+        and link.string.strip().endswith(".hdf")
+        and any(t in link.string for t in tiles)
+    )
+    if not names:
+        logging.warning(f"no tile of the box in {dataurl}")
+        return False
+
+    d_dir = os.path.join(settings.DFO_PROC_DIR, subfolder)
+    os.makedirs(d_dir, exist_ok=True)
+    ok = 0
+    for name in names:
+        if os.path.exists(os.path.join(d_dir, name)):
+            ok += 1
+            continue
+        result = subprocess.run(
+            [
+                "wget",
+                "-q",
+                f"{dataurl}/{name}",
+                "--header",
+                f"Authorization: Bearer {dfokey}",
+                "-P",
+                d_dir,
+            ],
+            check=False,
+        )
+        if result.returncode == 0:
+            ok += 1
+        else:
+            logging.warning(f"Download failed: {name}, error: {result.returncode}")
+    # the completeness check of DFO_process counts against the box, not 287
+    with open(os.path.join(d_dir, EXPECTED_TILES_FILE), "w") as f:
+        f.write(str(len(names)))
+    logging.info(f"DFO {subfolder}: {ok} of {len(names)} tiles of the box")
+    return ok > 0
+
+
+def expected_tiles(hdffolder):
+    """how many tiles a day's folder should hold: every tile of the box the
+    host had, or the global 287 without a box"""
+    if settings.BBOX is None:
+        return DFO_TOTAL_TILES
+    try:
+        with open(os.path.join(hdffolder, EXPECTED_TILES_FILE)) as f:
+            return int(f.read().strip())
+    except (OSError, ValueError):
+        return len(bbox_tile_ids())
+
+
 def dfo_download(subfolder, year=None):
     """download a subfolder (day number) of a year's folder on the host
     (default: the current year)"""
@@ -174,6 +263,11 @@ def dfo_download(subfolder, year=None):
         else os.getenv("AUTH_DFO_TOKEN")
     )
     dataurl = f"{get_hosturl(year).rstrip('/')}/{subfolder}"
+
+    # with a box, only its tiles of the day are downloaded
+    tiles = bbox_tile_ids()
+    if tiles is not None:
+        return dfo_download_tiles(subfolder, dataurl, tiles, dfokey)
 
     # os-agnostic process
     cmd = [
@@ -308,7 +402,7 @@ def DFO_process(folder, adate):
         hdffiles.append(HDF)
 
     # check the number of files
-    if len(hdffiles) < 0.9 * DFO_TOTAL_TILES:
+    if len(hdffiles) < 0.9 * expected_tiles(hdffolder):
         logging.warning(f"Not enough files: {folder}")
         return
 

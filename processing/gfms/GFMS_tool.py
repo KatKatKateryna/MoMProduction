@@ -26,6 +26,7 @@ GFMS_images_expired.
 import csv
 import glob
 import logging
+import math
 import os
 import shutil
 import tempfile
@@ -50,6 +51,7 @@ from processing.watershed_cells import cells_summary, raster_summary
 from processing.hwrf.HWRF_MoM import hwrf_workflow
 import settings
 from processing.utilities import (
+    bbox_data_extent,
     hwrf_today,
     gfms_steps_csv,
     retry_step,
@@ -101,6 +103,88 @@ def GFMS_fetch(url):
     return r
 
 
+# the grid of the host's GFMS files
+GFMS_NCOLS = 2458
+GFMS_NROWS = 800
+GFMS_RES = 0.125
+GFMS_TOP = 50.0
+GFMS_LEFT = -127.25
+# a global file that is at least mostly complete
+GFMS_MIN_BYTES = 7000000
+
+
+def gfms_rows():
+    """(first row, number of rows) of the grid the box's watersheds reach;
+    the whole grid without a box"""
+    extent = bbox_data_extent()
+    if extent is None:
+        return 0, GFMS_NROWS
+    _, minlat, _, maxlat = extent
+    row0 = min(max(int(math.floor((GFMS_TOP - maxlat) / GFMS_RES)), 0), GFMS_NROWS - 1)
+    row1 = min(
+        max(int(math.ceil((GFMS_TOP - minlat) / GFMS_RES)), row0 + 1), GFMS_NROWS
+    )
+    return row0, row1 - row0
+
+
+def gfms_saved_rows(binfile_local):
+    """which rows a downloaded .bin holds: the box's band when it was fetched
+    as one, else the whole grid"""
+    try:
+        with open(binfile_local + ".rows") as f:
+            row0, nrows = (int(x) for x in f.read().split())
+        return row0, nrows
+    except (OSError, ValueError):
+        return 0, GFMS_NROWS
+
+
+def gfms_fetch(url, binfile_local):
+    """download a GFMS .bin -- with a box only the rows it covers, as one
+    range request, since the file is a plain grid of rows (the whole file
+    when the host does not serve ranges). Writes the .bin and, beside it,
+    which rows it holds."""
+    row0, nrows = gfms_rows()
+    if (row0, nrows) != (0, GFMS_NROWS):
+        start = row0 * GFMS_NCOLS * 4
+        size = nrows * GFMS_NCOLS * 4
+        r = requests.get(
+            url, headers={"Range": f"bytes={start}-{start + size - 1}"}, timeout=300
+        )
+        if r.status_code == 206 and len(r.content) == size:
+            with open(binfile_local, "wb") as f:
+                f.write(r.content)
+            with open(binfile_local + ".rows", "w") as f:
+                f.write(f"{row0} {nrows}")
+            return
+        logging.info(
+            f"GFMS host served no range ({r.status_code}), whole file: "
+            f"{os.path.basename(url)}"
+        )
+    r = requests.get(url, allow_redirects=True, timeout=300)
+    r.raise_for_status()
+    if len(r.content) < GFMS_MIN_BYTES:
+        raise ValueError(f"only {len(r.content)} bytes")
+    with open(binfile_local, "wb") as f:
+        f.write(r.content)
+    with open(binfile_local + ".rows", "w") as f:
+        f.write(f"0 {GFMS_NROWS}")
+
+
+def gfms_fetch_retried(url, binfile_local):
+    """gfms_fetch, retried while the host does not give the file"""
+    for retry in range(1, GFMS_ONLINE_RETRIES + 1):
+        try:
+            gfms_fetch(url, binfile_local)
+            return
+        except (requests.exceptions.RequestException, ValueError) as e:
+            logging.info(
+                f"not online yet: {url}: {e}, retry {retry} of "
+                f"{GFMS_ONLINE_RETRIES} in {GFMS_ONLINE_WAIT_SECONDS}s"
+            )
+            time.sleep(GFMS_ONLINE_WAIT_SECONDS)
+    gfms_fetch(url, binfile_local)
+
+
 def GFMS_download(bin_file):
     """download a given bin file"""
 
@@ -111,24 +195,30 @@ def GFMS_download(bin_file):
     binfile_local = os.path.join(settings.GFMS_PROC_DIR, bin_file)
     vrt_file = binfile_local.replace(".bin", ".vrt")
 
-    # check if the size is ok
+    # check if the size is ok: a file holds the whole grid, or the rows of
+    # the box when it was fetched as a band
     if os.path.exists(binfile_local):
         binsize = os.path.getsize(binfile_local)
-        if binsize < 7000000:
+        _, saved_rows = gfms_saved_rows(binfile_local)
+        if binsize < min(saved_rows * GFMS_NCOLS * 4, GFMS_MIN_BYTES):
             os.remove(binfile_local)
 
     if not os.path.exists(binfile_local):
         # download the data
         try:
-            r = GFMS_fetch(download_data_url)
+            if settings.BBOX is None:
+                r = GFMS_fetch(download_data_url)
+                with open(binfile_local, "wb") as f:
+                    f.write(r.content)
+            else:
+                gfms_fetch_retried(download_data_url, binfile_local)
 
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Download failed: {e.strerror}")
-            print(f"Download failed: {e.strerror}")
+        except (requests.exceptions.RequestException, ValueError) as e:
+            logging.error(f"Download failed: {e}")
+            print(f"Download failed: {e}")
             # sys.exit()
             return vrt_file
 
-        open(binfile_local, "wb").write(r.content)
         logging.info(f"Download: {bin_file}")
         print(f"Download: {bin_file}")
 
@@ -139,13 +229,17 @@ def GFMS_write_vrt(binfile_local):
     """write the .hdr and .vrt of a downloaded bin file, return the vrt"""
     vrt_file = binfile_local.replace(".bin", ".vrt")
 
-    # generate header file
-    hdr_header = """NCOLS 2458
-    NROWS 800
-    XLLCORNER -127.25
-    YLLCORNER -50
+    # a .bin holds the whole grid, or only the rows of the box
+    row0, nrows = gfms_saved_rows(binfile_local)
+    top = GFMS_TOP - row0 * GFMS_RES
 
-    CELLSIZE 0.125
+    # generate header file
+    hdr_header = f"""NCOLS {GFMS_NCOLS}
+    NROWS {nrows}
+    XLLCORNER {GFMS_LEFT}
+    YLLCORNER {top - nrows * GFMS_RES}
+
+    CELLSIZE {GFMS_RES}
     PIXELTYPE FLOAT
     BYTEORDER LSBFIRST
     NODATA_VALUE -9999
@@ -156,13 +250,13 @@ def GFMS_write_vrt(binfile_local):
 
     # generate vrt file: the bin's own 0.125 degree grid, not resampled, in
     # WGS 84 (EPSG:4326, as WKT so reading it needs no proj.db lookup)
-    vrt_template = """<VRTDataset rasterXSize="2458" rasterYSize="800">
+    vrt_template = """<VRTDataset rasterXSize="{ncols}" rasterYSize="{nrows}">
   <SRS dataAxisToSRSAxisMapping="2,1">GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AXIS["Latitude",NORTH],AXIS["Longitude",EAST],AUTHORITY["EPSG","4326"]]</SRS>
-  <GeoTransform>-127.25, 0.125, 0, 50, 0, -0.125</GeoTransform>
+  <GeoTransform>{left}, {res}, 0, {top}, 0, -{res}</GeoTransform>
   <VRTRasterBand dataType="Float32" band="1">
     <NoDataValue>-9999</NoDataValue>
     <SimpleSource>
-      <SourceFilename relativeToVRT="1">{}</SourceFilename>
+      <SourceFilename relativeToVRT="1">{name}</SourceFilename>
       <SourceBand>1</SourceBand>
     </SimpleSource>
   </VRTRasterBand>
@@ -170,7 +264,16 @@ def GFMS_write_vrt(binfile_local):
 
     # generate VRT file
     with open(vrt_file, "w") as f:
-        f.write(vrt_template.format(os.path.basename(binfile_local)))
+        f.write(
+            vrt_template.format(
+                ncols=GFMS_NCOLS,
+                nrows=nrows,
+                left=GFMS_LEFT,
+                res=GFMS_RES,
+                top=top,
+                name=os.path.basename(binfile_local),
+            )
+        )
 
     return vrt_file
 
@@ -185,18 +288,13 @@ def GFMS_window_vrt(bin_file, window_dir):
     if os.path.exists(binfile_local + ".missing"):
         return None
     try:
-        r = requests.get(GFMS_url(bin_file), timeout=300)
-        r.raise_for_status()
-        if len(r.content) < 7000000:
-            raise ValueError(f"only {len(r.content)} bytes")
+        gfms_fetch(GFMS_url(bin_file), binfile_local)
     except Exception as e:
         # past the end of the forecast the host answers 404
         if not (isinstance(e, requests.HTTPError) and e.response.status_code == 404):
             logging.warning(f"GFMS window file not used: {bin_file}: {e}")
         open(binfile_local + ".missing", "w").close()
         return None
-    with open(binfile_local, "wb") as f:
-        f.write(r.content)
     return GFMS_write_vrt(binfile_local)
 
 
