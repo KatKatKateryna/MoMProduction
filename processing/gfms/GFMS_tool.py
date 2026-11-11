@@ -59,6 +59,8 @@ load_dotenv()
 WATERSHEDS = None
 
 # summary = per-pixel maximum over the time and the following hours
+# step files within this many days of a cycle are kept when one is written
+GFMS_STEP_KEEP_DAYS = 10
 GFMS_WINDOW_HOURS = 96
 # bands of a cycle's image: the time itself, then every 3 h of the window
 GFMS_BANDS = GFMS_WINDOW_HOURS // 3 + 1
@@ -412,8 +414,13 @@ def GFMS_write_steps(image, cells, summary_csv):
     path = gfms_steps_csv(summary_csv)
     write_steps(path, steps)
     logging.info(f"generated: {path} ({len(steps)} steps)")
-    # only the recent ones are read
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=2)).strftime("%Y%m%d")
+    # only the ones near this cycle are read, and the cutoff is the cycle's
+    # own date rather than today: a backfill of an old cycle keeps its step
+    # files instead of deleting them the moment they are written
+    stamp = os.path.basename(path)[len("Flood_byStor_") : -len(".csv")]
+    cutoff = (
+        datetime.strptime(stamp[:8], "%Y%m%d") - timedelta(days=GFMS_STEP_KEEP_DAYS)
+    ).strftime("%Y%m%d")
     for old in glob.glob(os.path.join(os.path.dirname(path), "Flood_byStor_*.csv")):
         if os.path.basename(old)[len("Flood_byStor_") :][:8] < cutoff:
             os.remove(old)
