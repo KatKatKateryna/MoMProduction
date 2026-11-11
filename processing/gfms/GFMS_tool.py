@@ -49,6 +49,7 @@ from processing.hwrf.HWRF_MoM import hwrf_workflow
 import settings
 from processing.utilities import (
     hwrf_today,
+    STEP_KEEP_DAYS,
     gfms_steps_csv,
     retry_step,
     watersheds_gdb_reader,
@@ -59,8 +60,6 @@ load_dotenv()
 WATERSHEDS = None
 
 # summary = per-pixel maximum over the time and the following hours
-# step files within this many days of a cycle are kept when one is written
-GFMS_STEP_KEEP_DAYS = 10
 GFMS_WINDOW_HOURS = 96
 # bands of a cycle's image: the time itself, then every 3 h of the window
 GFMS_BANDS = GFMS_WINDOW_HOURS // 3 + 1
@@ -419,7 +418,7 @@ def GFMS_write_steps(image, cells, summary_csv):
     # files instead of deleting them the moment they are written
     stamp = os.path.basename(path)[len("Flood_byStor_") : -len(".csv")]
     cutoff = (
-        datetime.strptime(stamp[:8], "%Y%m%d") - timedelta(days=GFMS_STEP_KEEP_DAYS)
+        datetime.strptime(stamp[:8], "%Y%m%d") - timedelta(days=STEP_KEEP_DAYS)
     ).strftime("%Y%m%d")
     for old in glob.glob(os.path.join(os.path.dirname(path), "Flood_byStor_*.csv")):
         if os.path.basename(old)[len("Flood_byStor_") :][:8] < cutoff:

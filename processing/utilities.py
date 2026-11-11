@@ -95,6 +95,10 @@ STEP_ALONE_HEADERS = ["step_area", "step_perc_area", "step_mean", "step_max"]
 # a step file that fails is written again this many times, this far apart
 STEP_RETRIES = 3
 STEP_WAIT_SECONDS = 60
+# a step file this many days either side of the cycle being written is
+# kept; the cutoff is the cycle's own date, never today, so writing an old
+# cycle (a backfill) does not delete what it just made
+STEP_KEEP_DAYS = 10
 
 
 def gfms_steps_csv(summary_csv):
