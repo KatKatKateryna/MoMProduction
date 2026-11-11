@@ -119,7 +119,7 @@ WATERSHED_SHP = os.path.join(WATERSHED_DIR, "Watershed_pfaf_id.shp")
 # setup logging
 # a new log for each month, and a separate file per job when the job is known
 # the cron schedule of each job: minute and hours (UTC), as cron reads them;
-# read by setup_crontab.sh and MoM_run.py
+# read by setup_crontab.sh and processing/MoM_run.py
 # GloFAS publishes at about 08:50–09:06 UTC
 # HAFS data is published up to 20 min after <now-6h> cycle
 # all DFO tiles of a date are rewritten in one batch of 7–14 minutes, between 01:20 and 02:45 UTC on next day
@@ -158,5 +158,5 @@ def configure_logging(job=None):
         pass
 
 
-# default target until the job name is known: MoM_run calls this again with it
+# default target until the job name is known: processing/MoM_run.py calls this again with it
 configure_logging()

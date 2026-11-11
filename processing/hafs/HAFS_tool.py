@@ -1,7 +1,7 @@
 """
 HAFS_tool.py
     -- cron job for NOAA HAFS hurricane rainfall, run alongside the HWRF
-       workflow (MoM_run.py -j HAFS) and never inside it
+       workflow (processing/MoM_run.py -j HAFS) and never inside it
 
     For every HAFS cycle, the rain of each storm is taken from its parent
     swath file (average rain rate over 0-3 h, 0-6 h, ... 0-126 h; the 3 h rain

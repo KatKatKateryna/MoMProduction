@@ -9,13 +9,14 @@
 #   bash ./setup_crontab.sh
 #
 # Jobs are launched through run_mom_job.sh, which activates the conda
-# environment before calling MoM_run.py. Calling the env's python by absolute
+# environment before calling processing/MoM_run.py. Calling the env's python by absolute
 # path is NOT sufficient: without activation the env's bin/ is missing from
 # PATH and the GDAL/PROJ activate.d hooks never run, so console tools such as
 # gdal_translate cannot be resolved and image products are silently skipped.
 #
 # Safe to re-run — strips this clone's existing MoM entries (both the current
-# run_mom_job.sh form and the legacy direct MoM_run.py form) before appending
+# run_mom_job.sh form and the legacy direct MoM_run.py form, of the
+# repository root before it moved to processing/) before appending
 # the definitions below fresh. All other cron jobs, including the MoM jobs of
 # other clones, are untouched.
 

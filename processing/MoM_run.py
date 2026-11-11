@@ -4,7 +4,8 @@ main script to run various MoM processing jobs
 
 prolog = """
 **PROGRAM**
-    MoM_run.py
+    processing/MoM_run.py, run from the repository root as
+    python -m processing.MoM_run (run_mom_job.sh does it so)
       
 **PURPOSE**
     main script to run various MoM processing jobs
@@ -13,7 +14,8 @@ prolog = """
 """
 epilog = """
 **EXAMPLE**
-    MoM_run.py 
+    python -m processing.MoM_run -j GFMS
+    python -m processing.MoM_run -j DFO --fixdate 20261007
                
 """
 
@@ -22,6 +24,12 @@ import logging
 import os
 import shutil
 import sys
+
+# the repository root, which holds settings.py and first_setup/: on the path
+# also when this file is run directly (python processing/MoM_run.py)
+REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if REPO_DIR not in sys.path:
+    sys.path.insert(0, REPO_DIR)
 
 # point PROJ at GDAL's own proj.db in a Windows .venv; before any PROJ-dependent import
 import processing.proj_env  # noqa: F401
@@ -32,8 +40,7 @@ from osgeo import gdal
 
 # append "wget" path for Windows
 if os.name == "nt":
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    installers_path = os.path.join(current_dir, "first_setup")
+    installers_path = os.path.join(REPO_DIR, "first_setup")
     os.environ["PATH"] = installers_path + os.pathsep + os.environ["PATH"]
 
 import settings
@@ -53,8 +60,7 @@ CRON_TIMES = {
 }
 
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-installers_path = os.path.join(current_dir, "first_setup")
+installers_path = os.path.join(REPO_DIR, "first_setup")
 sys.path.insert(0, installers_path)
 
 

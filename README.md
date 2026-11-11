@@ -64,10 +64,10 @@ It performs the following tasks:
 ## 3. Test run
 All the processing jobs can be tested in the following orders. It may take several hours to finish, it produces data products from the latest several days.
 ```
-python MoM_run.py -j GFMS
-python MoM_run.py -j HWRF
-python MoM_run.py -j DFO
-python MoM_run.py -j VIIRS
+python -m processing.MoM_run -j GFMS
+python -m processing.MoM_run -j HWRF
+python -m processing.MoM_run -j DFO
+python -m processing.MoM_run -j VIIRS
 ```
 The outputs to the console are very minimal, the progress can be checked through the log file under processing/logs folder. The log is generated each month, e.g 2021_11.log, 2021_12.log. 
 ```
@@ -188,10 +188,10 @@ MoM
 ## 7. Processing modules & data
 
 ```
-MoM_run.py
 settings.py
 initialize.py
 processing
+├── MoM_run.py
 ├── utilities.py
 ├── watershed_cells.py
 ├── proj_env.py
@@ -262,22 +262,22 @@ For Linux conda setup:
 pip install py-spy
 ```
 ```
-/usr/bin/time -v py-spy record -r 50 --subprocesses -o profile_GFMS.json --format speedscope -- python MoM_run.py -j GFMS 2> resources_GFMS.txt
+/usr/bin/time -v py-spy record -r 50 --subprocesses -o profile_GFMS.json --format speedscope -- python -m processing.MoM_run -j GFMS 2> resources_GFMS.txt
 ```
 ```
-/usr/bin/time -v py-spy record -r 50 --subprocesses -o profile_VIIRS.json --format speedscope -- python MoM_run.py -j VIIRS 2> resources_VIIRS.txt
+/usr/bin/time -v py-spy record -r 50 --subprocesses -o profile_VIIRS.json --format speedscope -- python -m processing.MoM_run -j VIIRS 2> resources_VIIRS.txt
 ```
 ```
-/usr/bin/time -v py-spy record -r 50 --subprocesses -o profile_DFO.json --format speedscope -- python MoM_run.py -j DFO 2> resources_DFO.txt
+/usr/bin/time -v py-spy record -r 50 --subprocesses -o profile_DFO.json --format speedscope -- python -m processing.MoM_run -j DFO 2> resources_DFO.txt
 ```
 ```
-/usr/bin/time -v py-spy record -r 50 --subprocesses -o profile_HWRF.json --format speedscope -- python MoM_run.py -j HWRF 2> resources_HWRF.txt
+/usr/bin/time -v py-spy record -r 50 --subprocesses -o profile_HWRF.json --format speedscope -- python -m processing.MoM_run -j HWRF 2> resources_HWRF.txt
 ```
 
 For Windows uv setup:
 ```
 uv add py-spy
-python MoM_run.py -j VIIRS
+python -m processing.MoM_run -j VIIRS
 ```
 Run this from Admin Powershell (per-function profiling):
 ```

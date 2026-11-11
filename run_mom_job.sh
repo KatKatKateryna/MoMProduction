@@ -8,7 +8,7 @@
 # PROJ_DATA, CPL_ZIP_ENCODING). Console tools such as gdal_translate are only
 # resolvable by name once that has happened.
 #
-# Usage -- arguments are passed straight through to MoM_run.py:
+# Usage -- arguments are passed straight through to processing/MoM_run.py:
 #   run_mom_job.sh -j GFMS
 #   run_mom_job.sh -j DFO --fixdate 20261007
 #
@@ -50,7 +50,7 @@ status=0
 # waits for it to finish (the jobs share the GFMS, GloFAS and MoM files). The
 # lock is in this clone's own logs folder, so the jobs of another clone on
 # the machine (the global run, another box) never wait for these
-flock "$PROJECT_DIR/logs/mom_job.lock" python MoM_run.py "$@" || status=$?
+flock "$PROJECT_DIR/logs/mom_job.lock" python -m processing.MoM_run "$@" || status=$?
 
 # the final alerts folder to publish: HAFS's when HAFS is enabled, else HWRF's;
 # none after the HWRF job when HAFS is enabled, or the HAFS job when it is not
