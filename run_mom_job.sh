@@ -52,6 +52,12 @@ status=0
 # the machine (the global run, another box) never wait for these
 flock "$PROJECT_DIR/logs/mom_job.lock" python -m processing.MoM_run "$@" || status=$?
 
+# publishing only follows a job (-j JOB): -h / --help, or a call without a
+# job, publishes nothing
+if [ "${1:-}" != "-j" ] || [ -z "${2:-}" ]; then
+    exit "$status"
+fi
+
 # the final alerts folder to publish: HAFS's when HAFS is enabled, else HWRF's;
 # none after the HWRF job when HAFS is enabled, or the HAFS job when it is not
 alerts_dir=$(python -c "
