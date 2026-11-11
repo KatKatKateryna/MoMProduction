@@ -23,6 +23,7 @@ import argparse
 import logging
 import os
 import shutil
+import subprocess
 import sys
 
 # the repository root, which holds settings.py and first_setup/: on the path
@@ -79,6 +80,7 @@ def _getParser():
         "VIIRS",
         "VIIRS_MOM",
         "HAFS",
+        "BACKFILL",
     ]
     parser.add_argument(
         "-j",
@@ -97,6 +99,22 @@ def _getParser():
         dest="adate",
         required=False,
         help="fix a date",
+    )
+    # -j BACKFILL: the options of the backfill scripts (backfill/backfill_args.py)
+    parser.add_argument(
+        "--start", help="BACKFILL: first day, YYYYMMDD"
+    )
+    parser.add_argument(
+        "--end", help="BACKFILL: last day, YYYYMMDD (default: today, UTC)"
+    )
+    parser.add_argument(
+        "--out-dir",
+        help="BACKFILL: root the products go under, in the production layout "
+        "(default: the folders of production.cfg)",
+    )
+    parser.add_argument(
+        "--overwrite", action="store_true",
+        help="BACKFILL: replace outputs that already exist (default: keep them)",
     )
 
     return parser
@@ -158,6 +176,44 @@ def run_fixdate(cronjob, adate):
         return
 
 
+def run_backfill(results):
+    """-j BACKFILL: the days from --start to --end made from the hosts, as
+    the cron jobs would have made them: every source downloaded and
+    summarized (backfill/online_download_and_summarize_all.py), then the MoM
+    and alerts of both chains from those summaries
+    (backfill/offline_mom_from_summaries.py), both into --out-dir. Nothing is
+    published (run_mom_job.sh skips it after BACKFILL). On a new
+    installation, e.g. -j BACKFILL --start <two days ago>."""
+    if not results.start:
+        logging.error("-j BACKFILL needs --start YYYYMMDD")
+        sys.exit(2)
+    options = ["--start", results.start]
+    if results.end:
+        options += ["--end", results.end]
+    if results.out_dir:
+        options += ["--out-dir", results.out_dir]
+    if results.overwrite:
+        options.append("--overwrite")
+    root = os.path.join(REPO_DIR, "backfill")
+    mom_options = list(options)
+    if results.out_dir:
+        # the MoM is made from the summaries just made there
+        mom_options += ["--input-root", results.out_dir]
+    for script, script_options in (
+        ("online_download_and_summarize_all.py", options),
+        ("offline_mom_from_summaries.py", mom_options),
+    ):
+        logging.info(f"BACKFILL: {script} {' '.join(script_options)}")
+        status = subprocess.run(
+            [sys.executable, os.path.join(root, script)] + script_options,
+            cwd=REPO_DIR,
+        ).returncode
+        if status != 0:
+            logging.error(f"BACKFILL: {script} failed ({status}), stopped")
+            sys.exit(status)
+    logging.info("finished BACKFILL")
+
+
 def main():
     """execute momjob"""
     # Read command line arguments
@@ -166,7 +222,9 @@ def main():
     # keep each job's log in its own file
     settings.configure_logging(results.job)
     require_tools()
-    if results.adate:
+    if results.job == "BACKFILL":
+        run_backfill(results)
+    elif results.adate:
         run_fixdate(results.job, results.adate)
     else:
         run_job(results.job)
