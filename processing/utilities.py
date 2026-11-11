@@ -98,18 +98,18 @@ STEP_WAIT_SECONDS = 60
 
 
 def gfms_steps_csv(summary_csv):
-    """the step file of a GFMS summary, in the Processing folder, one row
+    """the step file of a GFMS summary, in GFMS_STEP_DIR, one row
     per watershed with data and 3 h step (STEP_HEADERS), the summary of the
     data up to that step (GFMS: running maximum, HAFS: running total);
     step_h counted from the summary's time stamp (GFMS: valid time, HAFS:
     cycle); also STEP_ALONE_HEADERS"""
-    return os.path.join(settings.GFMS_PROC_DIR, "steps", os.path.basename(summary_csv))
+    return os.path.join(settings.GFMS_STEP_DIR, os.path.basename(summary_csv))
 
 
 def hafs_steps_csv(rain_csv):
-    """the step file of a HAFS summary, in the Processing folder: rebuilt from
+    """the step file of a HAFS summary, in HAFS_STEP_DIR: rebuilt from
     HAFS_steps when a cycle is processed again"""
-    return os.path.join(settings.HAFS_PROC_DIR, "steps", os.path.basename(rain_csv))
+    return os.path.join(settings.HAFS_STEP_DIR, os.path.basename(rain_csv))
 
 
 def retry_step(func, name):
@@ -243,22 +243,6 @@ def find_latest_hwrf(apath, adate, atype):
     return max(candidates) if candidates else ""
 
 
-def find_latest_viirs(apath, adate, hours):
-    """return [YYYYMMDD, path] of the latest VIIRS summary for an HWRF/HAFS
-    cycle (adate YYYYMMDD, hours its HH): from D-2 back for the 00/06
-    cycles, from D-1 back for the 12/18 cycles; ["", ""] if none"""
-    # VIIRS of D is published on D+1 (~10:00-11:15 UTC) and written by the
-    # 12:00 VIIRS run, at times only at 17:00 or a day later
-    da = datetime.strptime(adate[:8], "%Y%m%d")
-    startd = 2 if hours in ("00", "06") else 1
-    for i in range(startd, 6):
-        cdatestr = (da - timedelta(days=i)).strftime("%Y%m%d")
-        cfile = os.path.join(apath, f"VIIRS_Flood_{cdatestr}.csv")
-        if os.path.exists(cfile):
-            return [cdatestr, cfile]
-    return ["", ""]
-
-
 def get_latestitems(afolder, numofitems=7):
     """get the list of the latest items in a folder"""
 
@@ -295,9 +279,6 @@ def request_retry(method, url, **kwargs):
     return method(url, **kwargs)
 
 
-HAFS_WORK_DIR = os.path.join(settings.HAFS_PROC_DIR, "work")
-
-
 @contextlib.contextmanager
 def hafs_folders():
     """point the HWRF/DFO/VIIRS MoM and final alert folders at the HAFS ones
@@ -307,11 +288,11 @@ def hafs_folders():
         "HWRF_SUM_PREFIX": "hafs",
         "HWRF_FILE_TAG": "HAFS",
         "HWRF_MOM_DIR": settings.HAFS_MOM_DIR,
-        "HWRF_PROC_DIR": HAFS_WORK_DIR,
+        "HWRF_PROC_DIR": settings.HAFS_WORK_DIR,
         "DFO_MOM_DIR": settings.DFO_HAFS_DIR,
-        "DFO_PROC_DIR": HAFS_WORK_DIR,
+        "DFO_PROC_DIR": settings.HAFS_WORK_DIR,
         "VIIRS_MOM_DIR": settings.VIIRS_HAFS_DIR,
-        "VIIRS_PROC_DIR": HAFS_WORK_DIR,
+        "VIIRS_PROC_DIR": settings.HAFS_WORK_DIR,
         "FINAL_MOM_DIR": settings.FINAL_HAFS_DIR,
     }
     saved = {k: getattr(settings, k) for k in patched}
@@ -430,7 +411,7 @@ def main():
     print("{} - {} = {} hours".format(da1, da2, dhours))
 
     print("==> find latest")
-    from processing.glofas.GloFAS_tool import find_latest_glofas
+    from processing.cycle_inputs import find_latest_glofas
 
     lastest_csv = find_latest_glofas(settings.GLOFAS_SUM_DIR, da2, "csv")
     print(lastest_csv)

@@ -15,15 +15,14 @@ import pandas as pd
 
 import settings
 from processing.gfms.GFMS_MoM import gfms_lead, gfms_scores
-from processing.glofas.GloFAS_tool import (
-    GloFAS_process_until,
-    find_latest_glofas,
-    glofas_lead,
-    glofas_scores,
-    glofas_summary,
+from processing.cycle_inputs import (
+    dfo_for_cycle,
+    gfms_for_cycle,
+    rain_for_cycle,
+    viirs_for_cycle,
 )
+from processing.glofas.GloFAS_tool import glofas_download, glofas_lead, glofas_scores
 from processing.utilities import (
-    find_latest_viirs,
     get_current_processing_datehour,
     get_latestitems,
     hwrf_today,
@@ -198,87 +197,18 @@ def make_gfms_summary(adate):
         logging.exception(f"GFMS summaries failed for {adate}")
 
 
-def latest_gfms_summary(adate):
-    """the GFMS summary of adate, else of the cycle 6 or 12 h before it; None
-    without any"""
-    cycle = datetime.strptime(adate, "%Y%m%d%H")
-    for hours in (0, 6, 12):
-        stamp = (cycle - timedelta(hours=hours)).strftime("%Y%m%d%H")
-        gfms_sum = os.path.join(settings.GFMS_SUM_DIR, f"Flood_byStor_{stamp}.csv")
-        if os.path.exists(gfms_sum):
-            return gfms_sum
-    return None
-
-
 def update_HWRF_MoM(adate):
     """HWRF MoM for a date: YYYYMMDDHH"""
     print(f"___________update_HWRF_MoM: {adate}")
 
-    gfms_sum = os.path.join(settings.GFMS_SUM_DIR, "Flood_byStor_{}.csv".format(adate))
-    glofas_sum = glofas_summary(adate)
-    # use the HWRF rainfall of the previous cycle: the current cycle's rainfall
-    # is only published hours after the cycle time
-    hwrf_cycle = (datetime.strptime(adate, "%Y%m%d%H") - timedelta(hours=6)).strftime(
-        "%Y%m%d%H"
-    )
-    hwrf_sum = os.path.join(
-        settings.HWRF_SUM_DIR, f"{settings.HWRF_SUM_PREFIX}.{hwrf_cycle}rainfall.csv"
-    )
-
     make_gfms_summary(adate)
-    gfms_sum = latest_gfms_summary(adate)
+    gfms_sum = gfms_for_cycle(adate)
     if gfms_sum is None:
         logging.error(f"no GFMS available for {adate}, using no GFMS data")
 
-    # before 12:00 the file of the day before is used: today's is not looked for
-    early = int(adate[8:10]) < 12
-    # a GloFAS file looked for and not there: try the host
-    if not early and not os.path.exists(glofas_sum):
-        GloFAS_process_until(lambda: os.path.exists(glofas_sum))
+    glofas_sum = glofas_download(adate)
 
-    if early or not os.path.exists(glofas_sum):
-        glofas_latest = find_latest_glofas(settings.GLOFAS_DIR, adate, "csv")
-        if not glofas_latest:
-            GloFAS_process_until(
-                lambda: find_latest_glofas(settings.GLOFAS_DIR, adate, "csv")
-            )
-            glofas_latest = find_latest_glofas(settings.GLOFAS_DIR, adate, "csv")
-        if glofas_latest:
-            glofas_sum = os.path.join(settings.GLOFAS_DIR, glofas_latest)
-            logging.warning(
-                f"GloFAS for {adate}: using the previous available " f"{glofas_latest}"
-            )
-        elif os.path.exists(glofas_sum):
-            # no earlier GloFAS to fall back to, use the same day file
-            logging.warning(
-                f"GloFAS for {adate}: no earlier file, using the same day "
-                f"{os.path.basename(glofas_sum)}"
-            )
-        else:
-            logging.error(f"no GloFAS available for {adate}, using no GloFAS data")
-            glofas_sum = None
-
-    # previous cycle not available: the cycle before it, at most 12 h old
-    if not os.path.exists(hwrf_sum):
-        older_cycle = (
-            datetime.strptime(adate, "%Y%m%d%H") - timedelta(hours=12)
-        ).strftime("%Y%m%d%H")
-        older_sum = os.path.join(
-            settings.HWRF_SUM_DIR,
-            f"{settings.HWRF_SUM_PREFIX}.{older_cycle}rainfall.csv",
-        )
-        if os.path.exists(older_sum):
-            logging.warning(
-                f"no rainfall of {hwrf_cycle} for {adate}, using {older_cycle}"
-            )
-            hwrf_cycle, hwrf_sum = older_cycle, older_sum
-
-    # no rainfall of these cycles, continue without HWRF
-    if not os.path.exists(hwrf_sum):
-        logging.warning(
-            f"no HWRF rainfall of the previous cycle {hwrf_cycle} for {adate}, "
-            f"continuing without HWRF"
-        )
+    hwrf_cycle, hwrf_sum = rain_for_cycle(adate)
 
     # hwrf_sum may not have
     Final_Attributes_csv = os.path.join(
@@ -502,29 +432,6 @@ def update_HWRF_MoM(adate):
     return
 
 
-def find_latest_summary(datestr, scanfolder, namepattern, hours):
-    """find the latest summary data (DFO), from the start day of the cycle
-    back; VIIRS: utilities.find_latest_viirs"""
-
-    # DFO of D is written at 03:00 on D+1: the 00 cycle (00:30) looks from
-    # D-2, the others from D-1
-    # turn the datestr into a real date
-    da = datetime.strptime(datestr, "%Y%m%d")
-    startd = 1
-    if hours == "00":
-        startd = 2
-    # check the data
-    for i in range(startd, 6):
-        cdate = da - timedelta(days=i)
-        cdatestr = cdate.strftime("%Y%m%d")
-        cfile = os.path.join(scanfolder, namepattern.format(cdatestr))
-        if os.path.exists(cfile):
-            return [cdatestr, cfile]
-
-    return ["", ""]
-
-
-# no summary: no watershed flooded, one row of zeros scores nothing
 DFO_NO_DATA = (
     ",pfaf_id,1-Day_TotalArea_km2,1-Day_perc_Area,1-Day_CS_TotalArea_km2,"
     "1-Day_CS_perc_Area,2-Day_TotalArea_km2,2-Day_perc_Area,3-Day_TotalArea_km2,"
@@ -551,20 +458,13 @@ def update_HWRFMoM_DFO_VIIRS(adate):
         # print(file_found)
         return
 
-    # find the latest DFO, VIIRS summary
-    datestr = adate[:-2]
-    hourstr = adate[-2:]
-    # return '' if not found
-    [dfo_date, dfo_summary] = find_latest_summary(
-        datestr, settings.DFO_SUM_DIR, "DFO_{}.csv", hourstr
-    )
+    # the DFO and VIIRS summaries of this cycle; '' if not found
+    [dfo_date, dfo_summary] = dfo_for_cycle(adate)
     if dfo_date == "":
         logging.warning(f"no DFO summary for {adate}, using no DFO data")
         dfo_date = "none"
         dfo_summary = None
-    [viirs_date, summary_viirs_all] = find_latest_viirs(
-        settings.VIIRS_SUM_DIR, datestr, hourstr
-    )
+    [viirs_date, summary_viirs_all] = viirs_for_cycle(adate)
     if viirs_date == "":
         logging.warning(f"no VIIRS summary for {adate}, using no VIIRS data")
         viirs_date = "none"

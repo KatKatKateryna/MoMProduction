@@ -84,8 +84,6 @@ HAFS_RETRIES = 3
 HAFS_WAIT_SECONDS = 600
 
 # internal folders: processed-cycle markers and temporary files
-DONE_DIR = os.path.join(settings.HAFS_PROC_DIR, "done")
-WORK_DIR = os.path.join(settings.HAFS_PROC_DIR, "work")
 
 
 def utc_now():
@@ -113,8 +111,8 @@ def make_dirs():
         settings.DFO_HAFS_DIR,
         settings.VIIRS_HAFS_DIR,
         settings.FINAL_HAFS_DIR,
-        DONE_DIR,
-        WORK_DIR,
+        settings.HAFS_DONE_DIR,
+        settings.HAFS_WORK_DIR,
     ):
         os.makedirs(d, exist_ok=True)
 
@@ -191,7 +189,7 @@ def HAFS_download(cycle, storm):
         return path
     os.makedirs(os.path.dirname(path), exist_ok=True)
     part = f"{path}.{os.getpid()}.part"
-    with tempfile.TemporaryFile(dir=WORK_DIR) as tmp:
+    with tempfile.TemporaryFile(dir=settings.HAFS_WORK_DIR) as tmp:
         ranges = rain_ranges(url)
         for span in (
             [f"bytes={a}-" + ("" if b is None else str(b)) for a, b in ranges]
@@ -446,12 +444,12 @@ def HAFS_extract_by_watershed(output_csv, grid, top, left, steps=None, steps_pat
 
 
 def mark_done(cycle, note):
-    with open(os.path.join(DONE_DIR, cycle), "w") as f:
+    with open(os.path.join(settings.HAFS_DONE_DIR, cycle), "w") as f:
         f.write(note + "\n")
 
 
 def is_done(cycle):
-    return os.path.exists(os.path.join(DONE_DIR, cycle))
+    return os.path.exists(os.path.join(settings.HAFS_DONE_DIR, cycle))
 
 
 def empty_summary(cycle, note):
@@ -518,8 +516,8 @@ def process_rain(cycle):
         return True
 
     grid, top, left = merge(grids)
-    raintiff = os.path.join(WORK_DIR, f"hafs.{cycle}rainfall.tiff")
-    output_csv = os.path.join(WORK_DIR, f"hafs.{cycle}rainfall.csv")
+    raintiff = os.path.join(settings.HAFS_WORK_DIR, f"hafs.{cycle}rainfall.tiff")
+    output_csv = os.path.join(settings.HAFS_WORK_DIR, f"hafs.{cycle}rainfall.csv")
     # the step file goes straight to its folder; only read with the summary
     steps_path = hafs_steps_csv(output_csv)
     write_tiff(raintiff, grid, top, left)

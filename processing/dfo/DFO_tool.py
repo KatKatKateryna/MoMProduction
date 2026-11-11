@@ -42,7 +42,6 @@ DFO_MINIMUM_TILES = 280
 # week) are filled
 DFO_FILL_AFTER_DAYS = 1
 DFO_FILL_LOOKBACK_DAYS = 7
-DFO_FILLED_DIR = os.path.join(settings.DFO_PROC_DIR, "filled")
 
 # flood layers of the DFO hdf files, in the order of the summary columns
 FLOOD_LAYERS = [
@@ -386,8 +385,8 @@ def fill_missing_dates():
         empty = pd.DataFrame(0.0, index=range(len(pfaf_ids)), columns=columns)
         empty.insert(0, "pfaf_id", pfaf_ids)
         empty.to_csv(summary_csv)
-        os.makedirs(DFO_FILLED_DIR, exist_ok=True)
-        with open(os.path.join(DFO_FILLED_DIR, f"DFO_{adate}.txt"), "w") as f:
+        os.makedirs(settings.DFO_FILLED_DIR, exist_ok=True)
+        with open(os.path.join(settings.DFO_FILLED_DIR, f"DFO_{adate}.txt"), "w") as f:
             f.write(f"{datetime.now(timezone.utc).isoformat()} no DFO data {back} days after the date\n")
         logging.warning(
             f"DFO FILLED {adate}: no DFO data {back} days after the date, wrote an "

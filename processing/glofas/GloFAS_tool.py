@@ -19,6 +19,11 @@ import pandas as pd
 from dotenv import load_dotenv
 
 import settings
+from processing.cycle_inputs import (
+    find_latest_glofas,
+    glofas_for_cycle,
+    glofas_summary,
+)
 from processing.utilities import lead_hours, read_data, watersheds_gdb_reader
 
 load_dotenv()
@@ -354,8 +359,10 @@ def GloFAS_process():
     return processing_dates
 
 
-def GloFAS_process_until(found):
-    """GloFAS_process, retried while found() says the wanted file is missing"""
+def download_glofas_until_found(found):
+    """download the host's GloFAS files and convert them to the threspoints
+    csv and geojson (GloFAS_process), retried GLOFAS_RETRIES times while
+    found() says the file the caller wants is still missing"""
     for retry in range(1, GLOFAS_RETRIES + 1):
         GloFAS_process()
         if found():
@@ -368,20 +375,21 @@ def GloFAS_process_until(found):
     GloFAS_process()
 
 
-def glofas_summary(adate):
-    """the GloFAS csv of the day of adate (YYYYMMDD[HH])"""
-    return os.path.join(settings.GLOFAS_DIR, f"threspoints_{adate[:8]}00.csv")
+def glofas_download(adate):
+    """download and convert the GloFAS files, retried while the one a cycle
+    (YYYYMMDDHH) needs is still missing, and only when it is not there yet:
+    the day's own file for the 12 and 18 cycles, any earlier file for 00 and
+    06. Returns what cycle_inputs.glofas_for_cycle finds afterwards."""
+    if int(adate[8:10]) < 12:
+        def wanted():
+            return bool(find_latest_glofas(settings.GLOFAS_DIR, adate, "csv"))
+    else:
+        def wanted():
+            return os.path.exists(glofas_summary(adate))
 
-
-def find_latest_glofas(apath, adate, atype):
-    """return the latest GloFAS file dated BEFORE adate (YYYYMMDD[HH])"""
-    target = f"threspoints_{adate[:8]}00.{atype}"
-    candidates = [
-        os.path.basename(f)
-        for f in glob.glob(os.path.join(apath, f"threspoints_*.{atype}"))
-        if os.path.basename(f) < target
-    ]
-    return max(candidates) if candidates else ""
+    if not wanted():
+        download_glofas_until_found(wanted)
+    return glofas_for_cycle(adate)
 
 
 def glofas_scores(glofas_csv, weightage, proc_dir, adate):

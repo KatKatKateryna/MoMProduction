@@ -39,9 +39,8 @@ import zipfile
 
 from processing.gfms.GFMS_MoM import flood_severity
 from processing.glofas.GloFAS_tool import (
+    glofas_download,
     GloFAS_process,
-    find_latest_glofas,
-    glofas_summary,
 )
 from processing.watershed_cells import cells_summary, raster_summary
 
@@ -566,16 +565,8 @@ def _GFMS_processing(proc_dates_list, window_dir):
         gfmscsv = os.path.join(
             settings.GFMS_SUM_DIR, "Flood_byStor_" + data_date + ".csv"
         )
-        glofascsv = glofas_summary(data_date)
-
-        # in case of glofascsv data is missing, use the latest
-        if not os.path.exists(glofascsv):
-            glofas_latest = find_latest_glofas(settings.GLOFAS_DIR, data_date, "csv")
-            glofascsv = os.path.join(settings.GLOFAS_DIR, glofas_latest)
-            logging.warning(
-                f"GloFAS threspoints_{data_date}.csv not published yet, falling "
-                f"back to the latest available: {glofas_latest}"
-            )
+        # a day's summary is its 00 cycle, so the file before D
+        glofascsv = glofas_download(data_date)
 
         # set directory for adding/removing files
         curdir = os.getcwd()
@@ -662,8 +653,9 @@ def GFMS_cron():
     tstr = datetime.strftime(today, "%Y%m%d")
     tstr = tstr + "00"
     gfmscsv = os.path.join(settings.GFMS_SUM_DIR, "Flood_byStor_" + tstr + ".csv")
-    glofascsv = glofas_summary(tstr)
-    if os.path.exists(gfmscsv) and os.path.exists(glofascsv):
+    # the 00 cycle: the file before today, not today's own
+    glofascsv = glofas_download(tstr)
+    if os.path.exists(gfmscsv) and glofascsv:
         logging.info(f"no hwrf: {tstr}, generating ...")
         # update_HWRF_MoM(tstr)
         # update_HWRFMoM_DFO_VIIRS(tstr)
