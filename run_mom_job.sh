@@ -47,8 +47,10 @@ mkdir -p logs
 # not exec'd, so the alert push below still runs; the job's exit status is kept.
 status=0
 # one MoM job at a time, whatever the job: a job started while another runs
-# waits for it to finish (the jobs share the GFMS, GloFAS and MoM files)
-flock "/tmp/mom_job.lock" python MoM_run.py "$@" || status=$?
+# waits for it to finish (the jobs share the GFMS, GloFAS and MoM files). The
+# lock is in this clone's own logs folder, so the jobs of another clone on
+# the machine (the global run, another box) never wait for these
+flock "$PROJECT_DIR/logs/mom_job.lock" python MoM_run.py "$@" || status=$?
 
 # the final alerts folder to publish: HAFS's when HAFS is enabled, else HWRF's;
 # none after the HWRF job when HAFS is enabled, or the HAFS job when it is not

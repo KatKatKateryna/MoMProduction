@@ -14,9 +14,10 @@
 # PATH and the GDAL/PROJ activate.d hooks never run, so console tools such as
 # gdal_translate cannot be resolved and image products are silently skipped.
 #
-# Safe to re-run — strips existing MoM entries (both the current
+# Safe to re-run — strips this clone's existing MoM entries (both the current
 # run_mom_job.sh form and the legacy direct MoM_run.py form) before appending
-# the definitions below fresh. All other cron jobs are untouched.
+# the definitions below fresh. All other cron jobs, including the MoM jobs of
+# other clones, are untouched.
 
 set -euo pipefail
 
@@ -47,8 +48,12 @@ if [ "${#CRON_JOBS[@]}" -eq 0 ]; then
     exit 1
 fi
 
-# Remove existing MoM entries (current and legacy forms), then append fresh.
-(crontab -l 2>/dev/null | grep -vE "MoM_run\.py|run_mom_job\.sh" || true; \
+# Remove this clone's existing MoM entries (current and legacy forms), then
+# append fresh. Entries of other clones on the machine (the global run,
+# another box) are kept.
+(crontab -l 2>/dev/null | awk -v runner="$RUNNER " -v project="$PROJECT_DIR/" '
+    !(index($0, runner) || (index($0, project) && /MoM_run\.py/))
+ ' || true; \
  printf '%s\n' "${CRON_JOBS[@]}") | crontab -
 
 echo "Done. MoM cron jobs installed:"
