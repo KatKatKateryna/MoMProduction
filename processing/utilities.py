@@ -8,7 +8,6 @@ import contextlib
 import csv
 import functools
 import glob
-import hashlib
 import logging
 import os
 import re
@@ -49,17 +48,6 @@ def watersheds_gdb_reader():
 
     _WATERSHEDS = watersheds
     return watersheds
-
-
-def shapefile_fingerprint():
-    """sha256 of the watershed shapefile geometry and attribute files"""
-    sha = hashlib.sha256()
-    base = os.path.splitext(settings.WATERSHED_SHP)[0]
-    for ext in (".shp", ".dbf"):
-        with open(base + ext, "rb") as f:
-            for block in iter(lambda: f.read(1 << 22), b""):
-                sha.update(block)
-    return sha.hexdigest()
 
 
 def read_data(datafile) -> pd.DataFrame:

@@ -1,42 +1,31 @@
 """
 watershed_cells.py
     -- per-watershed summaries of the GFMS, VIIRS, DFO and HWRF / HAFS rasters
-       from a precomputed lookup of the grid cells each watershed covers
+       by masking each watershed's own window of the raster
 
-    Masking: every cell a watershed overlaps counts with the exact share of
-    the cell inside it (1 for inner cells). Inner cells are found by their
-    centres, the cells along the boundary (and one cell around it) get their
-    share from the polygon intersection.
-
-    Lookup: the cells of every watershed are saved as row runs, cells
-    [c0, c1) of one grid row: runs of inner cells (share 1) and runs of
-    boundary cells with a share per cell. One file per source,
-    data/watershed_runs_<source>.npz, rebuilt when the watershed shapefile,
-    the grid or MASK_METHOD changes; when it cannot be saved it is built in
-    memory for the run. The file is generated, not kept in git.
+    Masking: for each watershed, the window of the raster its bounding box
+    covers is read, and every cell the watershed overlaps counts with the
+    exact share of the cell inside it (1 for inner cells). Inner cells are
+    found by their centres; the cells along the boundary (and one cell
+    around it) get their share from the polygon intersection, and only those
+    that count (have data, or a flood class) are intersected, so the cost
+    follows the data rather than the basin perimeter. Nothing is precomputed
+    or saved between runs.
 
     Cell area: the grids are latitude/longitude, so a cell's area is
     111.111^2 * cos(lat at the cell centre) * dlon * dlat (degrees, 111.111 km
     per degree), times its share.
 
-    Grids: GFMS and VIIRS files are on one grid per source, the file's own.
-    HWRF / HAFS images and DFO mosaics cover a different extent each time, so
-    they are windows of one global grid of their cell size (global_grid),
-    and one lookup serves them all.
+    Sources (SOURCES): per source only which cells count differs, and whether
+    the grid wraps around the globe in longitude; every summary gives, per
+    watershed, the area of the counted cells, its percent of the watershed,
+    the area-weighted mean and the max of their values.
 
-    Reading: a raster is read in strips of rows, sized from the grid width so
-    a strip stays under STRIP_BYTES, and summed per run with cumulative sums
-    along each row. Rasters must be on a latitude/longitude grid.
-
-    Per source only the grid and which cells count differ (SOURCES); every
-    summary gives, per watershed, the area of the counted cells, its percent
-    of the watershed, the area-weighted mean and the max of their values.
-
-**EXAMPLE** (from the repository root)
-    python -m processing.watershed_cells gfms <a GFMS .vrt>    # build a lookup by hand
-    python -m processing.watershed_cells viirs <a VIIRS .tiff>
-    python -m processing.watershed_cells dfo <a DFO mosaic .vrt>
-    python -m processing.watershed_cells hwrf
+    raster_summary summarizes a raster file (GFMS, VIIRS, DFO, HWRF);
+    lattice_summary a grid in memory (HAFS rain). With cells= both collect
+    the cells they counted, and cells_summary then summarizes another grid on
+    the same lattice over those cells only, without masking again (the
+    steps of a GFMS or HAFS window).
 """
 
 import logging
@@ -52,8 +41,6 @@ import shapely.affinity
 from rasterio import Affine
 from rasterio.transform import from_origin
 from rasterio.windows import Window
-
-from processing.utilities import watersheds_gdb_reader
 
 # km per degree of latitude (and of longitude at the equator)
 KM_PER_DEGREE = 111.111
@@ -105,7 +92,7 @@ def _dilate(mask):
 def mask_summary(source, reader, transform, width, height, watersheds, wrap=False, value_above=-np.inf, cells=None):
     """per watershed: area (km2) and perc_area of the cells that count, the
     area-weighted mean and the max of their values -- by masking each
-    watershed's own window, as the pipeline did before the cell lookup.
+    watershed's own window.
 
     Cells whose centre is inside count whole; a cell on the boundary counts
     with the exact share of it inside the watershed. The shares are computed
