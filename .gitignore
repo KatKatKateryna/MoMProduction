@@ -138,3 +138,7 @@ production.cfg
 *log
 *Caddyfile*
 hwrf_data*
+
+# Docker volumes (docker-compose.yml)
+/docker_run/
+/docker-compose.override.yml

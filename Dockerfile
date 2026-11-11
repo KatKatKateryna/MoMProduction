@@ -17,12 +17,10 @@ RUN ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime && echo "$TZ" > /etc/timezo
     && apt-get install -y --no-install-recommends cron wget \
     && rm -rf /var/lib/apt/lists/*
 
-# run_mom_job.sh looks for the conda base with "conda info --base" and falls
-# back to $HOME/miniconda3; cron runs with a minimal PATH, so conda is not on
-# it and the fallback is what resolves
-RUN ln -s /opt/conda /root/miniconda3
-
-WORKDIR /root/MoMProduction
+# the repository lives outside ~, where production.cfg's ~/... data folders
+# are mounted (docker_up.sh); run_mom_job.sh finds conda in /opt/conda when
+# cron's PATH has no conda
+WORKDIR /opt/MoMProduction
 
 # the environment first, so it is only rebuilt when environment.yml changes
 COPY environment.yml ./
@@ -33,10 +31,15 @@ RUN conda config --add channels conda-forge \
     && conda clean -afy
 
 COPY . ./
-RUN chmod +x run_mom_job.sh setup_crontab.sh docker-entrypoint.sh
+# the job lock and the cron jobs' output (logs/) and the backfill logs
+# (backfill/logs/) go to /var/lib/mom, a volume of their own
+RUN chmod +x run_mom_job.sh setup_crontab.sh docker-entrypoint.sh \
+    && rm -rf logs backfill/logs \
+    && ln -s /var/lib/mom/logs logs \
+    && ln -s /var/lib/mom/backfill_logs backfill/logs
 
-# products and processing workspace (WORKING_DIR / PRODUCT_DIR of
-# production.cfg); keep them in a volume so they outlive the container
-VOLUME ["/root/MoM"]
+# logs and the lock outlive the container (docker-compose.yml mounts
+# docker_run here); the data folders are mounted by docker_up.sh
+VOLUME ["/var/lib/mom"]
 
 ENTRYPOINT ["./docker-entrypoint.sh"]

@@ -16,3 +16,6 @@ production.cfg
 data/watershed_shp/Watershed_pfaf_id.shp
 # kept in the repository for reference only, not read by any job
 data/watershed_shp_outdated
+# Docker volumes, never in the image
+docker_run
+docker-compose.override.yml

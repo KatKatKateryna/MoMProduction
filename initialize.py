@@ -69,15 +69,18 @@ else:
 # the mandatory checks are moved to the end,
 # so that all action are performed before sys.exit() due to a missing token
 
-# check for credentials
+# check for credentials: a missing one stops with an error (exit status 1),
+# so whatever runs initialize.py (setup.sh, docker-entrypoint.sh) stops too
+missing = []
 if "?" in user or "?" in passwd:
-    print("Action required: production.cfg")
-    print("Please fill in USER/PASSED in glofas section")
-    sys.exit()
-
+    missing.append("USER and PASSWD in the [glofas] section")
 if "?" in dfo_token:
-    print("Action required: production.cfg")
-    print("Please fill in TOKEN in dfo section")
-    sys.exit()
+    missing.append("TOKEN in the [dfo] section")
+if missing:
+    print("ERROR: production.cfg is not complete. Action required: fill in", file=sys.stderr)
+    for item in missing:
+        print(f"  - {item}", file=sys.stderr)
+    print("then run the setup again.", file=sys.stderr)
+    sys.exit(1)
 
 print("System initilization is completed!")

@@ -24,6 +24,7 @@ import logging
 import os
 import shutil
 import subprocess
+from datetime import datetime, timezone
 import sys
 
 # the repository root, which holds settings.py and first_setup/: on the path
@@ -102,7 +103,7 @@ def _getParser():
     )
     # -j BACKFILL: the options of the backfill scripts (backfill/backfill_args.py)
     parser.add_argument(
-        "--start", help="BACKFILL: first day, YYYYMMDD"
+        "--start", help="BACKFILL: first day, YYYYMMDD (default: today, UTC)"
     )
     parser.add_argument(
         "--end", help="BACKFILL: last day, YYYYMMDD (default: today, UTC)"
@@ -183,11 +184,11 @@ def run_backfill(results):
     and alerts of both chains from those summaries
     (backfill/offline_mom_from_summaries.py), both into --out-dir. Nothing is
     published (run_mom_job.sh skips it after BACKFILL). On a new
-    installation, e.g. -j BACKFILL --start <two days ago>."""
-    if not results.start:
-        logging.error("-j BACKFILL needs --start YYYYMMDD")
-        sys.exit(2)
-    options = ["--start", results.start]
+    installation, e.g. -j BACKFILL --start <two days ago>; without --start,
+    today."""
+    # without --start: today (UTC)
+    start = results.start or datetime.now(timezone.utc).strftime("%Y%m%d")
+    options = ["--start", start]
     if results.end:
         options += ["--end", results.end]
     if results.out_dir:

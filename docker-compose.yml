@@ -1,0 +1,22 @@
+# MoMProduction in one container. Start it with ./docker_up.sh from this
+# folder: it adds the data folders of production.cfg (WORKING_DIR,
+# PRODUCT_DIR) as mounts, in docker-compose.override.yml.
+#   ./production.cfg  the configuration, mounted read-only
+#   ./docker_run      the cron jobs' output, the backfill logs and the job lock
+services:
+  mom:
+    build: .
+    image: momproduction
+    container_name: mom
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: ./production.cfg
+        target: /opt/MoMProduction/production.cfg
+        read_only: true
+        bind:
+          # a missing production.cfg is an error, not an empty folder
+          create_host_path: false
+      - ./docker_run:/var/lib/mom
+      # to push the alerts (PUBLISH_CSV / PUBLISH_TILES), uncomment:
+      # - ./.env:/opt/MoMProduction/.env:ro

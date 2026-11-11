@@ -2,8 +2,6 @@
 The following guide is tested on Ubuntu 18.04 and 20.04 LTS.  
 The current testing VM is a m1.small instance on [Jetstream cloud](https://portal.xsede.org/jetstream) with 2 vcpus, 4GB memory, 20GB storage with an extra 100GB volume attached.   
 
-**Note**: A non-administrator user "tester" in Ubuntu is used this guide. Please update the path in cron-job examples with the right user name for your installation. 
-
 ## 0. Timezone setup
 Upstream data are produced by agencies across the world, UTC time zone is recommended.  
 In Ubuntu, set timezone to UTC: 
@@ -61,79 +59,38 @@ It performs the following tasks:
 - check username/password, token in production.cfg
 - unzip watershed.shp 
 
-## 3. Test run
-All the processing jobs can be tested in the following orders. It may take several hours to finish, it produces data products from the latest several days.
+## 3. Cron jobs
+`setup_crontab.sh` installs this folder's jobs on the schedule in `settings.CRON_SCHEDULE` (UTC). Re-running it replaces only this folder's entries.
 ```
-python -m processing.MoM_run -j GFMS
-python -m processing.MoM_run -j HWRF
-python -m processing.MoM_run -j DFO
-python -m processing.MoM_run -j VIIRS
-```
-The outputs to the console are very minimal, the progress can be checked through the log file under processing/logs folder. The log is generated each month, e.g 2021_11.log, 2021_12.log. 
-```
-sample log output
-2021-12-09 10:39:18,174 - MoM_run - INFO : run GFMS
-2021-12-09 10:39:33,055 - GFMS_tool - INFO : processing GLoFAS: 2021120200
-2021-12-09 10:39:34,705 - GFMS_tool - INFO : generated: Products/GLOFAS/threspoints_2021120200.csv
-2021-12-09 10:39:35,313 - GFMS_tool - INFO : processing GLoFAS: 2021120300
-2021-12-09 10:39:36,909 - GFMS_tool - INFO : generated: Products/GLOFAS/threspoints_2021120300.csv
-2021-12-09 10:39:37,514 - GFMS_tool - INFO : processing GLoFAS: 2021120400
-2021-12-09 10:39:39,112 - GFMS_tool - INFO : generated: Products/GLOFAS/threspoints_2021120400.csv
-2021-12-09 10:39:39,714 - GFMS_tool - INFO : processing GLoFAS: 2021120500
-2021-12-09 10:39:41,349 - GFMS_tool - INFO : generated: Products/GLOFAS/threspoints_2021120500.csv
-2021-12-09 10:39:41,952 - GFMS_tool - INFO : processing GLoFAS: 2021120600
-2021-12-09 10:39:43,555 - GFMS_tool - INFO : generated: Products/GLOFAS/threspoints_2021120600.csv
-2021-12-09 10:39:44,166 - GFMS_tool - INFO : processing GLoFAS: 2021120700
-2021-12-09 10:39:45,781 - GFMS_tool - INFO : generated: Products/GLOFAS/threspoints_2021120700.csv
-2021-12-09 10:39:46,389 - GFMS_tool - INFO : processing GLoFAS: 2021120800
-2021-12-09 10:39:48,042 - GFMS_tool - INFO : generated: Products/GLOFAS/threspoints_2021120800.csv
-2021-12-09 10:39:48,677 - GFMS_tool - INFO : processing GLoFAS: 2021120900
-2021-12-09 10:39:50,289 - GFMS_tool - INFO : generated: Products/GLOFAS/threspoints_2021120900.csv
-2021-12-09 10:39:53,383 - GFMS_tool - INFO : Download: Flood_byStor_2021120200.bin
-2021-12-09 10:39:53,385 - GFMS_tool - INFO : processing: Processing/gfms/Flood_byStor_2021120200.vrt
-2021-12-09 10:41:43,808 - GFMS_tool - INFO : generated: Processing/gfms/Flood_byStor_2021120200.csv
-2021-12-09 10:41:44,154 - GFMS_tool - INFO : generated: Products/GFMS/GFMS_image/Flood_byStor_2021120200.tiff
-2021-12-09 10:41:47,233 - GFMS_tool - INFO : Download: Flood_byStor_2021120203.bin
-...
-```   
-## 4. Setup cron jobs
-Each datasets are released in difference schedules, GloFAS, DFO, VIIRS are released once a day; GFMS are the predication data in 3-hour interval and available in advance, amd are processed along with GloFAS data. HWRF is updated every 6 six hours under certain weather conditions, there can be no HWRF data released in days. One hour interval between each job are suggested. The script for each job check if there is the new data need to be processed.  
-On the production host, install all four jobs with the provided script:
-```
-chmod +x setup_crontab.sh
 ./setup_crontab.sh
+crontab -l
 ```
-It is safe to re-run; it replaces the existing MoM entries and leaves every other cron job untouched.
+Every job runs through `run_mom_job.sh`: it activates the conda environment, runs one job at a time per folder (`logs/mom_job.lock`), writes the job's output to `logs/<job>.log`, and publishes the alerts when `PUBLISH_CSV` / `PUBLISH_TILES` are on.
 
-To set the jobs up by hand, use the [crontab](https://www.digitalocean.com/community/tutorials/how-to-use-cron-to-automate-tasks-ubuntu-1804) command. Jobs must be launched through `run_mom_job.sh`, **not** by calling the environment's python directly. The wrapper activates the conda environment, which is what puts the environment's `bin/` on `PATH` and runs the GDAL/PROJ `activate.d` hooks; without it `gdal_translate` cannot be resolved and image products are silently skipped. The wrapper reads `CONDA_SH`, `CONDA_ENV` and `PROJECT_DIR` from the environment, so a non-root install only needs those three values changed.
+On a new installation no job runs before its scheduled time, so make the last days first:
+```
+./run_mom_job.sh -j BACKFILL --start <YYYYMMDD, two days ago>
+```
 
-Sample crontab entries, assuming miniconda is installed under /home/tester/miniconda3. Keep at least 1 hour interval between any two jobs:  
+## 3.1 Docker
 ```
-CONDA_SH=/home/tester/miniconda3/etc/profile.d/conda.sh
-CONDA_ENV=mom
-PROJECT_DIR=/home/tester/MoMProduction
+cp sample_production.cfg production.cfg     # fill in the credentials and the data folders
+./docker_up.sh                              # build, start, install the cron schedule
+docker compose exec mom ./run_mom_job.sh -j BACKFILL --start <YYYYMMDD, two days ago>
+```
+Where everything is on the host:
+- **Data:** exactly the `WORKING_DIR` and `PRODUCT_DIR` of `production.cfg`, with `~` being the home of the user who runs `docker_up.sh` (`~/MoM/Products` is `/home/<user>/MoM/Products`). `docker_up.sh` mounts them into the container (`~` there is `/root`) through `docker-compose.override.yml`.
+- **Logs and the job lock:** `./docker_run/logs` (cron job output) and `./docker_run/backfill_logs`.
+- **Configuration:** `./production.cfg`, read-only. For the alert push, uncomment the `.env` line in `docker-compose.yml`.
 
-0 4,11,14,21 * * * /home/tester/MoMProduction/run_mom_job.sh -j GFMS >> /home/tester/MoMProduction/logs/gfms.log 2>&1
-0 2,7,13,19 * * * /home/tester/MoMProduction/run_mom_job.sh -j HWRF >> /home/tester/MoMProduction/logs/hwrf.log 2>&1
-0 3,10,23 * * * /home/tester/MoMProduction/run_mom_job.sh -j DFO >> /home/tester/MoMProduction/logs/dfo.log 2>&1
-0 5,12,17 * * * /home/tester/MoMProduction/run_mom_job.sh -j VIIRS >> /home/tester/MoMProduction/logs/viirs.log 2>&1
+Nothing is kept only inside the container, so removing or rebuilding it loses no data. Files are written as root. The container doesn't start cron if `production.cfg` is incomplete or the data folders aren't mounted; `docker compose logs mom` shows the action to take.
 ```
-**Notes:** Please reference [crontab_list.txt](https://github.com/Global-Flood-Assessment/MoMProduction/blob/dev/crontab_list.txt) for the latest cron setup. 
-## 4.1 Docker (environment, cron and all jobs in one container)
-`Dockerfile` builds an image from the checkout in hand: the `momenv` conda environment from `environment.yml` (plus `libgdal-hdf4`), `cron`, and the repository itself; `docker-entrypoint.sh` then runs `initialize.py`, installs the schedule with `setup_crontab.sh` and hands over to `cron` in the foreground, so a single container runs all five jobs on the production schedule. `production.cfg` is deliberately not baked into the image: mount it, together with a volume for `WORKING_DIR`/`PRODUCT_DIR` (`/root/MoM`), and an `.env` as well if the alert push is used.
+docker compose exec mom crontab -l
+docker compose exec mom ./run_mom_job.sh -j HAFS
+docker compose down
 ```
-docker build -t momproduction .
-docker run -d --name mom --restart unless-stopped \
-    -v /path/to/production.cfg:/root/MoMProduction/production.cfg:ro \
-    -v mom_data:/root/MoM \
-    momproduction
-docker exec mom crontab -l                  # the installed schedule
-docker exec mom tail -f logs/gfms.log       # a job's output
-docker exec mom ./run_mom_job.sh -j GFMS    # run one job by hand
-```
-Anything passed after the image name runs instead of cron, which is the way to do a one-off job or a `--fixdate` run in a throwaway container.
 
-## 5. Storage requirements 
+## 4. Storage requirements 
 The minimum required free disk space for data processing is 20G. 
 
 Daily processing jobs generate less than 3.0Gb data, includes both the downloaded data and products.  
@@ -146,14 +103,14 @@ production.cfg:
 dfo_save: False 
 viirs_save: False 
 ```
-### 5.1 Free up disk space
+### 4.1 Free up disk space
 If the disk space is low, use the following steps to free up disk space:
 * Remove the zip files in sub-folders under Processing, the zip files contain the downloaded data that already been processed, it is safe to delete them periodically.
 * If more space needed, under Products, all the tiffs images in _image subfolder can be removed, they are only for the archive purpose.  
 * A good practice is to delete the older *.zip/*.tiff first, and keep at least the recent data up to two weeks. 
 
 Disk space can be monitored with the optional Monitor Module. 
-## 6. Folder structures 
+## 5. Folder structures 
 Folder structures is defined in production.cfg, the default one is listed. Modify [general],[processing_dir], [products_dir] to change the locations. 
 ```
 MoM
@@ -185,7 +142,7 @@ MoM
         └── VIIRS_summary
 ```
 
-## 7. Processing modules & data
+## 6. Processing modules & data
 
 ```
 settings.py
@@ -228,7 +185,7 @@ data
 └── VIIRS_Weightage.csv
 ```
 
-## 8. Profiling scripts
+## 7. Profiling scripts
 
 1. Start logging disk usage before running the script (separate shell, linux)
 ```

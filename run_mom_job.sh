@@ -14,11 +14,21 @@
 #
 # Overridable via the environment: CONDA_SH, CONDA_ENV, PROJECT_DIR. The
 # conda base is found as setup.sh finds it (conda info --base, else
-# $HOME/miniconda3).
+# $HOME/miniconda3, else /opt/conda).
 
 set -euo pipefail
 
-CONDA_SH="${CONDA_SH:-$(conda info --base 2>/dev/null || echo "$HOME/miniconda3")/etc/profile.d/conda.sh}"
+if [ -z "${CONDA_SH:-}" ]; then
+    # cron's PATH has no conda: then the usual install folders, ~/miniconda3
+    # (setup.sh) or /opt/conda (the Docker image, whose ~ is a volume)
+    conda_base=$(conda info --base 2>/dev/null || true)
+    if [ -z "$conda_base" ]; then
+        for conda_base in "$HOME/miniconda3" /opt/conda; do
+            [ -f "$conda_base/etc/profile.d/conda.sh" ] && break
+        done
+    fi
+    CONDA_SH="$conda_base/etc/profile.d/conda.sh"
+fi
 CONDA_ENV="${CONDA_ENV:-momenv}"
 # default: the folder of this script (the repository root)
 PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
