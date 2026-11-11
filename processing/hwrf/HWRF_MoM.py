@@ -929,9 +929,10 @@ def update_HWRFMoM_DFO_VIIRS(adate):
 
 
 def find_pair_HWRFoutput(adate):
-    """return pair of HWRF Mom output
-    [MoM_adate, MoM of the previous cycle]
-    if not found: ["",""], or [MoM_adate, ""] without the previous cycle
+    """[the MoM+DFO+VIIRS output of a cycle, the final alert of the cycle
+    before it]: the alert's Status compares with the Alert the previous cycle
+    published (FINAL_MOM_DIR). ["", ""] without this cycle's output,
+    [output, ""] without the previous alert
     """
     # first find the hwrf hour output
     hwrfh_list = glob.glob(os.path.join(settings.HWRF_MOM_DIR, "Final*.csv"))
@@ -942,16 +943,18 @@ def find_pair_HWRFoutput(adate):
 
     MoM_adate = matching[0]
 
-    # the previous cycle
+    # the final alert of the previous cycle
     pdate = (datetime.strptime(adate, "%Y%m%d%H") - timedelta(hours=6)).strftime(
         "%Y%m%d%H"
     )
-    matching = [s for s in hwrfh_list if pdate + settings.HWRF_FILE_TAG + "+" in s]
-    # no previous cycle
-    if len(matching) < 1:
+    previous = os.path.join(
+        settings.FINAL_MOM_DIR,
+        f"Final_Attributes_{pdate}{settings.HWRF_FILE_TAG}+MOM+DFO+VIIRSUpdated_PDC.csv",
+    )
+    if not os.path.exists(previous):
         return [MoM_adate, ""]
 
-    return [MoM_adate, matching[0]]
+    return [MoM_adate, previous]
 
 
 def final_alert_pdc(adate):
@@ -972,12 +975,18 @@ def final_alert_pdc(adate):
         return
 
     mapping = {"Information": 1, "Advisory": 2, "Watch": 3, "Warning": 4}
-    # read data
-    # without the previous cycle every watershed is New (Alert_0 = 5)
+    # the previous cycle's final alert: its Alert is Alert_0; without it every
+    # watershed is New (Alert_0 = 5)
     if pAlert:
-        pa_df = read_data(pAlert)
+        # written in Windows-1252 (below); only its pfaf_id and Alert are
+        # read, one row per watershed (a final alert repeats a watershed's
+        # row, with the same Alert, once per admin area), and the join keeps
+        # the watersheds of this cycle only
+        pa_df = pd.read_csv(
+            pAlert, encoding="Windows-1252", usecols=["pfaf_id", "Alert"]
+        ).drop_duplicates("pfaf_id")
     else:
-        logging.warning(f"no previous cycle for {adate}, all watersheds are New")
+        logging.warning(f"no final alert of the previous cycle for {adate}, all watersheds are New")
         pa_df = pd.DataFrame(columns=["pfaf_id", "Alert"], dtype=float)
     # for PA, the only two columns needed
     pa_df = pa_df[["pfaf_id", "Alert"]]

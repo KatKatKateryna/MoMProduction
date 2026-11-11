@@ -36,11 +36,9 @@ offline_mom_from_summaries.py
     An output already in OUT is kept, unless --overwrite: then the outputs of
     the days in the window are deleted from OUT first.
 
-    The final alert of a cycle pairs with the MoM of the previous cycle, 6 h
-    earlier. For the first cycle of the window that one is not in OUT, so it
-    is read, not copied, from the MoM folder of --input-root, which is only
-    read from. With --warmup, or when the input root has not got that cycle,
-    it is built in OUT instead: that one cycle, no alert.
+    The final alert of a cycle compares with the final alert of the previous
+    cycle, 6 h earlier, in OUT's final alert folder, as the cron job does in
+    its own; without it the cycle's watersheds are all New.
 
     Offline: nothing is downloaded or requested from any host. A cycle whose
     GFMS summary is missing is skipped (the MoM would download GFMS), and a
@@ -93,7 +91,7 @@ import os
 import shutil
 import sys
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 # the project modules are one folder up
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -194,11 +192,6 @@ class Folders:
         os.makedirs(path, exist_ok=True)
         return path
 
-    def pair(self, name):
-        """folder `name` of the input root: the MoM of the cycle before the
-        window is read there, never written to"""
-        return self.under(self.input_root, name)
-
     def rain_summary(self, chain, cycle):
         """rain summary of a cycle (YYYYMMDDHH) for a chain"""
         sum_dir, prefix = CHAINS[chain]["rain"]
@@ -265,57 +258,6 @@ def offline(folders, tmpdir):
         ) = saved_steps
 
 
-def pair_cycle(first_day):
-    """the cycle 6 h before the first cycle of the window"""
-    return (datetime.strptime(first_day + HOURS[0], "%Y%m%d%H")
-            - timedelta(hours=6)).strftime("%Y%m%d%H")
-
-
-def pair_available(folders, chain, cycle):
-    """True when the input root has the MoM of `cycle`, so it need not be
-    built; asked with the MoM's own finder, before pair_from patches it"""
-    pair_dir = folders.pair(CHAINS[chain]["mom"])
-    if not os.path.isdir(pair_dir):
-        return False
-    out_mom = settings.HWRF_MOM_DIR
-    try:
-        settings.HWRF_MOM_DIR = pair_dir
-        return HWRF_MoM.find_pair_HWRFoutput(cycle)[0] != ""
-    finally:
-        settings.HWRF_MOM_DIR = out_mom
-
-
-@contextlib.contextmanager
-def pair_from(folders, chain):
-    """the final alert of the window's first cycle pairs with the cycle 6 h
-    before it, which is not in out_dir: that one is read from the pair root by
-    calling the MoM's own finder against it, so nothing has to be copied in"""
-    original = HWRF_MoM.find_pair_HWRFoutput
-    pair_dir = folders.pair(CHAINS[chain]["mom"])
-
-    def find_pair(adate):
-        own, previous = original(adate)
-        if own == "" or previous != "" or not os.path.isdir(pair_dir):
-            return [own, previous]
-        pdate = (datetime.strptime(adate, "%Y%m%d%H")
-                 - timedelta(hours=6)).strftime("%Y%m%d%H")
-        out_mom = settings.HWRF_MOM_DIR
-        try:
-            settings.HWRF_MOM_DIR = pair_dir
-            previous = original(pdate)[0]
-        finally:
-            settings.HWRF_MOM_DIR = out_mom
-        if previous:
-            logging.info(f"{chain} {adate}: previous cycle {pdate} read from {pair_dir}")
-        return [own, previous]
-
-    HWRF_MoM.find_pair_HWRFoutput = find_pair
-    try:
-        yield
-    finally:
-        HWRF_MoM.find_pair_HWRFoutput = original
-
-
 def use_chain(folders, chain):
     """point the reused HWRF/DFO/VIIRS MoM functions at a chain's own rain
     summaries, file tag and output folders"""
@@ -349,11 +291,6 @@ def _getParser():
         "--out-dir", default=DEFAULT_ROOT,
         help="root the outputs are written under, in the production layout "
              f"(default: {DEFAULT_ROOT}, the folders of production.cfg)",
-    )
-    parser.add_argument(
-        "--warmup", action="store_true",
-        help="build the cycle before the window in --out-dir (no alert) instead of "
-             "reading it from --input-root; done anyway when it is not there",
     )
     parser.add_argument(
         "--overwrite", action="store_true",
@@ -495,7 +432,7 @@ def backfill_gfms(folders, adate, dry_run, tmpdir):
                  workdir=settings.GFMS_PROC_DIR)
 
 
-def backfill_chain(folders, tmpdir, chain, adate, dry_run, with_alert=True, hours=HOURS):
+def backfill_chain(folders, tmpdir, chain, adate, dry_run, hours=HOURS):
     """MoM, +DFO+VIIRS and final alert of the 4 cycles of a day for a chain,
     return the cycles run"""
     now = datetime.now(timezone.utc)
@@ -538,8 +475,7 @@ def backfill_chain(folders, tmpdir, chain, adate, dry_run, with_alert=True, hour
             continue
         run_step(f"{chain}+DFO+VIIRS MoM", update_HWRFMoM_DFO_VIIRS, adatehour,
                  workdir=settings.HWRF_PROC_DIR)
-        if with_alert:
-            run_step(f"{chain} final alert", final_alert_pdc, adatehour)
+        run_step(f"{chain} final alert", final_alert_pdc, adatehour)
         done.append(hh)
     return done
 
@@ -585,23 +521,9 @@ def run_chain(job, chain):
         done = {}
         with offline(folders, tmpdir):
             use_chain(folders, chain)
-            # the alert pair of the first cycle: read from the pair root, or
-            # built here when that root has not got it
-            warmup = pair_cycle(dates[0])
-            need_warmup = args.warmup or not pair_available(folders, chain, warmup)
-            with pair_from(folders, chain):
-                if need_warmup:
-                    why = ("asked for" if args.warmup
-                           else f"not in {folders.pair(CHAINS[chain]['mom'])}")
-                    logging.info(f"===== {chain} warm-up {warmup} ({why}) =====")
-                    backfill_chain(folders, tmpdir, chain, warmup[:8], args.dry_run,
-                                   with_alert=False, hours=[warmup[8:]])
-                else:
-                    logging.info(f"{chain}: alert pair {warmup} comes from "
-                                 f"{folders.pair(CHAINS[chain]['mom'])}, no warm-up")
-                for adate in dates:
-                    logging.info(f"===== {chain} chain {adate} =====")
-                    done[adate] = backfill_chain(folders, tmpdir, chain, adate, args.dry_run)
+            for adate in dates:
+                logging.info(f"===== {chain} chain {adate} =====")
+                done[adate] = backfill_chain(folders, tmpdir, chain, adate, args.dry_run)
         return done
     return in_process(chain, work) or {}
 
@@ -642,7 +564,7 @@ def main():
         f"MoM backfill {dates[0]} - {dates[-1]}: input {folders.input_root}, GloFAS/DFO "
         f"{folders.glofas_dfo_root}, output "
         f"{folders.out_dir}, "
-        f"pairs from {folders.input_root}, warmup={args.warmup}, chains {' '.join(chains)}, "
+        f"chains {' '.join(chains)}, "
         f"overwrite={args.overwrite}, dry_run={args.dry_run}"
     )
 

@@ -9,12 +9,10 @@ import csv
 import logging
 import os
 import sys
-from datetime import datetime, timezone
 
 import pandas as pd
 
 import settings
-from processing.hwrf.HWRF_MoM import hwrf_workflow
 from processing.utilities import (
     in_mom_folders,
     read_data,
@@ -61,35 +59,11 @@ def update_DFO_MoM(adate):
         logging.info(f"DFO MoM already processed: {adate}")
         return
 
-    # check MOMOutput
-    hhs = ["00", "06", "12", "18"]
-    now_datehour = datetime.now(timezone.utc).strftime("%Y%m%d%H")
-    for hh0 in hhs:
-        # skip cycles that have not happened yet. hhs is in ascending order, so
-        # once one cycle is in the future every later one is too, and the 18Z
-        # output merged below cannot exist either: nothing left to do for now.
-        if adate + hh0 > now_datehour:
-            logging.info(f"cycle not reached yet, stop here: {adate}{hh0}")
-            return
-        MOMOutput = os.path.join(
-            settings.HWRF_MOM_DIR,
-            f"Final_Attributes_{adate}{hh0}{settings.HWRF_FILE_TAG}Updated.csv",
-        )
-        if not os.path.exists(MOMOutput):
-            logging.info(f"force generate {settings.HWRF_FILE_TAG} : {MOMOutput}")
-            if settings.HAFS_ENABLED:
-                # with its rain and the previous cycle settled, as the HAFS job
-                from processing.hafs.HAFS_tool import hafs_workflow
-
-                hafs_workflow(adate + hh0)
-            else:
-                hwrf_workflow(adate + hh0)
+    # the 18 cycle's MoM, made by the HAFS / HWRF job; this job never makes
+    # it, so until it is there the date waits for a later run
     MOMOutput = os.path.join(
         settings.HWRF_MOM_DIR, f"Final_Attributes_{adate}{hh}{settings.HWRF_FILE_TAG}Updated.csv"
     )
-
-    # the cycle this function merges may not be published yet, whether or not
-    # the force generation above ran
     if not os.path.exists(MOMOutput):
         logging.info(f"{MOMOutput} is not generated yet!")
         return

@@ -38,10 +38,11 @@ DFO_TOTAL_TILES = 287
 DFO_MINIMUM_TILES = 280
 
 # a date still without DFO data this many days later gets an all-zero
-# summary (fill_missing_dates); only dates the host still keeps (about a
-# week) are filled
+# summary (empty_summary), back to DFO_FILL_LOOKBACK_DAYS: D-1 and D-2, the
+# dates the MoM cycles look at first (cycle_inputs.dfo_for_cycle); a date the
+# host still lists is never filled, its data can still be processed
 DFO_FILL_AFTER_DAYS = 1
-DFO_FILL_LOOKBACK_DAYS = 7
+DFO_FILL_LOOKBACK_DAYS = 2
 
 # flood layers of the DFO hdf files, in the order of the summary columns
 FLOOD_LAYERS = [
@@ -116,6 +117,22 @@ def host_tiles(adate, day_num):
     return len(
         {a.get("href", "") for a in soup.find_all("a") if a.get("href", "").endswith(".hdf")}
     )
+
+
+# the DFO job processes this many of the host's newest finished dates
+DFO_LATEST_DATES = 2
+
+
+def latest_processing_dates(dates):
+    """the dates the DFO job processes: of the host's finished dates
+    (host_dates, never today) the DFO_LATEST_DATES newest -- normally D-1 and
+    D-2, so a day the job did not run is still caught up -- that have no
+    summary yet, {day number: YYYYMMDD} as generate_procesing_list gives it;
+    {} when they all have one, or the host has none. Older dates the host
+    still keeps are not processed (backfill: online_dfo_images_from_host.py,
+    offline_dfo_summaries_from_images.py)"""
+    newest = sorted(dates or {})[-DFO_LATEST_DATES:]
+    return {dates[d]: d for d in newest if not check_status(d)}
 
 
 def generate_procesing_list():
@@ -385,11 +402,14 @@ def DFO_process(folder, adate):
     return
 
 
-def fill_missing_dates():
+def empty_summary(on_host):
     """write an all-zero DFO summary (no image) for each recent date that
     still has no DFO data DFO_FILL_AFTER_DAYS days later, so DFO adds nothing
     that day instead of blocking the DFO/VIIRS MoM and leaving the alerts on
-    old DFO data"""
+    old DFO data. on_host: the host's dates (host_dates), none of which is
+    filled -- the host has its data, which can still be processed; None when
+    the host could not be listed (unreachable or gone), then every such date
+    is filled"""
     today = datetime.now(timezone.utc).date()
     pfaf_ids = None
     columns = [
@@ -401,6 +421,9 @@ def fill_missing_dates():
         adate = (today - timedelta(days=back)).strftime("%Y%m%d")
         summary_csv = os.path.join(settings.DFO_SUM_DIR, f"DFO_{adate}.csv")
         if os.path.exists(summary_csv):
+            continue
+        if on_host is not None and adate in on_host:
+            logging.info(f"DFO {adate}: no summary, but on the host: not filled")
             continue
         if pfaf_ids is None:
             pfaf_ids = watersheds_gdb_reader().index
@@ -421,24 +444,25 @@ def DFO_cron():
 
     # DFO reached EOL in September 2026
     try:
-        datelist = generate_procesing_list()
+        on_host = host_dates()
     except Exception:
         # host unreachable or gone: the missing dates are still filled below
         logging.exception("DFO host listing failed")
-        datelist = {}
+        on_host = None
+    datelist = latest_processing_dates(on_host)
 
     if len(datelist) == 0:
         # return instead of exiting the process: the caller still has to run
         # batchrun_DFO_MoM, which catches up any date whose MoM is missing or
         # was deferred because its cycles had not happened yet
         logging.info("no new data to process!")
-        fill_missing_dates()
+        empty_summary(on_host)
         return
 
     logging.info(f"dates to process: {sorted(datelist.values())}")
     for key in datelist:
         # a failed or broken date never stops the run: it stays unprocessed,
-        # is retried on the next run and filled by fill_missing_dates below
+        # is retried on the next run and filled by empty_summary below
         try:
             logging.info(f"download: {key} ({datelist[key]})")
             if not dfo_download(key, int(datelist[key][:4])):
@@ -463,7 +487,7 @@ def DFO_cron():
             # DFO_process works inside the download folder
             os.chdir(settings.BASE_DIR)
 
-    fill_missing_dates()
+    empty_summary(on_host)
     return
 
 

@@ -573,7 +573,7 @@ def process_rain_retried(cycle):
         logging.exception(f"HAFS data failed for {cycle}")
 
 
-def hafs_workflow(cycle, with_alert=True):
+def hafs_workflow(cycle):
     """HAFS MoM, +DFO+VIIRS and final alert of a cycle; False if the cycle is
     not due yet (later cycles are not either)"""
     from processing.hwrf.HWRF_MoM import (
@@ -594,8 +594,7 @@ def hafs_workflow(cycle, with_alert=True):
     with hafs_folders():
         run_step("MoM", update_HWRF_MoM, cycle)
         run_step("MoM+DFO+VIIRS", update_HWRFMoM_DFO_VIIRS, cycle)
-        if with_alert:
-            run_step("final alert", final_alert_pdc, cycle)
+        run_step("final alert", final_alert_pdc, cycle)
     return True
 
 
@@ -634,9 +633,10 @@ def hafs_outputs(adate):
 # ---------------------------------------------------------------------------
 
 
-def batchrun_HAFS_MoM(dates, warmup=None, overwrite=False):
-    """HAFS data and MoM for the given days (oldest first); the warm-up day
-    only provides the previous-day pairs of the final alerts"""
+def batchrun_HAFS_MoM(dates, overwrite=False):
+    """HAFS data and MoM for the given days (oldest first); a final alert
+    compares with the previous cycle's final alert when there is one, as in
+    the cron job"""
     make_dirs()
     if overwrite:
         for adate in dates:
@@ -644,15 +644,13 @@ def batchrun_HAFS_MoM(dates, warmup=None, overwrite=False):
                 logging.info(f"HAFS remove: {f}")
                 os.remove(f)
 
-    days = ([warmup] if warmup else []) + list(dates)
-    for adate in days:
+    for adate in dates:
         due = True
         for hh in HOURS:
-            due = hafs_workflow(adate + hh, with_alert=adate != warmup)
+            due = hafs_workflow(adate + hh)
             if not due:
                 break
-        if adate != warmup:
-            run_day_dfo_viirs(adate)
+        run_day_dfo_viirs(adate)
         if not due:
             break
 
@@ -700,9 +698,8 @@ def main():
         (end - timedelta(days=i)).strftime("%Y%m%d")
         for i in range(args.days - 1, -1, -1)
     ]
-    warmup = (end - timedelta(days=args.days)).strftime("%Y%m%d")
     logging.info(f"HAFS backfill {dates[0]} - {dates[-1]}, overwrite={args.overwrite}")
-    batchrun_HAFS_MoM(dates, warmup=warmup, overwrite=args.overwrite)
+    batchrun_HAFS_MoM(dates, overwrite=args.overwrite)
     logging.info("HAFS backfill finished")
 
 
