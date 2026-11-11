@@ -1,8 +1,9 @@
 """
 offline_mom_from_summaries.py
     -- regenerate the MoM products (GFMS, HWRF, DFO, VIIRS MoM and final
-       alerts, and the same for the HAFS chain) for the last N days from
-       summaries that already exist locally, into --out-dir
+       alerts, and the same for the HAFS chain) for the days from --start to
+       --end (YYYYMMDD; default: up to today, as far as the cycles have come)
+       from summaries that already exist locally, into --out-dir
 
     Everything is read from the Products tree of a root; the processing tree
     is never read, and its folders are pointed at the temporary folder.
@@ -23,20 +24,13 @@ offline_mom_from_summaries.py
     (GFMS/GFMS_summary, GLOFAS, ...), the step files beside the summaries
     (GFMS/GFMS_summary/steps, HAFS/HAFS_summary/steps).
 
-    Outputs, all under --out-dir and nowhere else. A flat OUT:
-        OUT/gfms_mom          GFMS MoM
-        OUT/hwrf_mom          HWRF MoM and HWRF+DFO+VIIRS        (tag HWRF)
-        OUT/dfo_mom           DFO MoM of the HWRF chain
-        OUT/viirs_mom         VIIRS MoM of the HWRF chain
-        OUT/hafs_mom          HAFS MoM and HAFS+DFO+VIIRS        (tag HAFS)
-        OUT/dfo_hafs_mom      DFO MoM of the HAFS chain
-        OUT/viirs_hafs_mom    VIIRS MoM of the HAFS chain
-        OUT/Final_Alerts      final alerts of both chains (…HWRF+MOM… and …HAFS+MOM…)
-    An OUT that has every production MoM folder (the production root, the
-    parent of PRODUCT_DIR) gets the production folders instead, the ones the
-    cron jobs write: Products/GFMS/GFMS_MoM, HWRF/HWRF_MoM, DFO/DFO_MoM,
+    Outputs, all under --out-dir (OUT) and nowhere else, in the production
+    layout: the folders the cron jobs write, where settings.py puts them
+    under the production root (the folder that holds PRODUCT_DIR), under OUT
+    instead -- Products/GFMS/GFMS_MoM, HWRF/HWRF_MoM, DFO/DFO_MoM,
     VIIRS/VIIRS_MoM, HAFS/HAFS_MoM, DFO/DFO_HAFS_MoM, VIIRS/VIIRS_HAFS_MoM,
-    the final alert folder of production.cfg and Final_Alerts_hafs.
+    the final alert folder of production.cfg and Final_Alerts_hafs. Without
+    --out-dir, OUT is the production root itself.
     Step files the input root has not got are written to OUT's
     Products/GFMS/GFMS_summary/steps and Products/HAFS/HAFS_summary/steps.
     An output already in OUT is kept, unless --overwrite: then the outputs of
@@ -83,10 +77,10 @@ offline_mom_from_summaries.py
     chain (they read that chain's 18 MoM and DFO MoM).
 
 **EXAMPLE**
-    python backfill/offline_mom_from_summaries.py --days 7 --out-dir <rerun folder> --dry-run
-    python backfill/offline_mom_from_summaries.py --days 3 --end 20261012 --out-dir <rerun folder>
-    python backfill/offline_mom_from_summaries.py --days 15 --end 20261015 --out-dir <production root> --overwrite
-    python backfill/offline_mom_from_summaries.py --days 3 --end 20261012 --out-dir <rerun folder> \\
+    python backfill/offline_mom_from_summaries.py --start 20261105 --out-dir <rerun folder> --dry-run
+    python backfill/offline_mom_from_summaries.py --start 20261010 --end 20261012 --out-dir <rerun folder>
+    python backfill/offline_mom_from_summaries.py --start 20261001 --end 20261015 --overwrite   (into production)
+    python backfill/offline_mom_from_summaries.py --start 20261010 --end 20261012 --out-dir <rerun folder> \\
         --overwrite --input-root /data/MoM_copy --glofas-dfo-root /data/MoM_copy
 """
 
@@ -123,6 +117,7 @@ from processing.cycle_inputs import (  # noqa: E402
 )
 from processing.utilities import watersheds_gdb_reader  # noqa: E402
 from processing.viirs.VIIRS_MoM import update_VIIRS_MoM  # noqa: E402
+from backfill_args import add_date_args, days  # noqa: E402
 from processing.watershed_cells import raster_summary  # noqa: E402
 
 HOURS = ["00", "06", "12", "18"]
@@ -339,14 +334,7 @@ def _getParser():
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument(
-        "--days", type=int, required=True,
-        help="number of days to backfill, counted back from --end (inclusive)",
-    )
-    parser.add_argument(
-        "--end", default=datetime.now(timezone.utc).strftime("%Y%m%d"),
-        help="last day to backfill, YYYYMMDD (default: today, UTC)",
-    )
+    add_date_args(parser, by_cycle=False)
     parser.add_argument(
         "--input-root", default=DEFAULT_ROOT,
         help=f"root with the GFMS, HWRF, HAFS and VIIRS summaries and step files, "
@@ -358,9 +346,9 @@ def _getParser():
              "--input-root (default: --input-root)",
     )
     parser.add_argument(
-        "--out-dir", required=True,
-        help="folder the outputs are written to: flat (gfms_mom, hwrf_mom, ..., Final_Alerts) or, "
-             "when it has every production MoM folder (the production root), those folders",
+        "--out-dir", default=DEFAULT_ROOT,
+        help="root the outputs are written under, in the production layout "
+             f"(default: {DEFAULT_ROOT}, the folders of production.cfg)",
     )
     parser.add_argument(
         "--warmup", action="store_true",
@@ -376,15 +364,6 @@ def _getParser():
         help="only report what would be run and removed, write nothing",
     )
     return parser
-
-
-def backfill_dates(end, days):
-    """list of YYYYMMDD, oldest first"""
-    end_date = datetime.strptime(end, "%Y%m%d")
-    return [
-        (end_date - timedelta(days=i)).strftime("%Y%m%d")
-        for i in range(days - 1, -1, -1)
-    ]
 
 
 def mom_outputs(folders, adate):
@@ -655,7 +634,9 @@ def main():
     logging.getLogger().addHandler(console)
 
     folders = Folders(args.input_root, args.glofas_dfo_root or args.input_root, args.out_dir)
-    dates = backfill_dates(args.end, args.days)
+    dates = list(days(args.start, args.end))
+    if not dates:
+        sys.exit("no days between --start and --end (or today)")
     chains = ["HWRF"] + (["HAFS"] if settings.HAFS_ENABLED else [])
     logging.info(
         f"MoM backfill {dates[0]} - {dates[-1]}: input {folders.input_root}, GloFAS/DFO "
