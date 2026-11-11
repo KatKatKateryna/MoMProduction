@@ -72,45 +72,67 @@ def check_status(adate):
     return processed
 
 
-def get_hosturl():
-    """get the host url"""
+def get_hosturl(year=None):
+    """the host url of a year's folder (default: the current year)"""
     baseurl = settings.config.get("dfo", "HOST")
-    cur_year = datetime.now(timezone.utc).year
+    cur_year = year or datetime.now(timezone.utc).year
     hosturl = f"{baseurl.rstrip('/')}/{str(cur_year)}"
 
     return hosturl
 
 
-def generate_procesing_list():
-    """generate list of date to process
-    return a dict object
-    {'001': '20230101', '002': '20230102'}
-    """
-    hosturl = get_hosturl()
-    reqs = requests.get(hosturl)
+def host_dates():
+    """{YYYYMMDD: day number} of the finished dates the host has: those in its
+    folder of the current year and of the year before (in the first days of
+    January the last days of December are still there), before today -- a
+    date's final tiles come the next day. A year folder the host has not got
+    adds none. The year of a date is its first four digits."""
+    today = datetime.now(timezone.utc)
+    today_str = today.strftime("%Y%m%d")
+    dates = {}
+    for year in (today.year - 1, today.year):
+        reqs = requests.get(get_hosturl(year), timeout=120)
+        if reqs.status_code == 404:
+            continue
+        reqs.raise_for_status()
+        soup = BeautifulSoup(reqs.text, "html.parser")
+        for link in soup.find_all("a"):
+            if not (link.string and link.string.isdigit()):
+                continue
+            real_date = get_real_date(year, link.string)
+            if real_date < today_str:
+                dates[real_date] = link.string
+    return dates
+
+
+def host_tiles(adate, day_num):
+    """how many tiles (.hdf) the host's folder of a date (YYYYMMDD, its day
+    number) lists"""
+    reqs = requests.get(
+        f"{get_hosturl(int(adate[:4])).rstrip('/')}/{day_num}", timeout=120
+    )
+    reqs.raise_for_status()
     soup = BeautifulSoup(reqs.text, "html.parser")
-    cur_year = hosturl[-4:]
-    datelist = {}
-    # get the today in str
-    today_str = datetime.now(timezone.utc).strftime("%Y%m%d")
-
-    days = [link.string for link in soup.find_all("a") if link.string.isdigit()]
-    for day_num in days:
-        real_date = get_real_date(cur_year, day_num)
-        # compare date in iso str
-        # skip today and later: a date's final tiles come the next day
-        if real_date >= today_str:
-            continue
-        # check if the date is already processed
-        if check_status(real_date):
-            continue
-        datelist[day_num] = real_date
-
-    return datelist
+    return len(
+        {a.get("href", "") for a in soup.find_all("a") if a.get("href", "").endswith(".hdf")}
+    )
 
 
-def dfo_download(subfolder):
-    """download a subfolder"""
+def generate_procesing_list():
+    """the dates to process: the host's finished dates (host_dates) that have
+    no summary yet, {day number: YYYYMMDD}, e.g. {'001': '20230101'}; the
+    host keeps only about a week, so the day numbers of the two years never
+    meet"""
+    return {
+        day_num: real_date
+        for real_date, day_num in host_dates().items()
+        if not check_status(real_date)
+    }
+
+
+def dfo_download(subfolder, year=None):
+    """download a subfolder (day number) of a year's folder on the host
+    (default: the current year)"""
 
     # check if there is unfinished download
     d_dir = os.path.join(settings.DFO_PROC_DIR, subfolder)
@@ -134,7 +156,7 @@ def dfo_download(subfolder):
         if "???" not in settings.config.get("dfo", "TOKEN")
         else os.getenv("AUTH_DFO_TOKEN")
     )
-    dataurl = f"{get_hosturl().rstrip('/')}/{subfolder}"
+    dataurl = f"{get_hosturl(year).rstrip('/')}/{subfolder}"
 
     # os-agnostic process
     cmd = [
@@ -419,7 +441,7 @@ def DFO_cron():
         # is retried on the next run and filled by fill_missing_dates below
         try:
             logging.info(f"download: {key} ({datelist[key]})")
-            if not dfo_download(key):
+            if not dfo_download(key, int(datelist[key][:4])):
                 logging.warning(
                     f"download failed for {key} ({datelist[key]}), skipping: the "
                     "date stays unprocessed and is retried on the next run"
@@ -459,7 +481,7 @@ def DFO_fixdate(adate):
     key = [k for k, v in datelist.items() if v == adate][0]
     logging.info(f"try to fix a date: {adate}")
     logging.info(f"download: {key} ({adate})")
-    if not dfo_download(key):
+    if not dfo_download(key, int(adate[:4])):
         logging.warning(f"download failed for {key} ({adate})")
         return
     logging.info(f"download finished: {key}")
