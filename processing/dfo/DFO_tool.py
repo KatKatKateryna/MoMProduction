@@ -249,11 +249,11 @@ def dfo_download(subfolder, year=None):
         # is file cases
         if os.path.isfile(d_dir):
             os.remove(d_dir)
-        elif (
+        elif 0 < (
             len([f for f in os.listdir(d_dir) if f.endswith(".hdf")])
-            >= DFO_MIN_TILE_SHARE * DFO_TOTAL_TILES
-        ):
-            # enough tiles from an earlier run, nothing to download
+        ) >= DFO_MIN_TILE_SHARE * expected_tiles(d_dir):
+            # enough tiles from an earlier run (of the box, as DFO_process
+            # counts them), nothing to download
             return True
         else:
             # remove the subfolder
