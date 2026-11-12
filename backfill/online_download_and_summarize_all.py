@@ -5,14 +5,18 @@ online_download_and_summarize_all.py
        jobs' own code; no MoM is made (offline_mom_from_summaries.py does)
 
     Per source, as its cron job makes them:
-      - GloFAS  GloFAS_tool.GloFAS_process: every file the FTP site has
+      - GloFAS  GloFAS_tool.GloFAS_process: every file the FTP site has;
+                the days and D-1 (the file the first day's 00 and 06 cycles
+                use, cycle_inputs.glofas_for_cycle) are checked for
       - GFMS    GFMS_tool.GFMS_processing of the days: the summaries of the
                 times that have come, the cycle images (GFMS_image,
                 GFMS_steps) and step files
-      - HAFS    HAFS_tool.process_rain of every cycle (00, 06, 12, 18): the
-                rain records, summary, image and step file
+      - HAFS    HAFS_tool.process_rain of every cycle (00, 06, 12, 18) and
+                of the cycle 6 h before the first (the rain the first day's
+                00 cycle uses, cycle_inputs.rain_for_cycle): the rain
+                records, summary, image and step file
       - HWRF    the HWRF job's download and summary (HWRF_tool) of the host's
-                cycles of the days
+                cycles among the same ones
       - DFO     DFO_tool.dfo_download and DFO_process: summary and images
       - VIIRS   VIIRS_tool.VIIRS_run_adate: the date's flood composite parts,
                 its mosaic (VIIRS_image) and summary
@@ -100,12 +104,29 @@ def daily_dates(dates):
     return [d for d in before + list(dates) if d < today]
 
 
+def rain_cycles(dates):
+    """the HAFS / HWRF cycles made for the days: the cycle 6 h before the
+    first day (the rain its 00 cycle uses, as rain_for_cycle takes the
+    previous cycle's) and the days' own 00, 06, 12, 18"""
+    first = datetime.strptime(dates[0], "%Y%m%d") - timedelta(hours=6)
+    return [first.strftime("%Y%m%d%H")] + [d + h for d in dates for h in HOURS]
+
+
 def glofas(dates, overwrite):
     from processing.glofas.GloFAS_tool import GloFAS_process
 
+    # D-1 too: the first day's 00 and 06 cycles use the file of the day before
+    first = datetime.strptime(dates[0], "%Y%m%d")
+    wanted = [(first - timedelta(days=1)).strftime("%Y%m%d")] + list(dates)
     if overwrite:
-        remove(os.path.join(settings.GLOFAS_DIR, f"threspoints_{d}00.*") for d in dates)
+        remove(os.path.join(settings.GLOFAS_DIR, f"threspoints_{d}00.*") for d in wanted)
     logging.info(f"GloFAS: {GloFAS_process()}")
+    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+    for d in wanted:
+        csv = os.path.join(settings.GLOFAS_DIR, f"threspoints_{d}00.csv")
+        # today's is only published around midday
+        if d < today and not os.path.exists(csv):
+            logging.warning(f"GloFAS {d}: not on the host, not made: {csv}")
 
 
 def gfms(dates, overwrite):
@@ -127,7 +148,7 @@ def hafs(dates, overwrite):
 
     make_dirs()
     now = datetime.now(timezone.utc).strftime("%Y%m%d%H")
-    for cycle in (d + h for d in dates for h in HOURS):
+    for cycle in rain_cycles(dates):
         if cycle > now:
             break
         summary = os.path.join(settings.HAFS_SUM_DIR, f"hafs.{cycle}rainfall.csv")
@@ -151,15 +172,16 @@ def hafs(dates, overwrite):
 def hwrf(dates, overwrite):
     from processing.hwrf import HWRF_tool
 
+    wanted = rain_cycles(dates)
     if overwrite:
-        for d in dates:
+        for cycle in wanted:
             remove(
-                [os.path.join(settings.HWRF_SUM_DIR, f"hwrf.{d}??rainfall.csv"),
-                 os.path.join(settings.HWRF_IMG_DIR, f"hwrf.{d}??rainfall.tiff")]
+                [os.path.join(settings.HWRF_SUM_DIR, f"hwrf.{cycle}rainfall.csv"),
+                 os.path.join(settings.HWRF_IMG_DIR, f"hwrf.{cycle}rainfall.tiff")]
             )
-    # the host's cycles that have no summary yet, of the days
+    # the host's cycles that have no summary yet, among the wanted ones
     cycles = {
-        k: v for k, v in HWRF_tool.generate_procesing_list().items() if k[:8] in dates
+        k: v for k, v in HWRF_tool.generate_procesing_list().items() if k in wanted
     }
     logging.info(f"HWRF cycles: {sorted(cycles)}")
     cwd = os.getcwd()

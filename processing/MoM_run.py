@@ -186,11 +186,11 @@ def run_backfill(results):
     published (run_mom_job.sh skips it after BACKFILL). On a new
     installation, e.g. -j BACKFILL --start <two days ago>; without --start,
     today."""
-    # without --start: today (UTC)
-    start = results.start or datetime.now(timezone.utc).strftime("%Y%m%d")
-    options = ["--start", start]
-    if results.end:
-        options += ["--end", results.end]
+    # without --start / --end: today (UTC), fixed here once, so both steps
+    # cover the same days even when the run goes past midnight
+    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+    start = results.start or today
+    options = ["--start", start, "--end", results.end or today]
     if results.out_dir:
         options += ["--out-dir", results.out_dir]
     if results.overwrite:
