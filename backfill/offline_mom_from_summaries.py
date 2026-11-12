@@ -47,10 +47,9 @@ offline_mom_from_summaries.py
     backfill/logs/.
 
     Rain: each chain uses only its own rain summary, of the previous cycle;
-    the chains are never mixed. The HWRF chain goes on without rain when
-    neither that summary nor the one 12 h before it is there, as the cron job
-    does; the HAFS chain runs a cycle only when its own summary of the
-    previous cycle exists.
+    the chains are never mixed. Both chains go on without rain when neither
+    that summary nor the one 12 h before it is there, as the cron jobs do
+    (the HAFS lead time is then -1).
 
     Which file of each model a cycle uses is decided by the production code
     itself, from the cycle (YYYYMMDDHH) alone: no wall clock, no cron timing,
@@ -451,9 +450,6 @@ def backfill_chain(folders, tmpdir, chain, adate, dry_run, hours=HOURS):
             continue
         # the rain the MoM itself would take, of this chain only
         rain_cycle, rain_sum = rain_for_cycle(adatehour)
-        if chain == "HAFS" and not os.path.exists(rain_sum):
-            logging.warning(f"{chain} MoM {adatehour}: no {chain} rain summary, skipped")
-            continue
         # the step files the lead times need, from the Products data
         if not dry_run:
             gfms_steps_from_image(folders, adatehour, tmpdir)
