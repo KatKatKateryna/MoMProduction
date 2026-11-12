@@ -92,7 +92,7 @@ def dfo_for_cycle(adate):
     """[YYYYMMDD, summary] of the DFO summary a cycle (YYYYMMDDHH) uses, from
     the day of the cycle back; ["", ""] when there is none"""
 
-    # DFO of D is written at 03:00 on D+1: the 00 cycle (00:30) looks from
+    # DFO of D is written at 04:00 on D+1: the 00 cycle (00:30) looks from
     # D-2, the others from D-1
     da = datetime.strptime(adate[:8], "%Y%m%d")
     startd = 2 if adate[8:] == "00" else 1

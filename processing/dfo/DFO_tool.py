@@ -36,6 +36,8 @@ load_dotenv()
 
 # total number of hdf files
 DFO_TOTAL_TILES = 287
+# a date is processed with at least this share of DFO_TOTAL_TILES
+DFO_MIN_TILE_SHARE = 0.8
 DFO_MINIMUM_TILES = 280
 
 # a date still without DFO data this many days later gets an all-zero
@@ -249,7 +251,7 @@ def dfo_download(subfolder, year=None):
             os.remove(d_dir)
         elif (
             len([f for f in os.listdir(d_dir) if f.endswith(".hdf")])
-            >= 0.9 * DFO_TOTAL_TILES
+            >= DFO_MIN_TILE_SHARE * DFO_TOTAL_TILES
         ):
             # enough tiles from an earlier run, nothing to download
             return True
@@ -402,7 +404,7 @@ def DFO_process(folder, adate):
         hdffiles.append(HDF)
 
     # check the number of files
-    if len(hdffiles) < 0.9 * expected_tiles(hdffolder):
+    if len(hdffiles) < DFO_MIN_TILE_SHARE * expected_tiles(hdffolder):
         logging.warning(f"Not enough files: {folder}")
         return
 

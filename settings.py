@@ -180,7 +180,7 @@ WATERSHED_SHP = os.path.join(WATERSHED_DIR, "Watershed_pfaf_id.shp")
 CRON_SCHEDULE = {
     # "GFMS": ("0", "0,6,12,18"),
     "HWRF": ("40", "0,6,12,18"),
-    "DFO": ("0", "3"),
+    "DFO": ("0", "4"),
     "VIIRS": ("30", "11"),
     "HAFS": ("0", "0,6,12,18"),
 }
