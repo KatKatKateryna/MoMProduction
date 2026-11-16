@@ -127,6 +127,22 @@ def gfms_rows():
     return row0, row1 - row0
 
 
+def gfms_cols():
+    """(first column, number of columns) of the grid the box's watersheds
+    reach; the whole grid without a box, or when that extent crosses the
+    grid's 180 degree edge"""
+    extent = bbox_data_extent()
+    if extent is None:
+        return 0, GFMS_NCOLS
+    minlon, _, maxlon, _ = extent
+    col0 = int(math.floor((minlon - GFMS_LEFT) / GFMS_RES))
+    col1 = int(math.ceil((maxlon - GFMS_LEFT) / GFMS_RES))
+    col0, col1 = max(col0, 0), min(col1, GFMS_NCOLS)
+    if col1 <= col0 or minlon > maxlon:
+        return 0, GFMS_NCOLS
+    return col0, col1 - col0
+
+
 def gfms_saved_rows(binfile_local):
     """which rows a downloaded .bin holds: the box's band when it was fetched
     as one, else the whole grid"""
@@ -258,17 +274,23 @@ def GFMS_write_vrt(binfile_local):
     <SimpleSource>
       <SourceFilename relativeToVRT="1">{name}</SourceFilename>
       <SourceBand>1</SourceBand>
+      <SrcRect xOff="{col0}" yOff="0" xSize="{ncols}" ySize="{nrows}" />
+      <DstRect xOff="0" yOff="0" xSize="{ncols}" ySize="{nrows}" />
     </SimpleSource>
   </VRTRasterBand>
 </VRTDataset>"""
 
-    # generate VRT file
+    # generate VRT file; with a box only its columns (the .bin always holds
+    # whole rows), so the summary, the window, the image and the steps image
+    # all cover the box's extent only
+    col0, ncols = gfms_cols()
     with open(vrt_file, "w") as f:
         f.write(
             vrt_template.format(
-                ncols=GFMS_NCOLS,
+                ncols=ncols,
+                col0=col0,
                 nrows=nrows,
-                left=GFMS_LEFT,
+                left=GFMS_LEFT + col0 * GFMS_RES,
                 res=GFMS_RES,
                 top=top,
                 name=os.path.basename(binfile_local),

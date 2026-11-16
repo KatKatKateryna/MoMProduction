@@ -568,12 +568,15 @@ def process_rain(cycle):
 
     grids = []
     hours = 0
+    # the storms the total is made of; the step file is made of the same ones
+    kept = []
     for storm in ready:
         # a storm whose parent domain misses the box: its swath file, the one
         # large download of the cycle, is never fetched
         if not swath_reaches_box(cycle, storm):
             logging.info(f"HAFS {cycle}: {storm} rain grid outside the box, skipped")
             continue
+        kept.append(storm)
         grid, top, left, hour = storm_rain(cycle, storm)
         hours = max(hours, hour)
         grids.append((grid, top, left))
@@ -589,7 +592,7 @@ def process_rain(cycle):
     steps_path = hafs_steps_csv(output_csv)
     write_tiff(raintiff, grid, top, left)
     if np.nanmax(np.nan_to_num(grid)) > 0 and HAFS_extract_by_watershed(
-        output_csv, grid, top, left, lambda: merged_steps(cycle, ready), steps_path,
+        output_csv, grid, top, left, lambda: merged_steps(cycle, kept), steps_path,
         n_steps=hours // 3,
     ):
         shutil.move(

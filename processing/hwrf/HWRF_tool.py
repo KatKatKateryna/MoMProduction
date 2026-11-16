@@ -21,6 +21,7 @@ from processing.hwrf.HWRF_MoM import hwrf_workflow
 from processing.utilities import (
     RAIN_SUMMARY_HEADERS,
     bbox_wanted,
+    write_empty_rain_summary,
     get_current_processing_datehour,
     hwrf_today,
     read_data,
@@ -142,11 +143,13 @@ def rain_domain_in_bbox(url):
 
 
 def HWRF_download(hwrfurl):
-    """download rainfall data"""
+    """download rainfall data: (the files downloaded, the number of storms
+    left out because their domain misses the box)"""
     reqs = requests.get(hwrfurl)
     soup = BeautifulSoup(reqs.text, "html.parser")
 
     ascii_list = []
+    outside = 0
     for link in soup.find_all("a"):
         fstr = link.string
         if "rainfall.ascii" in fstr:
@@ -155,6 +158,7 @@ def HWRF_download(hwrfurl):
                 f"{hwrfurl.rstrip('/')}/{fstr}"
             ):
                 logging.info(f"storm outside the box, not downloaded: {fstr}")
+                outside += 1
                 continue
             if not os.path.exists(fstr_local):
                 subprocess.run(
@@ -168,7 +172,16 @@ def HWRF_download(hwrfurl):
                 )  # Raises CalledProcessError on non-zero exit
             ascii_list.append(fstr)
 
-    return ascii_list
+    return ascii_list, outside
+
+
+def HWRF_empty_summary(adate):
+    """header-only summary of a cycle whose storms all miss the box: as a
+    cycle without rain over any watershed (HWRF_extract_by_watershed), it is
+    processed and has no rain, no image"""
+    output_csv = os.path.join(settings.HWRF_SUM_DIR, f"hwrf.{adate}rainfall.csv")
+    write_empty_rain_summary(output_csv)
+    return output_csv
 
 
 def process_rain(adate, TC_Rain):
@@ -339,14 +352,20 @@ def HWRF_cron():
     # download - process ascii
     for key in datelist:
         logging.info(f"check: {key}")
-        a_list = HWRF_download(datelist[key])
-        if len(a_list) == 0:
+        a_list, outside = HWRF_download(datelist[key])
+        if len(a_list) == 0 and outside == 0:
             logging.info(f"no rainfall data {key}")
             continue
-        logging.info(f"processing {key}")
-        newtiff = process_rain(key, a_list)
-        logging.info(f"processing {newtiff}")
-        [hwrfcsv, dataflag] = HWRF_extract_by_watershed(newtiff)
+        if len(a_list) == 0:
+            # every storm misses the box: no rain over its watersheds, the
+            # cycle goes on as one without rain over any watershed
+            hwrfcsv, dataflag = HWRF_empty_summary(key), False
+            logging.info(f"every storm outside the box, empty summary: {hwrfcsv}")
+        else:
+            logging.info(f"processing {key}")
+            newtiff = process_rain(key, a_list)
+            logging.info(f"processing {newtiff}")
+            [hwrfcsv, dataflag] = HWRF_extract_by_watershed(newtiff)
         if not dataflag:
             logging.info(f"no rain over watersheds, empty summary: {hwrfcsv}")
             # if no csv produced, it shall just conitune to produce MoM output

@@ -189,7 +189,11 @@ def hwrf(dates, overwrite):
     try:
         for cycle in sorted(cycles):
             try:
-                files = HWRF_tool.HWRF_download(cycles[cycle])
+                files, outside = HWRF_tool.HWRF_download(cycles[cycle])
+                if not files and outside:
+                    csv = HWRF_tool.HWRF_empty_summary(cycle)
+                    logging.info(f"HWRF {cycle}: {csv} (every storm outside the box)")
+                    continue
                 if not files:
                     logging.info(f"HWRF {cycle}: no rainfall data")
                     continue
