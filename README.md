@@ -71,6 +71,9 @@ On a new installation no job runs before its scheduled time, so make the last da
 ```
 ./run_mom_job.sh -j BACKFILL --start <YYYYMMDD, two days ago>
 ```
+- Options: `--start` / `--end YYYYMMDD` (default: today, UTC), `--out-dir PATH` (default: the folders of `production.cfg`), `--overwrite` (default: keep existing outputs).
+- It downloads and summarizes every source for those days, then makes the MoM and alerts of both chains. Nothing is published; the next cron job publishes.
+- Only what the hosts still keep can be made (GFMS, HAFS, DFO: about a week). It waits for a running job and the cron jobs wait for it (same job lock).
 
 ## 3.1 Docker
 ```
@@ -78,10 +81,12 @@ cp sample_production.cfg production.cfg     # fill in the credentials and the da
 ./docker_up.sh                              # build, start, install the cron schedule
 docker compose exec mom ./run_mom_job.sh -j BACKFILL --start <YYYYMMDD, two days ago>
 ```
+The backfill takes the same options as above; add `-d` after `exec` to run it in the background.
+
 Where everything is on the host:
 - **Data:** exactly the `WORKING_DIR` and `PRODUCT_DIR` of `production.cfg`, with `~` being the home of the user who runs `docker_up.sh` (`~/MoM/Products` is `/home/<user>/MoM/Products`). `docker_up.sh` mounts them into the container (`~` there is `/root`) through `docker-compose.override.yml`.
 - **Logs and the job lock:** `./docker_run/logs` (cron job output) and `./docker_run/backfill_logs`.
-- **Configuration:** `./production.cfg`, read-only. For the alert push, uncomment the `.env` line in `docker-compose.yml`.
+- **Configuration:** `./production.cfg` and `./.env` (`GITHUB_REPO`, `GITHUB_ALERTS_TOKEN` for the alert push), both read-only.
 
 Nothing is kept only inside the container, so removing or rebuilding it loses no data. Files are written as root. The container doesn't start cron if `production.cfg` is incomplete or the data folders aren't mounted; `docker compose logs mom` shows the action to take.
 ```
