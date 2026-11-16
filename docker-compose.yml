@@ -18,5 +18,5 @@ services:
           # a missing production.cfg is an error, not an empty folder
           create_host_path: false
       - ./docker_run:/var/lib/mom
-      # to push the alerts (PUBLISH_CSV / PUBLISH_TILES), uncomment:
-      # - ./.env:/opt/MoMProduction/.env:ro
+      # GITHUB_REPO / GITHUB_ALERTS_TOKEN, to push the alerts (PUBLISH_CSV / PUBLISH_TILES)
+      - ./.env:/opt/MoMProduction/.env:ro
