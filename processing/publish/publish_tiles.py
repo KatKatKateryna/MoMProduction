@@ -30,6 +30,7 @@ import shapely
 from osgeo import gdal
 
 import settings
+from processing.utilities import watersheds_gdb_reader
 from processing.publish.publish_utils import (
     API,
     REPO,
@@ -74,7 +75,9 @@ def make_tile(csv, tmpdir):
     # the final alert csv files are Windows-1252
     df = pd.read_csv(csv, encoding="cp1252", encoding_errors="replace", low_memory=False)
     df = watersheds(df)[COLUMNS]
-    gdf = gpd.read_file(settings.WATERSHED_SHP)
+    # the watersheds of the run: all of them, or with a BBOX only the box's
+    # (a copy: the reader's frame is shared)
+    gdf = watersheds_gdb_reader().reset_index()
     gdf["pfaf_id"] = pd.to_numeric(gdf["pfaf_id"], errors="coerce")
     # columns in both (area_km2, rfr_score, cfr_score): the csv values win,
     # else the merge would keep both as _x / _y
