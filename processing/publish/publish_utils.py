@@ -53,6 +53,8 @@ def github_session(label, dry_run=False):
         logging.info(f"{label}: no GitHub token configured, skipped")
         return None
     session = requests.Session()
+    # a dry run never writes, not even the main branch of a new repo
+    session.mom_dry_run = dry_run
     session.headers.update(
         {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
     )
@@ -62,10 +64,63 @@ def github_session(label, dry_run=False):
 
 
 def head_tree(session, branch=BRANCH):
-    """head commit of the branch and its tree"""
+    """head commit of the branch and its tree; BRANCH is created first when
+    the repo does not have it (ensure_main)"""
+    if branch == BRANCH:
+        ensure_main(session)
     head = gh(session, "GET", f"git/ref/heads/{branch}")["object"]["sha"]
     tree = gh(session, "GET", f"git/commits/{head}")["tree"]["sha"]
     return head, tree
+
+
+README = "README.md"
+
+
+def ensure_main(session):
+    """create BRANCH when the repo does not have it, with one commit adding
+    README: in an empty repo (the git data API answers 409 there) through
+    the contents API, which makes that first commit; in a repo with other
+    branches only, as a commit of its own. Nothing in a dry run (raises)."""
+    r = session.get(f"{API}/repos/{REPO}/git/ref/heads/{BRANCH}", timeout=60)
+    if r.status_code not in (404, 409):
+        r.raise_for_status()
+        return
+    if getattr(session, "mom_dry_run", False):
+        raise RuntimeError(f"{REPO} has no branch {BRANCH} (dry run: not created)")
+    text = f"# {REPO.split('/')[-1]}\n\nFlood alerts published by MoMProduction.\n"
+    if r.status_code == 409:  # empty repo
+        r = session.put(
+            f"{API}/repos/{REPO}/contents/{README}",
+            json={
+                "message": f"create {BRANCH}",
+                "content": base64.b64encode(text.encode()).decode("ascii"),
+                "branch": BRANCH,
+            },
+            timeout=60,
+        )
+        if r.status_code != 422:  # 422: created meanwhile by another job
+            r.raise_for_status()
+    else:
+        tree = gh(
+            session,
+            "POST",
+            "git/trees",
+            json={"tree": [{"path": README, "mode": "100644", "type": "blob", "content": text}]},
+        )["sha"]
+        sha = gh(
+            session,
+            "POST",
+            "git/commits",
+            json={"message": f"create {BRANCH}", "tree": tree, "parents": []},
+        )["sha"]
+        r = session.post(
+            f"{API}/repos/{REPO}/git/refs",
+            json={"ref": f"refs/heads/{BRANCH}", "sha": sha},
+            timeout=60,
+        )
+        if r.status_code != 422:  # 422: created meanwhile by another job
+            r.raise_for_status()
+    logging.info(f"created branch {BRANCH} of {REPO}")
 
 
 def ensure_branch(session, branch, base=BRANCH):
