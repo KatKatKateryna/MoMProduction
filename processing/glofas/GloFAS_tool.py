@@ -392,10 +392,26 @@ def glofas_download(adate):
     return glofas_for_cycle(adate)
 
 
+def GloFas_basin_rows(stations):
+    """one row per pfaf_id (the index) of the scored stations of
+    glofas_scores, columns in the same order: Days_until_peak the minimum
+    over the stations with an alert (Alert_level > 0), else over those with
+    any exceedance probability, else over all of them, every other column
+    (Sum_Score too) its maximum"""
+    eps = stations[["GloFAS_2yr", "GloFAS_5yr", "GloFAS_20yr"]].clip(lower=0).sum(axis=1)
+    rank = np.where(stations["Alert_level"] > 0, 0, np.where(eps > 0, 1, 2))
+    by = stations.groupby("pfaf_id")
+    rows = by.max()
+    signal = stations.assign(rank=rank)
+    signal = signal[signal["rank"] == signal.groupby("pfaf_id")["rank"].transform("min")]
+    rows["Days_until_peak"] = signal.groupby("pfaf_id")["Days_until_peak"].min()
+    return rows[[c for c in stations.columns if c != "pfaf_id"]]
+
+
 def glofas_scores(glofas_csv, weightage, proc_dir, adate):
-    """score the GloFAS stations of glofas_csv with weightage and average the
-    Hazard score of each pfaf_id; the csv files are written to proc_dir:
-    returns (scores, averaged scores), for the caller to remove"""
+    """score the GloFAS stations of glofas_csv with weightage, then one row
+    per pfaf_id (GloFas_basin_rows); the csv files are written to proc_dir:
+    returns (station scores, pfaf_id scores), for the caller to remove"""
     add_field_GloFas = [
         "Alert_Score",
         "PeakArrivalScore",
@@ -539,52 +555,16 @@ def glofas_scores(glofas_csv, weightage, proc_dir, adate):
     if not error_flag:
         os.remove(GloFas_Error_csv)
 
-    # Taking average of Hazard score from glofas for same pfaf_id
+    # one row per pfaf_id from its stations: Sum_Score (the GloFAS hazard),
+    # the exceedance probabilities, Alert_level and the component scores
+    # their maximum, Days_until_peak the earliest peak of the stations with
+    # an alert, else of those with any exceedance probability, else of all
+    # of them (as glofas_lead)
     GloFas = read_data(GloFas_w_score_csv)
-    GloFas.sort_values(by="pfaf_id", ascending=True, inplace=True)
-    GloFas_w_score_sort_csv = os.path.join(
-        proc_dir, "GloFas_w_score_sort_{}.csv".format(adate)
+    GloFas_w_Avgscore_csv = os.path.join(
+        proc_dir, "GloFas_w_Avgscore_{}.csv".format(adate)
     )
-    GloFas.set_index("pfaf_id").to_csv(GloFas_w_score_sort_csv, encoding="utf-8")
-
-    with open(GloFas_w_score_sort_csv, "r") as GloFas_file:
-        GloFas_reader = csv.reader(GloFas_file)
-        GloFas_w_Avgscore_csv = os.path.join(
-            proc_dir, "GloFas_w_Avgscore_{}.csv".format(adate)
-        )
-        csvfile = open(GloFas_w_Avgscore_csv, "w", newline="\n", encoding="utf-8")
-        GloFas_w_score = csv.writer(csvfile)
-        Haz_Score = 0
-        pfaf_id = -1
-        similarity = 0
-        i = 1
-        To_be_written = "False"
-        write = []
-        for row in GloFas_reader:
-            if i == 1:
-                i = i + 1
-                GloFas_w_score.writerow(row)
-            else:
-                if pfaf_id == -1 or pfaf_id == row[0]:
-                    pfaf_id = row[0]
-                    Haz_Score = Haz_Score + float(row[11])
-                    similarity = similarity + 1
-                    last_row = row
-                    To_be_written = "True"
-                else:
-                    last_row[11] = str(Haz_Score / similarity)
-                    GloFas_w_score.writerow(last_row)
-                    last_row = row
-                    pfaf_id = row[0]
-                    Haz_Score = float(row[11])
-                    similarity = 1
-                    To_be_written = "True"
-    if To_be_written == "True":
-        last_row[11] = str(Haz_Score / similarity)
-        GloFas_w_score.writerow(last_row)
-    csvfile.close()
-    # Glofas Done
-    os.remove(GloFas_w_score_sort_csv)
+    GloFas_basin_rows(GloFas).to_csv(GloFas_w_Avgscore_csv, encoding="utf-8")
 
     return GloFas_w_score_csv, GloFas_w_Avgscore_csv
 
